@@ -66,7 +66,11 @@ export class DevolucionesService {
     });
     const saved = await this.repo().save(dev);
 
-    await this.productsService.adjustStock(input.productId, locationId, input.cantidad);
+    await this.productsService.adjustStock(
+      input.productId,
+      locationId,
+      input.cantidad,
+    );
 
     return saved;
   }

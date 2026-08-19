@@ -1,4 +1,4 @@
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 
 export async function computeHash(buffer: Buffer): Promise<string> {
   const { data } = await sharp(buffer)

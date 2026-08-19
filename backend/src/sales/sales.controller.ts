@@ -9,13 +9,14 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { AuthUser } from '../auth/current-user.decorator';
-import { SalesService, SaleInput } from './sales.service';
+import type { AuthUser } from '../auth/current-user.decorator';
+import { SalesService } from './sales.service';
+import type { SaleInput } from './sales.service';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,10 +46,7 @@ export class SalesController {
   }
 
   @Get(':id/nota')
-  async notaVenta(
-    @Param('id', ParseIntPipe) id: number,
-    @Res() res: Response,
-  ) {
+  async notaVenta(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
     const html = await this.salesService.notaVenta(id);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);

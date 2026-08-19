@@ -68,7 +68,8 @@ export class CostosService {
 
     let archivo: string | null = null;
     if (file) {
-      if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      if (!fs.existsSync(UPLOADS_DIR))
+        fs.mkdirSync(UPLOADS_DIR, { recursive: true });
       const ext = path.extname(file.originalname) || '.pdf';
       const filename = `factura-${Date.now()}-${Math.round(Math.random() * 1000)}${ext}`;
       fs.writeFileSync(path.join(UPLOADS_DIR, filename), file.buffer);
@@ -84,11 +85,14 @@ export class CostosService {
       archivo,
     });
     const saved = await this.repo().save(factura);
+    void saved;
 
     const productRepo = this.dataSource.getRepository(Product);
     for (const item of input.items) {
       if (!item.codigoFabrica || !item.producto) {
-        throw new BadRequestException('Cada ítem requiere código fábrica y producto');
+        throw new BadRequestException(
+          'Cada ítem requiere código fábrica y producto',
+        );
       }
       const almacen = await this.locationsService.findOne(item.almacenId);
       if (!almacen || almacen.tipo !== 'almacen') {

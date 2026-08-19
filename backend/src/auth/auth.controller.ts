@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
-import { AuthUser } from './current-user.decorator';
+import type { AuthUser } from './current-user.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UseGuards } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';

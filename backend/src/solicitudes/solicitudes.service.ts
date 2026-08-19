@@ -50,7 +50,8 @@ export class SolicitudesService {
     if (input.cantidad <= 0)
       throw new BadRequestException('La cantidad debe ser mayor a 0');
     const tiendaId = input.tiendaId ?? user.tiendaId;
-    if (!tiendaId) throw new BadRequestException('Tienda no asignada al usuario');
+    if (!tiendaId)
+      throw new BadRequestException('Tienda no asignada al usuario');
     const tienda = await this.locationsService.findOne(tiendaId);
     if (!tienda || tienda.tipo !== 'tienda')
       throw new BadRequestException('Ubicación destino debe ser una tienda');
@@ -96,7 +97,11 @@ export class SolicitudesService {
           `Stock insuficiente en ${origen.nombre} (disponible: ${stock})`,
         );
       }
-      await this.productsService.adjustStock(sol.productId, origenId, -sol.cantidad);
+      await this.productsService.adjustStock(
+        sol.productId,
+        origenId,
+        -sol.cantidad,
+      );
       await this.productsService.adjustStock(
         sol.productId,
         sol.tiendaId,

@@ -6,7 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Location } from './location.entity';
-import { UserRole } from '../common/constants';
+import type { UserRole } from '../common/constants';
 
 @Entity('users')
 export class User {
@@ -32,6 +32,6 @@ export class User {
   @Column({ nullable: true })
   tiendaId: number | null;
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 }

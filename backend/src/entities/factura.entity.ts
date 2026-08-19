@@ -34,6 +34,6 @@ export class Factura {
   @Column({ type: 'text', nullable: true })
   archivo: string | null;
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
 }

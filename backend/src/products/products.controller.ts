@@ -16,7 +16,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { ProductsService, ProductFilters } from './products.service';
+import { ProductsService } from './products.service';
+import type { ProductFilters } from './products.service';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)

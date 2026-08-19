@@ -39,7 +39,8 @@ export class AuthService {
   }
 
   safeUser(user: User) {
-    const { password: _pw, ...rest } = user;
+    const { password, ...rest } = user;
+    void password;
     return rest;
   }
 }
