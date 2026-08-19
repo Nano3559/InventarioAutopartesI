@@ -3,6 +3,13 @@
 **Equipo:** Brian (B, backend), Marco (M, web admin), Raul (R, web tienda → móvil)
 **Periodo:** 19/08/2026 → 01/09/2026 (entrega)
 
+## Stack tecnológico
+
+- **Base de datos:** PostgreSQL (vía TypeORM en NestJS).
+- **Backend:** NestJS + TypeScript + TypeORM.
+- **Web:** React + TypeScript (Vite).
+- **Móvil:** Expo / React Native.
+
 ## Códigos de tarea
 
 - **B** = Brian (backend, NestJS)
@@ -15,7 +22,7 @@ Cada tarea indica con "Necesita: X" qué tarea debe estar terminada antes de pod
 
 | Día | Brian (Backend) | Marco (Web admin) | Raul (Web tienda → móvil) |
 |---|---|---|---|
-| **1** Mié 19/08 | **B1** Compilar backend + conectar `app.module` (TypeORM, CORS, `/uploads`) · *Necesita: —* | **M1** Router + layout + Login · *Necesita: B1* | **R1** Cliente API + Login · *Necesita: B1* |
+| **1** Mié 19/08 | **B1** Compilar backend + conectar `app.module` (TypeORM + PostgreSQL, CORS, `/uploads`) · *Necesita: —* | **M1** Router + layout + Login · *Necesita: B1* | **R1** Cliente API + Login · *Necesita: B1* |
 | **2** Jue 20/08 | **B2** Seed (4 almacenes + 3 tiendas + usuarios + 30 productos) · *Necesita: B1* | **M2** Inventario (tabla, filtros, CRUD, stock por ubicación) · *Necesita: B1, B2* | **R2** Dashboard básico por rol · *Necesita: B1, B2* |
 | **3** Vie 21/08 | **B3** Endpoint Precios + export Excel · *Necesita: B1* | **M3** Detalle/edición de producto · *Necesita: M2* | **R3** Venta (carrito, total, `POST /sales`) · *Necesita: B1, B2, R1* |
 | **4** Sáb 22/08 | **B4** Endpoint Reportes/Dashboard · *Necesita: B1, B2* | **M4** Pagos multi-método + factura · *Necesita: R3* | **R4** Devolución + Solicitud a almacén · *Necesita: B2, R1* |
