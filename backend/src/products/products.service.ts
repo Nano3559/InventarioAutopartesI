@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In } from 'typeorm';
+import { DataSource } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Product } from '../entities/product.entity';
@@ -50,17 +50,21 @@ export class ProductsService {
         { s },
       );
     }
-    if (filters.marca) qb.andWhere('p.marca = :marca', { marca: filters.marca });
+    if (filters.marca)
+      qb.andWhere('p.marca = :marca', { marca: filters.marca });
     if (filters.fabricante)
       qb.andWhere('p.fabricante = :f', { f: filters.fabricante });
     if (filters.producto)
       qb.andWhere('p.producto LIKE :p', { p: `%${filters.producto}%` });
-    if (filters.modelo) qb.andWhere('p.modelo LIKE :m', { m: `%${filters.modelo}%` });
+    if (filters.modelo)
+      qb.andWhere('p.modelo LIKE :m', { m: `%${filters.modelo}%` });
     if (filters.anio) qb.andWhere('p.anio LIKE :a', { a: `%${filters.anio}%` });
     if (filters.codigoOem)
       qb.andWhere('p.codigoOem LIKE :o', { o: `%${filters.codigoOem}%` });
     if (filters.codigoFabrica)
-      qb.andWhere('p.codigoFabrica LIKE :cf', { cf: `%${filters.codigoFabrica}%` });
+      qb.andWhere('p.codigoFabrica LIKE :cf', {
+        cf: `%${filters.codigoFabrica}%`,
+      });
 
     const products = await qb
       .where('p.activo = :act', { act: true })
@@ -71,8 +75,10 @@ export class ProductsService {
     return withStock;
   }
 
-  async attachStock(products: Product[]) {
-    if (products.length === 0) return products;
+  async attachStock(
+    products: Product[],
+  ): Promise<Array<Product & { stockTotal: number }>> {
+    if (products.length === 0) return [];
     const ids = products.map((p) => p.id);
     const inv = await this.invRepo()
       .createQueryBuilder('i')
@@ -178,7 +184,9 @@ export class ProductsService {
     locationId: number,
     delta: number,
   ): Promise<Inventory> {
-    const inv = await this.invRepo().findOne({ where: { productId, locationId } });
+    const inv = await this.invRepo().findOne({
+      where: { productId, locationId },
+    });
     if (inv) {
       inv.cantidad = Math.max(0, inv.cantidad + delta);
       return this.invRepo().save(inv);
@@ -198,15 +206,13 @@ export class ProductsService {
     return inv ? inv.cantidad : 0;
   }
 
-  async uploadImage(
-    id: number,
-    file: Express.Multer.File,
-  ): Promise<Product> {
+  async uploadImage(id: number, file: Express.Multer.File): Promise<Product> {
     const product = await this.repo().findOne({ where: { id } });
     if (!product) throw new NotFoundException('Producto no encontrado');
     if (!file) throw new BadRequestException('No se recibió ninguna imagen');
 
-    if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    if (!fs.existsSync(UPLOADS_DIR))
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
     const ext = path.extname(file.originalname) || '.png';
     const filename = `product-${id}-${Date.now()}${ext}`;
     fs.writeFileSync(path.join(UPLOADS_DIR, filename), file.buffer);

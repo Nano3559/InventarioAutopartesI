@@ -40,14 +40,17 @@ export class SalesService {
 
   async create(input: SaleInput, user: AuthUser) {
     if (!input.items || input.items.length === 0) {
-      throw new BadRequestException('La venta debe incluir al menos un producto');
+      throw new BadRequestException(
+        'La venta debe incluir al menos un producto',
+      );
     }
     if (!input.pagos || input.pagos.length === 0) {
-      throw new BadRequestException('Debe registrar al menos un método de pago');
+      throw new BadRequestException(
+        'Debe registrar al menos un método de pago',
+      );
     }
 
-    const locationId =
-      input.locationId ?? (user.tiendaId as number) ?? 1;
+    const locationId = input.locationId ?? (user.tiendaId as number) ?? 1;
     const location = await this.locationsService.findOne(locationId);
     if (!location) throw new BadRequestException('Ubicación inválida');
 
@@ -61,7 +64,10 @@ export class SalesService {
       });
       if (!product) throw new BadRequestException('Producto inexistente');
 
-      const stock = await this.productsService.stockAt(it.productId, locationId);
+      const stock = await this.productsService.stockAt(
+        it.productId,
+        locationId,
+      );
       if (it.cantidad > stock) {
         throw new BadRequestException(
           `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}`,

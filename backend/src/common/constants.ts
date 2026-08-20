@@ -2,7 +2,12 @@ export type UserRole = 'admin' | 'tienda' | 'inventario';
 
 export const USER_ROLES: UserRole[] = ['admin', 'tienda', 'inventario'];
 
-export const METODOS_PAGO = ['efectivo', 'transferencia', 'qr', 'credito'] as const;
+export const METODOS_PAGO = [
+  'efectivo',
+  'transferencia',
+  'qr',
+  'credito',
+] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 
 export const ESTADOS_SOLICITUD = [

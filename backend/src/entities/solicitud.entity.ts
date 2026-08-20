@@ -45,7 +45,7 @@ export class Solicitud {
   @JoinColumn({ name: 'usuarioId' })
   usuario: User;
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
 
   @Column({ default: 'Pendiente' })

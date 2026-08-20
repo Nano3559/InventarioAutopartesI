@@ -14,7 +14,7 @@ export class Devolucion {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
 
   @Column()

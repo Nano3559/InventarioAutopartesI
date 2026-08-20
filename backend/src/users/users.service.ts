@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../entities/user.entity';
 import { USER_ROLES } from '../common/constants';
+import type { UserRole } from '../common/constants';
 
 @Injectable()
 export class UsersService {
@@ -22,7 +23,10 @@ export class UsersService {
       relations: { tienda: true },
       order: { id: 'ASC' },
     });
-    return users.map(({ password, ...rest }) => rest);
+    return users.map(({ password, ...rest }) => {
+      void password;
+      return rest;
+    });
   }
 
   async create(data: {
@@ -32,7 +36,7 @@ export class UsersService {
     rol: string;
     tiendaId?: number | null;
   }) {
-    if (!USER_ROLES.includes(data.rol as any)) {
+    if (!USER_ROLES.includes(data.rol as UserRole)) {
       throw new BadRequestException('Rol inválido');
     }
     const exists = await this.repo().findOne({
@@ -43,11 +47,12 @@ export class UsersService {
       nombre: data.nombre,
       email: data.email.toLowerCase(),
       password: await bcrypt.hash(data.password, 10),
-      rol: data.rol as any,
+      rol: data.rol as UserRole,
       tiendaId: data.tiendaId ?? null,
     });
     const saved = await this.repo().save(user);
-    const { password: _pw, ...rest } = saved;
+    const { password, ...rest } = saved;
+    void password;
     return rest;
   }
 
@@ -63,18 +68,19 @@ export class UsersService {
   ) {
     const user = await this.repo().findOne({ where: { id } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
-    if (data.rol && !USER_ROLES.includes(data.rol as any)) {
+    if (data.rol && !USER_ROLES.includes(data.rol as UserRole)) {
       throw new BadRequestException('Rol inválido');
     }
     if (data.nombre !== undefined) user.nombre = data.nombre;
     if (data.email !== undefined) user.email = data.email.toLowerCase();
-    if (data.rol !== undefined) user.rol = data.rol as any;
+    if (data.rol !== undefined) user.rol = data.rol as UserRole;
     if (data.tiendaId !== undefined) user.tiendaId = data.tiendaId;
     if (data.password) {
       user.password = await bcrypt.hash(data.password, 10);
     }
     const saved = await this.repo().save(user);
-    const { password: _pw, ...rest } = saved;
+    const { password, ...rest } = saved;
+    void password;
     return rest;
   }
 
