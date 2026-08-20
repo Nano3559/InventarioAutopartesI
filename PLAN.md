@@ -1,5 +1,6 @@
-# Plan de trabajo — Sistema de Inventario y Ventas
+# Plan de trabajo — Importadoras de Autopartes (Sistema de Inventario y Ventas)
 
+**Proyecto:** Plataforma de 7 importadoras especializadas en autopartes y accesorios para vehículos, con más de 10.000 productos en stock (venta mayor y menor).
 **Equipo:** Brian (B, backend), Marco (M, web admin), Raul (R, web tienda → móvil)
 **Periodo:** 19/08/2026 → 01/09/2026 (entrega)
 
@@ -23,7 +24,7 @@ Cada tarea indica con "Necesita: X" qué tarea debe estar terminada antes de pod
 | Día | Brian (Backend) | Marco (Web admin) | Raul (Web tienda → móvil) |
 |---|---|---|---|
 | **1** Mié 19/08 | **B1** Compilar backend + conectar `app.module` (TypeORM + PostgreSQL, CORS, `/uploads`) · *Necesita: —* | **M1** Router + layout + Login · *Necesita: B1* | **R1** Cliente API + Login · *Necesita: B1* |
-| **2** Jue 20/08 | **B2** Seed (4 almacenes + 3 tiendas + usuarios + 30 productos) · *Necesita: B1* | **M2** Inventario (tabla, filtros, CRUD, stock por ubicación) · *Necesita: B1, B2* | **R2** Dashboard básico por rol · *Necesita: B1, B2* |
+| **2** Jue 20/08 | **B2** Seed con datos reales del negocio (7 importadoras: 4 almacenes + 3 tiendas, usuarios, catálogo de autopartes) · *Necesita: B1* | **M2** Inventario (tabla, filtros, CRUD, stock por ubicación) · *Necesita: B1, B2* | **R2** Dashboard básico por rol · *Necesita: B1, B2* |
 | **3** Vie 21/08 | **B3** Endpoint Precios + export Excel · *Necesita: B1* | **M3** Detalle/edición de producto · *Necesita: M2* | **R3** Venta (carrito, total, `POST /sales`) · *Necesita: B1, B2, R1* |
 | **4** Sáb 22/08 | **B4** Endpoint Reportes/Dashboard · *Necesita: B1, B2* | **M4** Pagos multi-método + factura · *Necesita: R3* | **R4** Devolución + Solicitud a almacén · *Necesita: B2, R1* |
 | **23/08** Dom | Medio día de recuperación (opcional) |||
@@ -36,6 +37,30 @@ Cada tarea indica con "Necesita: X" qué tarea debe estar terminada antes de pod
 | **30/08** Dom | Medio día de recuperación |||
 | **11** Lun 31/08 | **B11** Build Android (cámara, URL API) · *Necesita: B10* | **M11** Móvil: Inventario/stock + Dashboard · *Necesita: B10* | **R11** Móvil: Venta + búsqueda por imagen · *Necesita: B10, B9* |
 | **12** Mar 01/09 | **B12** QA final backend + deploy · *Necesita: B1-B11* | **M12** QA web · *Necesita: M1-M11* | **R12** QA móvil (login→venta→imagen) · *Necesita: R11, M11, B11* |
+
+## Tareas de hoy — Jue 20/08/2026
+
+**B2 — Seed con datos reales de "Importadoras de Autopartes"**
+- 7 importadoras = 4 almacenes (Almacén 1-4) + 3 tiendas (Tienda 1-3), con ubicación, horarios y medios de contacto.
+- Usuarios: 1 admin, 1 encargado de inventario, usuarios por tienda.
+- Catálogo de productos (30+):
+  - **Productos:** faroles, guiñadores, stops, espejos, capots, puertas, parachoques, máscaras, radiadores, condensadores, tanques de agua, manivelas, jaladores, rejillas.
+  - **Marcas/vehículos:** Toyota, Nissan, Jeep, Dodge, Renault, Hyundai, Mitsubishi, Mazda (autos, camionetas, SUVs, vagonetas y vehículos de transporte).
+  - **Calidades/procedencia:** taiwanesa, tailandesa, china, entre otras.
+  - Campos del ejercicio: ID, fabricante, marca, modelo, año, detalle, código OEM, código fábrica, imagen, precio 1/2, stock por ubicación.
+- Stock repartido entre las 7 ubicaciones (el stock total = suma de todas).
+
+**M2 — Página de inventario (admin)**
+- Header (logo/nombre, usuario, cerrar sesión), menú lateral (Dashboard, Inventario, Ventas, Ventas por mayor, Movimientos, Precios, Costos, Reportes, Configuración).
+- Buscador + filtros (marca, fabricante, producto, modelo, año, código OEM, código fábrica).
+- Tabla: ID | Fabricante | Producto | Marca | Modelo | Año | OEM | Fábrica | Imagen | Precio 1 | Precio 2 | Stock, con acciones Ver/Editar/Eliminar/Stock por ubicación.
+- Botón **Nuevo producto**.
+- **Necesita:** B1, B2.
+
+**R2 — Dashboard básico por rol**
+- Login por rol (admin, tienda, encargado) consumiendo la API.
+- Pantalla inicial según rol (admin → resumen general; tienda → venta/búsqueda; encargado → solicitudes/stock).
+- **Necesita:** B1, B2.
 
 ## Regla de "terminada"
 

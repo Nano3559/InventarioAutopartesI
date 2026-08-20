@@ -18,4 +18,13 @@ export class Location {
 
   @Column({ unique: true })
   codigo: string;
+
+  @Column({ nullable: true })
+  ubicacion: string | null;
+
+  @Column({ nullable: true })
+  horarios: string | null;
+
+  @Column({ nullable: true })
+  contacto: string | null;
 }
