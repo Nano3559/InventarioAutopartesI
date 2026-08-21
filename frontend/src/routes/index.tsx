@@ -6,7 +6,6 @@ import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import {
-  Boxes,
   ShoppingCart,
   ShoppingBag,
   ArrowLeftRight,
@@ -16,6 +15,8 @@ import {
   BarChart3,
   RotateCcw,
 } from 'lucide-react';
+
+import { InventoryPage } from '../pages/inventory/InventoryPage';
 
 export function AppRoutes() {
   return (
@@ -35,19 +36,12 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
 
-        {/* Módulos de Marco (Web Admin) */}
+        {/* Módulo de Inventario de Marco (M2) */}
         <Route
           path="inventario"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <PlaceholderPage
-                title="Módulo de Inventario Global"
-                description="Tabla de repuestos con filtros por marca, modelo, año, OEM y stock desglosado en 4 almacenes y 3 tiendas."
-                milestoneCode="M2"
-                responsible="Marco (Web Admin)"
-                targetDay="Día 2 (Jue 20/08)"
-                icon={<Boxes size={32} color="#38bdf8" />}
-              />
+              <InventoryPage />
             </ProtectedRoute>
           }
         />
