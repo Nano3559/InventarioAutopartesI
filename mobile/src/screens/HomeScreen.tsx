@@ -44,13 +44,12 @@ export default function HomeScreen() {
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Sesión iniciada</Text>
           <Text style={styles.cardValue}>
-            Cliente API conectado al backend NestJS
-          </Text>
+              Modo local (credenciales guardadas)
+            </Text>
         </View>
 
         <Text style={styles.hint}>
-          Los módulos (Dashboard, Venta, Inventario, etc.) se habilitarán en las
-          siguientes tareas según el rol del usuario.
+          Modo local activado. Seleccione un rol en el login para acceder al dashboard.
         </Text>
       </ScrollView>
     </SafeAreaView>
