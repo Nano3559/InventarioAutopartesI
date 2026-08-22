@@ -437,6 +437,53 @@ export const productsService = {
     }
   },
 
+  async getProductById(id: number): Promise<Product> {
+    try {
+      const data = await api.get<Product>(`/products/${id}`);
+      if (data && data.id) {
+        return data;
+      }
+      const local = localProducts.find((p) => p.id === id);
+      if (!local) throw new Error('Producto no encontrado');
+      const stock = generateMockStockBreakdown(local.stockTotal ?? 10);
+      return { ...local, stock };
+    } catch (err) {
+      console.warn(`Backend /products/${id} falló, buscando en local:`, err);
+      const local = localProducts.find((p) => p.id === id);
+      if (!local) throw new Error('Producto no encontrado');
+      const stock = generateMockStockBreakdown(local.stockTotal ?? 10);
+      return { ...local, stock };
+    }
+  },
+
+  async uploadProductImage(id: number, file: File): Promise<{ imagen: string }> {
+    const token = localStorage.getItem('auth_token');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const res = await fetch(`${baseUrl}/products/${id}/image`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      // Fallback local: crear object URL para pruebas offline
+      const localUrl = URL.createObjectURL(file);
+      const idx = localProducts.findIndex((p) => p.id === id);
+      if (idx !== -1) {
+        localProducts[idx].imagen = localUrl;
+      }
+      return { imagen: localUrl };
+    }
+
+    const data = await res.json();
+    return data;
+  },
+
   async deleteProduct(id: number): Promise<void> {
     try {
       await api.delete(`/products/${id}`);
