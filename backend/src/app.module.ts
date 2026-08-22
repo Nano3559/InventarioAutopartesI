@@ -14,6 +14,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { CostosModule } from './costos/costos.module';
 import { DevolucionesModule } from './devoluciones/devoluciones.module';
 import { PreciosModule } from './precios/precios.module';
+import { ReportesModule } from './reportes/reportes.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PreciosModule } from './precios/precios.module';
     CostosModule,
     DevolucionesModule,
     PreciosModule,
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
