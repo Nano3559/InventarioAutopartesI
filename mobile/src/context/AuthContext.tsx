@@ -7,9 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import * as authApi from '../api/auth';
-import { deleteToken, getToken, saveToken } from '../storage/token';
-import type { User } from '../types';
+import type { User, UserRole } from '../types';
 
 interface AuthContextValue {
   user: User | null;
@@ -17,6 +15,54 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
+
+const LOCAL_CREDENTIALS: Record<string, { email: string; password: string; role: UserRole }> = {
+  admin: {
+    email: 'admin@autorepuestos.com',
+    password: 'Admin1234!',
+    role: 'admin',
+  },
+  tienda: {
+    email: 'tienda1@autorepuestos.com',
+    password: 'Tienda1234!',
+    role: 'tienda',
+  },
+  inventario: {
+    email: 'almacen@autorepuestos.com',
+    password: 'Almacen1234!',
+    role: 'inventario',
+  },
+};
+
+const mockUsers: Record<string, User> = {
+  admin: {
+    id: 1,
+    nombre: 'Administrador',
+    email: 'admin@autorepuestos.com',
+    rol: 'admin',
+    tienda: null,
+    tiendaId: null,
+    createdAt: new Date().toISOString(),
+  },
+  tienda: {
+    id: 2,
+    nombre: 'Usuario Tienda',
+    email: 'tienda1@autorepuestos.com',
+    rol: 'tienda',
+    tienda: { id: 1, nombre: 'Tienda 1', tipo: 'tienda', numero: 1, codigo: 'T-001' },
+    tiendaId: 1,
+    createdAt: new Date().toISOString(),
+  },
+  inventario: {
+    id: 3,
+    nombre: 'Encargado Inventario',
+    email: 'almacen@autorepuestos.com',
+    rol: 'inventario',
+    tienda: { id: 1, nombre: 'Almacén 1', tipo: 'almacen', numero: 1, codigo: 'W-001' },
+    tiendaId: 1,
+    createdAt: new Date().toISOString(),
+  },
+};
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -28,17 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
 
     async function restoreSession() {
-      try {
-        const token = await getToken();
-        if (token) {
-          const me = await authApi.me(token);
-          if (active) setUser(me);
-        }
-      } catch {
-        await deleteToken();
-      } finally {
-        if (active) setLoading(false);
+      const storedUser = localStorage.getItem('__mock_user__');
+      if (storedUser && active) {
+        setUser(JSON.parse(storedUser));
       }
+      if (active) setLoading(false);
     }
 
     void restoreSession();
@@ -48,14 +88,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const response = await authApi.login(email, password);
-    await saveToken(response.token);
-    setUser(response.user);
+    for (const [role, creds] of Object.entries(LOCAL_CREDENTIALS)) {
+      if (creds.email === email && creds.password === password) {
+        const user = mockUsers[role];
+        setUser(user);
+        localStorage.setItem('__mock_user__', JSON.stringify(user));
+        return;
+      }
+    }
+    throw new Error('Credenciales incorrectas');
   }, []);
 
   const signOut = useCallback(async () => {
-    await deleteToken();
     setUser(null);
+    localStorage.removeItem('__mock_user__');
   }, []);
 
   const value = useMemo(
