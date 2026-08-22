@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Boxes,
   MapPin,
@@ -6,6 +7,7 @@ import {
   Trash2,
   AlertCircle,
   Car,
+  Eye,
 } from 'lucide-react';
 import type { Product } from '../../types/product.types';
 
@@ -175,6 +177,15 @@ export function ProductTable({
                   {/* Acciones */}
                   <td>
                     <div className="table-actions-cell">
+                      <NavLink
+                        to={`/inventario/${p.id}`}
+                        className="btn-table-action"
+                        title="Ver ficha técnica completa del repuesto"
+                        style={{ color: '#38bdf8' }}
+                      >
+                        <Eye size={16} />
+                      </NavLink>
+
                       <button
                         type="button"
                         className="btn-table-action stock-btn"

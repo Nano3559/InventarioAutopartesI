@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { InventoryPage } from '../pages/inventory/InventoryPage';
+import { ProductDetailPage } from '../pages/inventory/ProductDetailPage';
 import { SalesPage } from '../pages/ventas/SalesPage';
 
 export function AppRoutes() {
@@ -37,12 +38,21 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
 
-        {/* Módulo de Inventario de Marco (M2) */}
+        {/* Módulos de Inventario de Marco (M2 y M3) */}
         <Route
           path="inventario"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <InventoryPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="inventario/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'tienda', 'inventario']}>
+              <ProductDetailPage />
             </ProtectedRoute>
           }
         />
