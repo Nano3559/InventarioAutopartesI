@@ -13,6 +13,7 @@ import { SolicitudesModule } from './solicitudes/solicitudes.module';
 import { ProveedoresModule } from './proveedores/proveedores.module';
 import { CostosModule } from './costos/costos.module';
 import { DevolucionesModule } from './devoluciones/devoluciones.module';
+import { PreciosModule } from './precios/precios.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { DevolucionesModule } from './devoluciones/devoluciones.module';
     ProveedoresModule,
     CostosModule,
     DevolucionesModule,
+    PreciosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
