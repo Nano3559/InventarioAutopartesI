@@ -18,6 +18,7 @@ import {
 
 import { InventoryPage } from '../pages/inventory/InventoryPage';
 import { ProductDetailPage } from '../pages/inventory/ProductDetailPage';
+import { SalesPage } from '../pages/ventas/SalesPage';
 
 export function AppRoutes() {
   return (
@@ -125,14 +126,7 @@ export function AppRoutes() {
           path="ventas"
           element={
             <ProtectedRoute allowedRoles={['admin', 'tienda']}>
-              <PlaceholderPage
-                title="Punto de Venta (POS)"
-                description="Buscador rápido de repuestos, carrito, totalizador, cobro por efectivo/QR/transferencia y nota de venta."
-                milestoneCode="R3"
-                responsible="Raúl (Web Tienda)"
-                targetDay="Día 3 (Vie 21/08)"
-                icon={<ShoppingCart size={32} color="#60a5fa" />}
-              />
+              <SalesPage />
             </ProtectedRoute>
           }
         />
