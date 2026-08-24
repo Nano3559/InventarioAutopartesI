@@ -11,7 +11,7 @@ export class Proveedor {
   @Column({ default: 'Bolivia' })
   pais: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   contacto: string | null;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

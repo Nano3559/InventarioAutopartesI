@@ -22,14 +22,14 @@ export class User {
   @Column()
   password: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   rol: UserRole;
 
   @ManyToOne(() => Location, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tiendaId' })
   tienda: Location | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   tiendaId: number | null;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

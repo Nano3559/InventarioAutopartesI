@@ -11,7 +11,7 @@ export class Product {
   @Column()
   fabricante: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   empresaFabricante: string | null;
 
   @Column()
@@ -20,13 +20,13 @@ export class Product {
   @Column()
   modelo: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   anio: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   detalle: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   codigoOem: string | null;
 
   @Column()
@@ -35,7 +35,7 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   imagen: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   imagenHash: string | null;
 
   @Column({ type: 'float', default: 0 })

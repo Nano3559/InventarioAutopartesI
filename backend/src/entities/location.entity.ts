@@ -19,12 +19,12 @@ export class Location {
   @Column({ unique: true })
   codigo: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ubicacion: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   horarios: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   contacto: string | null;
 }

@@ -31,7 +31,7 @@ export class Solicitud {
   @JoinColumn({ name: 'tiendaId' })
   tienda: Location;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   origenId: number | null;
 
   @ManyToOne(() => Location, { nullable: true })

@@ -8,10 +8,10 @@ export class Cliente {
   @Column()
   nombre: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ciNit: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   celular: string | null;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
