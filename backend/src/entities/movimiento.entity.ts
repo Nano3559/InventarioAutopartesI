@@ -48,6 +48,6 @@ export class Movimiento {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   observacion: string | null;
 }

@@ -25,7 +25,7 @@ export class Sale {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
 
-  @Column({ default: 'menor' })
+  @Column({ type: 'varchar', default: 'menor' })
   tipo: TipoVenta;
 
   @Column({ type: 'float' })
@@ -34,10 +34,10 @@ export class Sale {
   @Column({ default: false })
   requiereFactura: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lugarEntrega: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   paraQuien: string | null;
 
   @Column()
@@ -54,7 +54,7 @@ export class Sale {
   @JoinColumn({ name: 'usuarioId' })
   usuario: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   clienteId: number | null;
 
   @ManyToOne(() => Cliente, { nullable: true })
