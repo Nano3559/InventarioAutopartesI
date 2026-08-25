@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { Payment } from '../entities/payment.entity';
@@ -14,6 +15,29 @@ import { Solicitud } from '../entities/solicitud.entity';
 import { ProductsService } from '../products/products.service';
 import { LocationsService } from '../locations/locations.service';
 import { AuthUser } from '../auth/current-user.decorator';
+
+export interface WholesaleExcelRow {
+  'Código Fábrica': string;
+  'Código OEM'?: string;
+  Cantidad: number | string;
+  'Precio Mayor'?: number | string;
+}
+
+export interface WholesaleImportResult {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  items: {
+    productId: number;
+    producto: string;
+    codigoFabrica: string;
+    cantidad: number;
+    precio: number;
+    stockDisponible: number;
+  }[];
+  total: number;
+  saleId?: number;
+}
 
 export interface SaleInput {
   tipo?: 'menor' | 'mayor';
@@ -271,5 +295,221 @@ export class SalesService {
   <table><tbody>${pagos}</tbody></table>
   <p class="muted">Generado por el Sistema de Inventario y Ventas.</p>
 </body></html>`;
+  }
+
+  async previewExcel(
+    file: Express.Multer.File,
+  ): Promise<WholesaleImportResult> {
+    if (!file) {
+      throw new BadRequestException('No se recibió ningún archivo Excel');
+    }
+
+    const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      throw new BadRequestException('El archivo Excel está vacío');
+    }
+    const rows = XLSX.utils.sheet_to_json<WholesaleExcelRow>(
+      workbook.Sheets[sheetName],
+    );
+
+    if (rows.length === 0) {
+      throw new BadRequestException('El archivo Excel no contiene datos');
+    }
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const items: WholesaleImportResult['items'] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+
+      const codigoFabrica = String(row['Código Fábrica'] || '').trim();
+      const codigoOem = String(row['Código OEM'] || '').trim();
+      const rawCantidad = row.Cantidad;
+      const rawPrecio = row['Precio Mayor'];
+
+      if (!codigoFabrica && !codigoOem) {
+        errors.push(
+          `Fila ${rowNum}: No se especificó código fábrica ni código OEM`,
+        );
+        continue;
+      }
+
+      const cantidad = Number(rawCantidad);
+      if (
+        !Number.isFinite(cantidad) ||
+        cantidad <= 0 ||
+        !Number.isInteger(cantidad)
+      ) {
+        errors.push(`Fila ${rowNum}: Cantidad inválida ("${rawCantidad}")`);
+        continue;
+      }
+
+      const productRepo = this.dataSource.getRepository(Product);
+      let product: Product | null = null;
+
+      if (codigoFabrica) {
+        product = await productRepo.findOne({ where: { codigoFabrica } });
+      }
+      if (!product && codigoOem) {
+        product = await productRepo.findOne({ where: { codigoOem } });
+      }
+
+      if (!product) {
+        const ident = codigoFabrica || codigoOem;
+        errors.push(
+          `Fila ${rowNum}: Producto con código "${ident}" no encontrado`,
+        );
+        continue;
+      }
+
+      const stockDisponible = await this.productsService.stockAt(product.id, 1);
+
+      if (cantidad > stockDisponible) {
+        errors.push(
+          `Fila ${rowNum}: Stock insuficiente de "${product.producto}" (${product.codigoFabrica}). Solicita: ${cantidad}, Disponible: ${stockDisponible}`,
+        );
+        continue;
+      }
+
+      let precio: number;
+      if (rawPrecio !== undefined && rawPrecio !== null && rawPrecio !== '') {
+        precio = Number(rawPrecio);
+        if (!Number.isFinite(precio) || precio < 0) {
+          warnings.push(
+            `Fila ${rowNum}: Precio mayor inválido ("${rawPrecio}"), se usará el precio del catálogo`,
+          );
+          precio = product.precioMayor ?? 0;
+        }
+      } else {
+        precio = product.precioMayor ?? 0;
+        if (precio === 0) {
+          warnings.push(
+            `Fila ${rowNum}: "${product.producto}" no tiene precio mayor definido, se usará 0`,
+          );
+        }
+      }
+
+      items.push({
+        productId: product.id,
+        producto: product.producto,
+        codigoFabrica: product.codigoFabrica,
+        cantidad,
+        precio,
+        stockDisponible,
+      });
+    }
+
+    const total = items.reduce((sum, it) => sum + it.cantidad * it.precio, 0);
+
+    return {
+      ok: errors.length === 0,
+      errors,
+      warnings,
+      items,
+      total,
+    };
+  }
+
+  async importExcel(
+    file: Express.Multer.File,
+    meta: {
+      cliente?: { nombre: string; ciNit?: string; celular?: string };
+      requiereFactura?: boolean;
+      lugarEntrega?: string;
+      paraQuien?: string;
+      locationId?: number;
+      pagos?: { metodo: string; monto: number }[];
+    },
+    user: AuthUser,
+  ): Promise<Sale> {
+    const preview = await this.previewExcel(file);
+
+    if (!preview.ok) {
+      throw new BadRequestException({
+        message: 'El archivo contiene errores que impiden crear la venta',
+        errors: preview.errors,
+        warnings: preview.warnings,
+      });
+    }
+
+    if (preview.items.length === 0) {
+      throw new BadRequestException(
+        'No se encontraron productos válidos en el Excel',
+      );
+    }
+
+    const locationId = meta.locationId ?? (user.tiendaId as number) ?? 1;
+    const location = await this.locationsService.findOne(locationId);
+    if (!location) throw new BadRequestException('Ubicación inválida');
+
+    const total = preview.total;
+    const pagos =
+      meta.pagos && meta.pagos.length > 0
+        ? meta.pagos
+        : [{ metodo: 'efectivo', monto: total }];
+
+    const totalPagos = pagos.reduce((a, p) => a + p.monto, 0);
+    if (Math.abs(totalPagos - total) > 0.01) {
+      throw new BadRequestException(
+        `El total de pagos (Bs ${totalPagos.toFixed(2)}) no coincide con el total de la venta (Bs ${total.toFixed(2)})`,
+      );
+    }
+
+    let cliente: Cliente | null = null;
+    if (meta.cliente && meta.cliente.nombre) {
+      const clienteRepo = this.dataSource.getRepository(Cliente);
+      cliente = clienteRepo.create({
+        nombre: meta.cliente.nombre,
+        ciNit: meta.cliente.ciNit ?? null,
+        celular: meta.cliente.celular ?? null,
+      });
+      cliente = await clienteRepo.save(cliente);
+    }
+
+    const saleItems: SaleItem[] = preview.items.map((it) =>
+      this.dataSource.getRepository(SaleItem).create({
+        productId: it.productId,
+        cantidad: it.cantidad,
+        precio: it.precio,
+        subtotal: it.cantidad * it.precio,
+      }),
+    );
+
+    const count = await this.saleRepo().count();
+    const sale = this.saleRepo().create({
+      codigo: `NV-${String(count + 1).padStart(6, '0')}`,
+      tipo: 'mayor',
+      total,
+      requiereFactura: meta.requiereFactura ?? false,
+      lugarEntrega: meta.lugarEntrega ?? null,
+      paraQuien: meta.paraQuien ?? null,
+      locationId,
+      usuarioId: user.id,
+      clienteId: cliente ? cliente.id : null,
+      items: saleItems,
+      pagos: pagos.map((p) =>
+        this.dataSource.getRepository(Payment).create({
+          metodo: p.metodo,
+          monto: p.monto,
+        }),
+      ),
+    });
+    const saved = await this.saleRepo().save(sale);
+
+    for (const it of preview.items) {
+      const newStock = await this.productsService.adjustStock(
+        it.productId,
+        locationId,
+        -it.cantidad,
+      );
+      if (location.tipo === 'tienda' && newStock.cantidad === 0) {
+        await this.createAutoRestock(it.productId, locationId, user.id);
+      }
+    }
+
+    return this.findOne(saved.id);
   }
 }

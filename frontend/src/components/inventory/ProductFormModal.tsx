@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Wrench, Save, Loader2 } from 'lucide-react';
-import type { Product, CreateProductDto } from '../../types/product.types';
-import { MOCK_LOCATIONS } from '../../services/locations.service';
+import type { Product, CreateProductDto, LocationItem } from '../../types/product.types';
+import { locationsService } from '../../services/locations.service';
 
 interface ProductFormModalProps {
   productToEdit?: Product | null;
@@ -86,6 +86,11 @@ function ProductFormModalContent({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locations, setLocations] = useState<LocationItem[]>([]);
+
+  useEffect(() => {
+    locationsService.getLocations().then(setLocations).catch(() => setLocations([]));
+  }, []);
 
   const handleChange = (
     field: keyof CreateProductDto,
@@ -357,7 +362,7 @@ function ProductFormModalContent({
               <>
                 <div className="form-section-heading">5. Stock Inicial por Ubicación</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem' }}>
-                  {MOCK_LOCATIONS.map((loc) => (
+                  {locations.map((loc) => (
                     <div key={loc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'var(--bg-alt)', borderRadius: '6px', border: '1px solid var(--border)' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{loc.nombre}</span>
                       <input

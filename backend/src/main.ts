@@ -12,6 +12,18 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.enableCors();
   app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
-  await app.listen(process.env.PORT ?? 3000);
+
+  const port = parseInt(process.env.PORT ?? '3000', 10);
+
+  const listen = (p: number) =>
+    app.listen(p).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`Puerto ${p} en uso, intentando ${p + 1}...`);
+        return listen(p + 1);
+      }
+      throw err;
+    });
+
+  await listen(port);
 }
 bootstrap();
