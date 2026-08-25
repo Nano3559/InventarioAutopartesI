@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/products';
-import { createSale, type SaleItem, type SaleInput } from '../api/sales';
+import { createSale, getNotaVenta, updateSale, getSale, type SaleItem, type SaleInput, type Sale } from '../api/sales';
 import { getToken } from '../storage/token';
 import {
   colors,
@@ -35,10 +35,23 @@ import {
 } from '../theme';
 import { Header, Badge, TableRow, TableCard, PrimaryCTA } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 const PAYMENT_METHODS = ['Efectivo', 'QR', 'Transferencia', 'Crédito'] as const;
 
-export default function SalesScreen() {
+const QUICK_PAYMENT_METHODS = [
+  { id: 'Efectivo', label: 'Efectivo', icon: 'cash' },
+  { id: 'QR', label: 'QR', icon: 'qr-code' },
+  { id: 'Transferencia', label: 'Transferencia', icon: 'swap-horizontal' },
+  { id: 'Crédito', label: 'Crédito', icon: 'card' },
+] as const;
+
+interface SalesScreenProps {
+  initialSaleId?: number;
+}
+
+export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const { user, loading: authLoading } = useAuth();
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Array<{ product: any; stock: number }>>([]);
@@ -51,6 +64,11 @@ export default function SalesScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [lastSaleId, setLastSaleId] = useState<number | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const [loadingSale, setLoadingSale] = useState(false);
+  const editingSaleId = initialSaleId ?? null;
+  const isEditing = editingSaleId !== null;
 
   const loadProducts = useCallback(async () => {
     try {
@@ -67,6 +85,58 @@ export default function SalesScreen() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  // Cargar venta existente si estamos en modo edición
+  useEffect(() => {
+    if (!isEditing || editingSaleId === null) return;
+    
+    async function loadSale() {
+      setLoadingSale(true);
+      try {
+        const token = await getToken();
+        if (!token) throw new Error('No hay sesión activa');
+        const sale = await getSale(editingSaleId as number, token);
+        
+        // Poblar carrito con items de la venta
+        const cartItems: SaleItem[] = sale.items.map((item: any) => ({
+          productId: item.productId,
+          cantidad: item.cantidad,
+          precio: item.precio,
+        }));
+        setCart(cartItems);
+        
+        // Poblar pagos
+        const paymentItems = sale.pagos.map((p: any) => ({
+          metodo: p.metodo,
+          monto: p.monto,
+        }));
+        setPayments(paymentItems.length > 0 ? paymentItems : [{ metodo: 'Efectivo', monto: 0 }]);
+        
+        // Poblar cliente
+        if (sale.cliente) {
+          setCliente({
+            nombre: sale.cliente.nombre,
+            ciNit: sale.cliente.ciNit ?? '',
+            celular: sale.cliente.celular ?? '',
+          });
+        }
+        
+        // Poblar campos adicionales
+        setRequiereFactura(sale.requiereFactura);
+        setLugarEntrega(sale.lugarEntrega ?? '');
+        setParaQuien(sale.paraQuien ?? '');
+        
+        setLastSaleId(sale.id);
+      } catch (e) {
+        console.error('Error loading sale:', e);
+        Alert.alert('Error', 'Error al cargar la venta para editar');
+      } finally {
+        setLoadingSale(false);
+      }
+    }
+    
+    loadSale();
+  }, [isEditing, editingSaleId]);
 
   const filteredProducts = useMemo(() => {
     if (!search.trim()) return products;
@@ -90,6 +160,7 @@ export default function SalesScreen() {
     [payments]
   );
 
+  const change = totalPagado - total;
   const canSubmit = cart.length > 0 && payments.length > 0 && Math.abs(totalPagado - total) < 0.01;
   const paymentMismatch = Math.abs(totalPagado - total) > 0.01;
   const remaining = total - totalPagado;
@@ -162,6 +233,26 @@ export default function SalesScreen() {
     setPayments(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleQuickPayment = (method: string) => {
+    setPayments([{ metodo: method, monto: total }]);
+  };
+
+  const handlePrintNota = async () => {
+    if (!lastSaleId) return;
+    setPrinting(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('No hay sesión activa');
+      const html = await getNotaVenta(lastSaleId, token);
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Guardar/Imprimir Nota de Venta' });
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo generar la nota de venta');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
@@ -178,16 +269,29 @@ export default function SalesScreen() {
       };
       const token = await getToken();
       if (!token) throw new Error('No hay sesión activa');
-      await createSale(input, token);
-      Alert.alert('Éxito', 'Venta registrada correctamente');
-      setCart([]);
-      setPayments([]);
-      setCliente({ nombre: '', ciNit: '', celular: '' });
-      setRequiereFactura(false);
-      setLugarEntrega('');
-      setParaQuien('');
+
+      let sale: Sale;
+      if (isEditing && editingSaleId !== null) {
+        sale = await updateSale(editingSaleId, input, token);
+        Alert.alert('Éxito', `Venta ${sale.codigo} actualizada correctamente`);
+      } else {
+        sale = await createSale(input, token);
+        Alert.alert('Éxito', `Venta ${sale.codigo} registrada correctamente`);
+      }
+      
+      setLastSaleId(sale.id);
+      
+      // Si no estamos editando, limpiar formulario para nueva venta
+      if (!isEditing) {
+        setCart([]);
+        setPayments([]);
+        setCliente({ nombre: '', ciNit: '', celular: '' });
+        setRequiereFactura(false);
+        setLugarEntrega('');
+        setParaQuien('');
+      }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo registrar la venta');
+      Alert.alert('Error', e.message || 'No se pudo procesar la venta');
     } finally {
       setSubmitting(false);
     }
@@ -414,6 +518,31 @@ export default function SalesScreen() {
                   Pagado: Bs {totalPagado.toFixed(2)} / Bs {total.toFixed(2)}
                 </Text>
               </View>
+
+              {/* Quick Payment Buttons */}
+              <View style={styles.quickPayments}>
+                {QUICK_PAYMENT_METHODS.map((method) => (
+                  <Pressable
+                    key={method.id}
+                    style={[
+                      styles.quickPayBtn,
+                      payments.length === 1 && payments[0].metodo === method.id && payments[0].monto === total
+                        ? styles.quickPayBtnActive
+                        : null,
+                    ]}
+                    onPress={() => handleQuickPayment(method.id)}
+                    disabled={cart.length === 0}
+                    accessibilityRole={a11y.button}
+                    accessibilityLabel={`Pagar total con ${method.label}`}
+                    android_ripple={{ color: colors.primarySoft }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name={method.icon} size={iconSize.lg} color={colors.primary} />
+                    <Text style={styles.quickPayBtnText}>{method.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
               {payments.length === 0 ? (
                 <Pressable
                   style={styles.addPaymentBtn}
@@ -448,6 +577,18 @@ export default function SalesScreen() {
                     <Text style={styles.paymentError}>
                       {remaining > 0 ? `Faltan Bs ${remaining.toFixed(2)}` : `Exceso: Bs ${Math.abs(remaining).toFixed(2)}`}
                     </Text>
+                  )}
+                  {/* Vuelto/Cambio Display */}
+                  {change !== 0 && (
+                    <View style={styles.changeRow}>
+                      <Text style={styles.changeLabel}>Vuelto:</Text>
+                      <Text style={[
+                        styles.changeValue,
+                        change >= 0 ? styles.changePositive : styles.changeNegative
+                      ]}>
+                        Bs {Math.abs(change).toFixed(2)}
+                      </Text>
+                    </View>
                   )}
                 </>
               )}
@@ -536,16 +677,50 @@ export default function SalesScreen() {
 
           {/* Submit */}
           {cart.length > 0 && (
-            <PrimaryCTA
-              label="Confirmar Venta"
-              hint={`Total: Bs ${total.toFixed(2)}`}
-              iconName="checkmark-circle"
-              color={canSubmit ? colors.success : colors.textMuted}
-              onPress={handleSubmit}
-              disabled={!canSubmit || submitting}
-              accessibilityLabel="Confirmar y registrar la venta"
-              accessibilityHint={canSubmit ? 'Presiona para finalizar la venta' : 'Completa el carrito y los pagos para continuar'}
-            />
+            <View style={styles.actionsSection}>
+              {isEditing && (
+                <View style={styles.editModeBanner}>
+                  <Ionicons name="create" size={iconSize.md} color={colors.primary} />
+                  <Text style={styles.editModeBannerText}>
+                    Editando venta <Text style={styles.editModeBannerStrong}>#{editingSaleId}</Text> — Los cambios actualizarán la venta existente
+                  </Text>
+                </View>
+              )}
+              {lastSaleId && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.printBtn,
+                    pressed && styles.printBtnPressed,
+                    printing && styles.printBtnDisabled,
+                  ]}
+                  onPress={handlePrintNota}
+                  disabled={printing}
+                  accessibilityRole={a11y.button}
+                  accessibilityLabel="Imprimir/guardar última nota de venta"
+                  android_ripple={{ color: colors.primarySoft }}
+                  hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
+                >
+                  {printing ? (
+                    <ActivityIndicator color={colors.textOnPrimary} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="print" size={iconSize.md} color={colors.textOnPrimary} style={styles.printBtnIcon} />
+                      <Text style={styles.printBtnText}>Imprimir Nota</Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
+              <PrimaryCTA
+                label={isEditing ? 'Actualizar Venta' : 'Confirmar Venta'}
+                hint={`Total: Bs ${total.toFixed(2)}`}
+                iconName="checkmark-circle"
+                color={canSubmit ? colors.success : colors.textMuted}
+                onPress={handleSubmit}
+                disabled={!canSubmit || submitting || loadingSale}
+                accessibilityLabel={isEditing ? 'Actualizar la venta' : 'Confirmar y registrar la venta'}
+                accessibilityHint={canSubmit ? (isEditing ? 'Presiona para actualizar la venta' : 'Presiona para finalizar la venta') : 'Completa el carrito y los pagos para continuar'}
+              />
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -614,4 +789,74 @@ const styles = StyleSheet.create({
   checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: colors.border, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxLabel: { marginLeft: space.sm, fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.text },
+  quickPayments: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
+  quickPayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    ...shadows.level1,
+  },
+  quickPayBtnActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  quickPayBtnText: { color: colors.primary, fontFamily: fontFamily.sansSemiBold, fontSize: fontSize.captionStrong },
+  changeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    marginTop: space.sm,
+  },
+  changeLabel: { fontSize: fontSize.data, fontFamily: fontFamily.monoMedium, color: colors.text },
+  changeValue: { fontSize: fontSize.dataLg, fontFamily: fontFamily.monoBold },
+  changePositive: { color: colors.success },
+  changeNegative: { color: colors.danger },
+  actionsSection: { flexDirection: 'row', gap: space.md, marginTop: space.md },
+  printBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    height: button.height.lg,
+    borderRadius: button.radius,
+    backgroundColor: colors.primary,
+    paddingHorizontal: button.paddingX.lg,
+    ...shadows.level2,
+  },
+  printBtnPressed: { opacity: opacity.pressed },
+  printBtnDisabled: { opacity: 0.6 },
+  printBtnIcon: { marginTop: 1 },
+  printBtnText: { color: colors.textOnPrimary, fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold },
+  editModeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.md,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    marginBottom: space.md,
+  },
+  editModeBannerText: {
+    flex: 1,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.primary,
+  },
+  editModeBannerStrong: {
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.primary,
+  },
 });

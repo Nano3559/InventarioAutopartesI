@@ -23,7 +23,10 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-secure-store"],
+    "plugins": [
+      "expo-secure-store",
+      "expo-sharing"
+    ],
     "extra": {
       "eas": {
         "projectId": "autopartes-pro"

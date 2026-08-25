@@ -244,6 +244,125 @@ export class SalesService {
     return sale;
   }
 
+  async update(id: number, input: SaleInput, user: AuthUser) {
+    const sale = await this.findOne(id);
+
+    if (!input.items || input.items.length === 0) {
+      throw new BadRequestException('La venta debe incluir al menos un producto');
+    }
+    if (!input.pagos || input.pagos.length === 0) {
+      throw new BadRequestException('Debe registrar al menos un método de pago');
+    }
+
+    const locationId = input.locationId ?? sale.locationId;
+    const location = await this.locationsService.findOne(locationId);
+    if (!location) throw new BadRequestException('Ubicación inválida');
+
+    // Restaurar stock anterior
+    for (const item of sale.items) {
+      await this.productsService.adjustStock(item.productId, sale.locationId, item.cantidad);
+    }
+
+    const totalPagos = input.pagos.reduce((a, p) => a + p.monto, 0);
+    let total = 0;
+    const items: SaleItem[] = [];
+
+    for (const it of input.items) {
+      const product = await this.dataSource.getRepository(Product).findOne({
+        where: { id: it.productId },
+      });
+      if (!product) throw new BadRequestException('Producto inexistente');
+
+      const stock = await this.productsService.stockAt(it.productId, locationId);
+      if (it.cantidad > stock) {
+        throw new BadRequestException(
+          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}`,
+        );
+      }
+
+      const subtotal = it.cantidad * it.precio;
+      total += subtotal;
+      items.push(
+        this.dataSource.getRepository(SaleItem).create({
+          productId: it.productId,
+          cantidad: it.cantidad,
+          precio: it.precio,
+          subtotal,
+        }),
+      );
+    }
+
+    if (Math.abs(totalPagos - total) > 0.01) {
+      throw new BadRequestException(
+        `El total de pagos (Bs ${totalPagos.toFixed(2)}) no coincide con el total de la venta (Bs ${total.toFixed(2)})`,
+      );
+    }
+
+    let cliente: Cliente | null = sale.cliente;
+    if (input.cliente && input.cliente.nombre) {
+      const clienteRepo = this.dataSource.getRepository(Cliente);
+      if (cliente) {
+        Object.assign(cliente, {
+          nombre: input.cliente.nombre,
+          ciNit: input.cliente.ciNit ?? null,
+          celular: input.cliente.celular ?? null,
+        });
+        cliente = await clienteRepo.save(cliente);
+      } else {
+        cliente = clienteRepo.create({
+          nombre: input.cliente.nombre,
+          ciNit: input.cliente.ciNit ?? null,
+          celular: input.cliente.celular ?? null,
+        });
+        cliente = await clienteRepo.save(cliente);
+      }
+    } else if (!input.cliente || !input.cliente.nombre) {
+      // Si se quita el cliente
+      if (cliente) {
+        await this.dataSource.getRepository(Cliente).remove(cliente);
+        cliente = null;
+      }
+    }
+
+    // Eliminar items y pagos antiguos
+    await this.dataSource.getRepository(SaleItem).delete({ saleId: id });
+    await this.dataSource.getRepository(Payment).delete({ saleId: id });
+
+    // Actualizar venta
+    Object.assign(sale, {
+      tipo: input.tipo ?? sale.tipo,
+      total,
+      requiereFactura: input.requiereFactura ?? sale.requiereFactura,
+      lugarEntrega: input.lugarEntrega ?? sale.lugarEntrega,
+      paraQuien: input.paraQuien ?? sale.paraQuien,
+      locationId,
+      clienteId: cliente ? cliente.id : null,
+      items,
+      pagos: input.pagos.map((p) =>
+        this.dataSource.getRepository(Payment).create({
+          metodo: p.metodo,
+          monto: p.monto,
+        }),
+      ),
+    });
+
+    const saved = await this.saleRepo().save(sale);
+
+    // Aplicar nuevo stock
+    for (const it of input.items) {
+      const newStock = await this.productsService.adjustStock(
+        it.productId,
+        locationId,
+        -it.cantidad,
+      );
+      if (location.tipo === 'tienda' && newStock.cantidad === 0) {
+        await this.createAutoRestock(it.productId, locationId, user.id);
+      }
+    }
+
+    return this.findOne(saved.id);
+  }
+
   async notaVenta(id: number): Promise<string> {
     const sale = await this.findOne(id);
     const fecha = new Date(sale.fecha).toLocaleString('es-BO');
