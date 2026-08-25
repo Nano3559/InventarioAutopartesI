@@ -6,7 +6,6 @@ import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import {
-  ShoppingCart,
   ShoppingBag,
   ArrowLeftRight,
   ClipboardList,

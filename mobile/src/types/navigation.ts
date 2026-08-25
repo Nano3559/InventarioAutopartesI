@@ -1,4 +1,8 @@
 export type RootStackParamList = {
   Login: undefined;
-  Home: undefined;
+  AdminDashboard: undefined;
+  TiendaDashboard: undefined;
+  InventarioDashboard: undefined;
+  Sales: undefined;
+  Main: undefined;
 };

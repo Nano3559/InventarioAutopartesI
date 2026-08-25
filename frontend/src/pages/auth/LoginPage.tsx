@@ -152,9 +152,6 @@ export function LoginPage() {
           </button>
         </form>
 
-        <div className="login-footer-info">
-          <span>Unifranz • Programación Avanzada 2026</span>
-        </div>
       </div>
     </div>
   );
