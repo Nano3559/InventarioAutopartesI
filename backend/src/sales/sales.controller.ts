@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   Res,
@@ -59,6 +60,16 @@ export class SalesController {
   @Roles('admin', 'tienda', 'inventario')
   create(@Body() body: SaleInput, @CurrentUser() user: AuthUser) {
     return this.salesService.create(body, user);
+  }
+
+  @Patch(':id')
+  @Roles('admin', 'tienda', 'inventario')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: SaleInput,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.salesService.update(id, body, user);
   }
 
   @Post('import-mayor/preview')

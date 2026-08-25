@@ -42,6 +42,7 @@ export interface Sale {
   locationId: number;
   usuarioId: number;
   clienteId?: number;
+  cliente?: { id: number; nombre: string; ciNit?: string; celular?: string } | null;
   items: SaleDetail[];
   pagos: PaymentDetail[];
 }
@@ -97,4 +98,11 @@ export async function getNotaVenta(id: number, token: string): Promise<string> {
   });
   if (!response.ok) throw new ApiError('Error al obtener nota de venta', response.status);
   return response.text();
+}
+
+export async function updateSale(id: number, input: SaleInput, token: string): Promise<Sale> {
+  return request<Sale>(`/sales/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }, token);
 }

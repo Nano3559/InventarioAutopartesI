@@ -1,13 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context';
+import { useParams, useNavigate } from 'react-router-dom';
 import { productsService } from '../../services/products.service';
 import { salesService, type SaleInput, type SaleItemInput, type PaymentInput, type PaymentMethod, getPaymentMethods, formatCurrency } from '../../services/sales.service';
 import type { Product } from '../../types/product.types';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, RotateCcw, CheckCircle2, AlertCircle, Loader2, X, Printer, UserPlus } from 'lucide-react';
+import type { SaleResponse } from '../../services/sales.service';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, RotateCcw, CheckCircle2, AlertCircle, Loader2, X, Printer, UserPlus, Edit } from 'lucide-react';
 import '../../styles/sales.css';
 
 export function SalesPage() {
   const { user } = useAuth();
+  const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  const editingSaleId = id ? parseInt(id, 10) : null;
+  const isEditing = editingSaleId !== null;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -24,6 +30,7 @@ export function SalesPage() {
   const [paraQuien, setParaQuien] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+  const [loadingSale, setLoadingSale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
@@ -44,6 +51,57 @@ export function SalesPage() {
     }
     loadProducts();
   }, []);
+
+  // Cargar venta existente si estamos en modo edición
+  useEffect(() => {
+    if (!isEditing || editingSaleId === null) return;
+    
+    async function loadSale() {
+      setLoadingSale(true);
+      try {
+        const sale = await salesService.getSaleById(editingSaleId as number);
+        
+        // Poblar carrito con items de la venta
+        const cartItems: SaleItemInput[] = sale.items.map(item => ({
+          productId: item.productId,
+          cantidad: item.cantidad,
+          precio: item.precio,
+        }));
+        setCart(cartItems);
+        
+        // Poblar pagos
+        const paymentItems: PaymentInput[] = sale.pagos.map(p => ({
+          metodo: p.metodo,
+          monto: p.monto,
+        }));
+        setPayments(paymentItems.length > 0 ? paymentItems : [{ metodo: 'efectivo', monto: 0 }]);
+        
+        // Poblar cliente
+        if (sale.cliente) {
+          setCliente({
+            nombre: sale.cliente.nombre,
+            ciNit: sale.cliente.ciNit ?? '',
+            celular: sale.cliente.celular ?? '',
+          });
+        }
+        
+        // Poblar campos adicionales
+        setRequiereFactura(sale.requiereFactura);
+        setLugarEntrega(sale.lugarEntrega ?? '');
+        setParaQuien(sale.paraQuien ?? '');
+        
+        setLastSaleId(sale.id);
+      } catch (err) {
+        console.error('Error loading sale:', err);
+        showToast('Error al cargar la venta para editar', 'error');
+        navigate('/ventas');
+      } finally {
+        setLoadingSale(false);
+      }
+    }
+    
+    loadSale();
+  }, [isEditing, editingSaleId, navigate]);
 
   useEffect(() => {
     const results = products.filter((p) => {
@@ -141,16 +199,30 @@ export function SalesPage() {
         paraQuien: paraQuien || undefined,
         locationId: user?.tiendaId ?? undefined,
       };
-      const response = await salesService.createSale(saleInput);
-      setLastSaleId(response.id);
-      showToast(`¡Venta ${response.codigo} registrada exitosamente!`);
+
+      let response: SaleResponse;
+      if (isEditing && editingSaleId !== null) {
+        response = await salesService.updateSale(editingSaleId, saleInput);
+        showToast(`¡Venta ${response.codigo} actualizada exitosamente!`);
+      } else {
+        response = await salesService.createSale(saleInput);
+        showToast(`¡Venta ${response.codigo} registrada exitosamente!`);
+      }
       
-      setCart([]);
-      setPayments([{ metodo: 'efectivo', monto: 0 }]);
-      setCliente({ nombre: '', ciNit: '', celular: '' });
-      setRequiereFactura(false);
-      setLugarEntrega('');
-      setParaQuien('');
+      setLastSaleId(response.id);
+      
+      // Si no estamos editando, limpiar formulario para nueva venta
+      if (!isEditing) {
+        setCart([]);
+        setPayments([{ metodo: 'efectivo', monto: 0 }]);
+        setCliente({ nombre: '', ciNit: '', celular: '' });
+        setRequiereFactura(false);
+        setLugarEntrega('');
+        setParaQuien('');
+      } else {
+        // Si estamos editando, volver a la lista o dashboard
+        setTimeout(() => navigate('/ventas'), 1500);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al procesar la venta';
       showToast(msg, 'error');
@@ -465,6 +537,12 @@ export function SalesPage() {
           </div>
 
           <div className="panel actions-panel">
+            {isEditing && (
+              <div className="edit-mode-banner">
+                <Edit size={18} />
+                <span>Editando venta <strong>#{editingSaleId}</strong> — Los cambios actualizarán la venta existente</span>
+              </div>
+            )}
             <button
               type="button"
               className="btn-secondary full-width"
@@ -477,17 +555,17 @@ export function SalesPage() {
               type="button"
               className="btn-primary full-width"
               onClick={handleSubmitSale}
-              disabled={!canSubmit || submitting || cart.length === 0}
+              disabled={!canSubmit || submitting || cart.length === 0 || loadingSale}
             >
               {submitting ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  <span>Procesando venta...</span>
+                  <span>{isEditing ? 'Actualizando venta...' : 'Procesando venta...'}</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 size={18} />
-                  <span>Confirmar Venta - {formatCurrency(cartTotal)}</span>
+                  <span>{isEditing ? 'Actualizar Venta' : 'Confirmar Venta'} - {formatCurrency(cartTotal)}</span>
                 </>
               )}
             </button>

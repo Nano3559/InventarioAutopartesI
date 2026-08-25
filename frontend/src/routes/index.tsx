@@ -129,6 +129,14 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="ventas/:id/editar"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'tienda']}>
+              <SalesPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="ventas-mayor"

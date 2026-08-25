@@ -38,6 +38,9 @@ export interface SaleResponse {
   locationId: number;
   usuarioId: number;
   clienteId?: number;
+  requiereFactura: boolean;
+  lugarEntrega?: string;
+  paraQuien?: string;
   items: Array<{
     id: number;
     productId: number;
@@ -82,6 +85,11 @@ export const salesService = {
     }
     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/sales/${id}/nota`, { headers });
     return response.text();
+  },
+
+  async updateSale(id: number, input: SaleInput): Promise<SaleResponse> {
+    const response = await api.patch<SaleResponse>(`/sales/${id}`, input);
+    return response;
   },
 };
 

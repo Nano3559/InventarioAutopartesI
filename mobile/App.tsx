@@ -15,6 +15,7 @@ import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import TiendaDashboardScreen from './src/screens/TiendaDashboardScreen';
 import InventarioDashboardScreen from './src/screens/InventarioDashboardScreen';
 import SalesScreen from './src/screens/SalesScreen';
+import SalesEditScreen from './src/screens/SalesEditScreen';
 import {
   colors,
   space,
@@ -161,6 +162,7 @@ function RootNavigator() {
       {user.rol === 'admin' && <Stack.Screen name="Main" component={AdminTabs} />}
       {user.rol === 'tienda' && <Stack.Screen name="Main" component={TiendaTabs} />}
       {user.rol === 'inventario' && <Stack.Screen name="Main" component={InventarioTabs} />}
+      <Stack.Screen name="SalesEdit" component={SalesEditScreen} />
     </Stack.Navigator>
   );
 }
