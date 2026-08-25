@@ -6,4 +6,6 @@ export type RootStackParamList = {
   Sales: undefined;
   SalesEdit: { saleId: number };
   Main: undefined;
+  Devoluciones: undefined;
+  Solicitudes: undefined;
 };

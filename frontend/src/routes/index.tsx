@@ -8,16 +8,16 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import {
   ShoppingBag,
   ArrowLeftRight,
-  ClipboardList,
   Tags,
   DollarSign,
   BarChart3,
-  RotateCcw,
 } from 'lucide-react';
 
 import { InventoryPage } from '../pages/inventory/InventoryPage';
 import { ProductDetailPage } from '../pages/inventory/ProductDetailPage';
 import { SalesPage } from '../pages/ventas/SalesPage';
+import { DevolucionesPage } from '../pages/ventas/DevolucionesPage';
+import { SolicitudesPage } from '../pages/ventas/SolicitudesPage';
 
 export function AppRoutes() {
   return (
@@ -158,14 +158,7 @@ export function AppRoutes() {
           path="devoluciones"
           element={
             <ProtectedRoute allowedRoles={['admin', 'tienda']}>
-              <PlaceholderPage
-                title="Devoluciones de Mercadería"
-                description="Registro de devoluciones de productos por venta previa y reincorporación al inventario."
-                milestoneCode="R4"
-                responsible="Raúl (Web Tienda)"
-                targetDay="Día 4 (Sáb 22/08)"
-                icon={<RotateCcw size={32} color="#60a5fa" />}
-              />
+              <DevolucionesPage />
             </ProtectedRoute>
           }
         />
@@ -175,14 +168,7 @@ export function AppRoutes() {
           path="solicitudes"
           element={
             <ProtectedRoute allowedRoles={['admin', 'tienda', 'inventario']}>
-              <PlaceholderPage
-                title="Solicitudes a Almacén"
-                description="Gestión de solicitudes de mercadería entre tiendas y almacenes con control de estados."
-                milestoneCode="M6 / R4"
-                responsible="Marco (Web Admin)"
-                targetDay="Día 6 (Mar 25/08)"
-                icon={<ClipboardList size={32} color="#a78bfa" />}
-              />
+              <SolicitudesPage />
             </ProtectedRoute>
           }
         />
