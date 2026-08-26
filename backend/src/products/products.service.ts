@@ -23,6 +23,7 @@ export interface ProductFilters {
   anio?: string;
   codigoOem?: string;
   codigoFabrica?: string;
+  locationId?: number;
 }
 
 @Injectable()
@@ -71,22 +72,27 @@ export class ProductsService {
       .orderBy('p.id', 'DESC')
       .getMany();
 
-    const withStock = await this.attachStock(products);
+    const withStock = await this.attachStock(products, filters.locationId);
     return withStock;
   }
 
   async attachStock(
     products: Product[],
+    locationId?: number,
   ): Promise<Array<Product & { stockTotal: number }>> {
     if (products.length === 0) return [];
     const ids = products.map((p) => p.id);
-    const inv = await this.invRepo()
+    const qb = this.invRepo()
       .createQueryBuilder('i')
       .select('i.productId', 'productId')
       .addSelect('SUM(i.cantidad)', 'total')
-      .where('i.productId IN (:...ids)', { ids })
-      .groupBy('i.productId')
-      .getRawMany<{ productId: number; total: number }>();
+      .where('i.productId IN (:...ids)', { ids });
+
+    if (locationId) {
+      qb.andWhere('i.locationId = :locationId', { locationId });
+    }
+
+    const inv = await qb.groupBy('i.productId').getRawMany<{ productId: number; total: number }>();
     const map = new Map(inv.map((r) => [Number(r.productId), Number(r.total)]));
     return products.map((p) => ({
       ...p,

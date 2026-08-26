@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,33 +16,14 @@ import {
 } from '../theme';
 import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
-
-const almacenStats = [
-  { label: 'Solicitudes Pendientes', value: '8', iconName: 'document-text', color: colors.warning },
-  { label: 'En Preparación', value: '3', iconName: 'cube', color: colors.primary },
-  { label: 'Enviadas Hoy', value: '12', iconName: 'car-sport', color: colors.success },
-  { label: 'Productos Críticos', value: '5', iconName: 'alert-circle', color: colors.danger },
-] as const;
-
-const pendingRequests = [
-  { id: 1, producto: 'Farol Toyota Hilux', tienda: 'Tienda 1', cantidad: 5, estado: 'Pendiente', auto: true, fecha: 'Hoy 08:30' },
-  { id: 2, producto: 'Guiñador Nissan NP300', tienda: 'Tienda 2', cantidad: 10, estado: 'Pendiente', auto: false, fecha: 'Hoy 09:15' },
-  { id: 3, producto: 'Stop Toyota RAV4', tienda: 'Tienda 3', cantidad: 3, estado: 'En preparación', auto: true, fecha: 'Ayer 16:45' },
-  { id: 4, producto: 'Espejo Mazda CX-5', tienda: 'Tienda 1', cantidad: 2, estado: 'Pendiente', auto: false, fecha: 'Ayer 14:20' },
-] as const;
-
-const inventoryAlerts = [
-  { producto: 'Farol Toyota Hilux', almacen: 'Almacén 1', stock: 2, minimo: 5, ubicaciones: 'A1:2, A2:0, A3:1, A4:0' },
-  { producto: 'Parachoques Dodge Ram', almacen: 'Almacén 2', stock: 1, minimo: 3, ubicaciones: 'A1:0, A2:1, A3:0, A4:0' },
-  { producto: 'Radiador Jeep Grand Cherokee', almacen: 'Almacén 3', stock: 0, minimo: 2, ubicaciones: 'A1:0, A2:0, A3:0, A4:0' },
-] as const;
+import { useInventarioDashboard } from '../hooks/useDashboard';
 
 const actions = [
   { label: 'Gestionar Solicitudes', iconName: 'document-text' },
   { label: 'Registrar Entrada', iconName: 'add-circle' },
   { label: 'Registrar Salida', iconName: 'remove-circle' },
   { label: 'Traslado Entre Almacenes', iconName: 'swap-horizontal' },
-  { label: 'Ver Stock Global', iconName: 'analytics' },
+  { label: 'Ver Stock Global', iconName: 'stats-chart' },
   { label: 'Historial Movimientos', iconName: 'time' },
 ] as const;
 
@@ -67,6 +48,38 @@ export default function InventarioDashboardScreen() {
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
   const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
+  const { solicitudes, stats, loading, error, refetch } = useInventarioDashboard();
+
+  const almacenStats = [
+    { label: 'Solicitudes Pendientes', value: stats.pendientes.toString(), iconName: 'document-text' as const, color: colors.warning },
+    { label: 'En Preparación', value: stats.enPreparacion.toString(), iconName: 'cube' as const, color: colors.primary },
+    { label: 'Enviadas Hoy', value: stats.enviadasHoy.toString(), iconName: 'car-sport' as const, color: colors.success },
+    { label: 'Productos Críticos', value: stats.criticos.toString(), iconName: 'alert-circle' as const, color: colors.danger },
+  ] as const;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryBtn} onPress={refetch} accessibilityRole={a11y.button}>
+            <Text style={styles.retryBtnText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -107,7 +120,7 @@ export default function InventarioDashboardScreen() {
         {/* Primary CTA - Gestionar Solicitudes */}
         <PrimaryCTA
           label="Gestionar Solicitudes"
-          hint={`${pendingRequests.length} pendientes · ${pendingRequests.filter(r => r.auto).length} auto`}
+          hint={`${solicitudes.length} pendientes · ${solicitudes.filter(r => r.auto).length} auto`}
           iconName="document-text"
           color={colors.warning}
           onPress={() => {}}
@@ -123,31 +136,31 @@ export default function InventarioDashboardScreen() {
           </Pressable>
         </View>
         <TableCard>
-          {pendingRequests.map((req, i) => {
+          {solicitudes.slice(0, 10).map((req, i) => {
             const statusStyle = getStatusStyle(req.estado);
             return (
               <TableRow
-                key={i}
+                key={req.id}
                 borderTop={i > 0}
-                accessibilityLabel={`${req.producto}, ${req.tienda}, ${req.cantidad} unidades, ${req.estado}`}
+                accessibilityLabel={`${req.producto?.producto || 'Producto'}, ${req.tienda?.nombre || 'Tienda'}, ${req.cantidad} unidades, ${req.estado}`}
               >
                 <View style={styles.requestMain}>
                   <Badge variant={statusStyle.variant} size="sm" dot />
                   <View style={styles.requestInfo}>
                     <View style={styles.requestHeader}>
-                      <Text style={styles.requestProduct}>{req.producto}</Text>
+                      <Text style={styles.requestProduct}>{req.producto?.producto || 'Producto desconocido'}</Text>
                       {req.auto && (
                         <Badge variant="primary" size="sm">AUTO</Badge>
                       )}
                     </View>
-                    <Text style={styles.requestMeta}>{req.tienda} · {req.cantidad} und · {req.fecha}</Text>
+                    <Text style={styles.requestMeta}>{req.tienda?.nombre || 'Tienda'} · {req.cantidad} und · {new Date(req.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text>
                   </View>
                 </View>
                 <Pressable
                   style={styles.actionBtn}
                   onPress={() => {}}
                   accessibilityRole={a11y.button}
-                  accessibilityLabel={`Gestionar solicitud de ${req.producto}`}
+                  accessibilityLabel={`Gestionar solicitud de ${req.producto?.producto}`}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   android_ripple={{ color: colors.primarySoft }}
                 >
@@ -158,7 +171,7 @@ export default function InventarioDashboardScreen() {
           })}
         </TableCard>
 
-        {/* Stock Alerts */}
+        {/* Stock Alerts - Real data would need additional endpoint */}
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Alertas de Stock Crítico</Text>
           <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver inventario completo">
@@ -167,25 +180,37 @@ export default function InventarioDashboardScreen() {
           </Pressable>
         </View>
         <TableCard>
-          {inventoryAlerts.map((alert, i) => (
+          {(stats.sinStock > 0 || stats.stockBajo > 0) ? [
+            { producto: 'Productos sin stock', count: stats.sinStock, variant: 'danger' as const },
+            { producto: 'Productos con stock bajo', count: stats.stockBajo, variant: 'warning' as const },
+          ].map((alert, i) => (
             <TableRow
               key={i}
               borderTop={i > 0}
-              accessibilityLabel={`${alert.producto}, ${alert.almacen}, stock ${alert.stock}, mínimo ${alert.minimo}`}
+              accessibilityLabel={`${alert.producto}, ${alert.count}`}
             >
               <View style={styles.alertInfo}>
                 <Text style={styles.alertProduct}>{alert.producto}</Text>
-                <Text style={styles.alertLocation}>{alert.almacen}</Text>
-                <Text style={styles.alertDistribution}>{alert.ubicaciones}</Text>
+                <Text style={styles.alertLocation}>{alert.count} productos afectados</Text>
               </View>
               <Badge
-                variant={alert.stock === 0 ? 'danger' : 'warning'}
+                variant={alert.variant}
                 size="md"
               >
-                {alert.stock === 0 ? 'SIN STOCK' : `Stock: ${alert.stock} (Mín: ${alert.minimo})`}
+                {alert.count === 0 ? 'OK' : `${alert.count} items`}
               </Badge>
             </TableRow>
-          ))}
+          )) : (
+            <TableRow borderTop={false} accessibilityLabel="Sin alertas de stock">
+              <View style={styles.alertInfo}>
+                <Text style={styles.alertProduct}>Sin alertas</Text>
+                <Text style={styles.alertLocation}>Todos los productos tienen stock suficiente</Text>
+              </View>
+              <Badge variant="success" size="md">
+                OK
+              </Badge>
+            </TableRow>
+          )}
         </TableCard>
 
         {/* Quick Actions */}
@@ -250,5 +275,40 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.md,
     marginTop: space.sm,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  loadingText: {
+    color: colors.textMuted,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.lg,
+    gap: space.md,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
+    borderRadius: radius.md,
+  },
+  retryBtnText: {
+    color: colors.white,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
   },
 });

@@ -4,7 +4,9 @@ import type { Product, ProductFilters } from '../types/product';
 export async function getProducts(filters: ProductFilters = {}, token?: string) {
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value) query.set(key, value);
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
   });
   const queryString = query.toString();
   return request<Product[]>(`/products${queryString ? `?${queryString}` : ''}`, {
