@@ -29,4 +29,5 @@ export interface ProductFilters {
   anio?: string;
   codigoOem?: string;
   codigoFabrica?: string;
+  locationId?: number;
 }

@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,32 +16,14 @@ import {
 } from '../theme';
 import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
-
-const tiendaStats = [
-  { label: 'Ventas Hoy', value: '12', iconName: 'cash', color: colors.success },
-  { label: 'Total Vendido', value: 'Bs 18,450', iconName: 'analytics', color: colors.primary },
-  { label: 'Productos Vendidos', value: '47', iconName: 'cube', color: colors.primary },
-  { label: 'Pendientes Factura', value: '3', iconName: 'document-text', color: colors.warning },
-] as const;
-
-const recentSales = [
-  { id: 1, codigo: 'NV-000045', cliente: 'Cliente Varios', total: 1250.00, hora: '10:30', estado: 'Completada' },
-  { id: 2, codigo: 'NV-000044', cliente: 'María García', total: 890.50, hora: '09:15', estado: 'Completada' },
-  { id: 3, codigo: 'NV-000043', cliente: 'Carlos López', total: 2100.00, hora: 'Ayer 16:45', estado: 'Facturada' },
-] as const;
-
-const topProducts = [
-  { producto: 'Farol Toyota Hilux', vendidos: 15, ingresos: 7200 },
-  { producto: 'Guiñador Nissan NP300', vendidos: 12, ingresos: 2160 },
-  { producto: 'Stop Toyota RAV4', vendidos: 8, ingresos: 1920 },
-] as const;
+import { useTiendaDashboard } from '../hooks/useDashboard';
 
 const actions = [
   { label: 'Nueva Venta', iconName: 'add-circle', primary: true },
   { label: 'Buscar Producto', iconName: 'search', primary: false },
   { label: 'Ver Stock Local', iconName: 'cube', primary: false },
   { label: 'Devolución', iconName: 'refresh', primary: false },
-  { label: 'Solicitar a Almacén', iconName: 'document', primary: false },
+  { label: 'Solicitar a Almacén', iconName: 'document-text', primary: false },
   { label: 'Facturar', iconName: 'document-text', primary: false },
 ] as const;
 
@@ -59,6 +41,38 @@ export default function TiendaDashboardScreen() {
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
   const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
+  const { sales, stats, topProducts, loading, error, refetch } = useTiendaDashboard();
+
+  const tiendaStats = [
+    { label: 'Ventas Hoy', value: stats.ventasHoy.toString(), iconName: 'cash' as const, color: colors.success },
+    { label: 'Total Vendido', value: `Bs ${stats.totalVendido.toLocaleString()}`, iconName: 'stats-chart' as const, color: colors.primary },
+    { label: 'Productos Vendidos', value: stats.productosVendidos.toString(), iconName: 'cube' as const, color: colors.primary },
+    { label: 'Pendientes Factura', value: stats.pendientesFactura.toString(), iconName: 'document-text' as const, color: colors.warning },
+  ] as const;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryBtn} onPress={refetch} accessibilityRole={a11y.button}>
+            <Text style={styles.retryBtnText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -115,16 +129,16 @@ export default function TiendaDashboardScreen() {
           </Pressable>
         </View>
         <TableCard>
-          {recentSales.map((sale, i) => (
-            <TableRow key={i} borderTop={i > 0} accessibilityLabel={`Venta ${sale.codigo}, ${sale.cliente}, Bs ${sale.total.toFixed(2)}, ${sale.estado}`}>
+          {sales.slice(0, 10).map((sale, i) => (
+            <TableRow key={sale.id} borderTop={i > 0} accessibilityLabel={`Venta ${sale.codigo}, ${sale.cliente?.nombre || 'Cliente Varios'}, Bs ${sale.total.toFixed(2)}`}>
               <View style={styles.saleInfo}>
                 <Text style={styles.saleCode}>{sale.codigo}</Text>
-                <Text style={styles.saleMeta}>{sale.cliente} · {sale.hora}</Text>
+                <Text style={styles.saleMeta}>{sale.cliente?.nombre || 'Cliente Varios'} · {new Date(sale.fecha).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}</Text>
               </View>
               <View style={styles.saleRight}>
                 <Text style={styles.saleTotal}>Bs {sale.total.toFixed(2)}</Text>
-                <Badge variant={getStatusVariant(sale.estado)} size="sm">
-                  {sale.estado}
+                <Badge variant={getStatusVariant(sale.requiereFactura ? 'Facturada' : 'Completada')} size="sm">
+                  {sale.requiereFactura ? 'Facturada' : 'Completada'}
                 </Badge>
               </View>
             </TableRow>
@@ -132,9 +146,9 @@ export default function TiendaDashboardScreen() {
         </TableCard>
 
         {/* Top Products */}
-        <Text style={styles.sectionTitle}>Productos Más Vendidos</Text>
+        <Text style={styles.sectionTitle}>Productos Más Vendidos (Mes)</Text>
         <TableCard>
-          {topProducts.map((p, i) => (
+          {topProducts.length > 0 ? topProducts.map((p, i) => (
             <TableRow key={i} borderTop={i > 0} accessibilityLabel={`${p.producto}, ${p.vendidos} unidades, Bs ${p.ingresos.toLocaleString()}`}>
               <View style={styles.rank}>
                 <Text style={styles.rankText}>#{i + 1}</Text>
@@ -148,7 +162,14 @@ export default function TiendaDashboardScreen() {
                 <Text style={styles.revenueValue}>Bs {p.ingresos.toLocaleString()}</Text>
               </View>
             </TableRow>
-          ))}
+          )) : (
+            <TableRow borderTop={false} accessibilityLabel="Sin ventas este mes">
+              <View style={styles.topInfo}>
+                <Text style={styles.topName}>Sin datos</Text>
+                <Text style={styles.topMeta}>No hay ventas registradas este mes</Text>
+              </View>
+            </TableRow>
+          )}
         </TableCard>
 
         {/* Quick Actions */}
@@ -212,5 +233,40 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.md,
     marginTop: space.sm,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  loadingText: {
+    color: colors.textMuted,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.lg,
+    gap: space.md,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
+    borderRadius: radius.md,
+  },
+  retryBtnText: {
+    color: colors.white,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
   },
 });

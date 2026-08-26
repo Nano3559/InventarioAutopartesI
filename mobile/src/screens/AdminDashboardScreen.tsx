@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,31 +16,12 @@ import {
 } from '../theme';
 import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
-
-const statCards = [
-  { label: 'Total Productos', value: '1,247', iconName: 'cube', color: colors.primary },
-  { label: 'Stock Bajo', value: '23', iconName: 'alert-circle', color: colors.warning },
-  { label: 'Sin Stock', value: '5', iconName: 'close-circle', color: colors.danger },
-  { label: 'Ventas Hoy', value: 'Bs 45,230', iconName: 'cash', color: colors.success },
-] as const;
-
-const recentSales = [
-  { id: 1, codigo: 'NV-000001', cliente: 'Juan Pérez', total: 1250.00, fecha: 'Hoy 10:30', tienda: 'Tienda 1' },
-  { id: 2, codigo: 'NV-000002', cliente: 'María García', total: 890.50, fecha: 'Hoy 09:15', tienda: 'Tienda 2' },
-  { id: 3, codigo: 'NV-000003', cliente: 'Carlos López', total: 2100.00, fecha: 'Ayer 16:45', tienda: 'Tienda 1' },
-] as const;
-
-const lowStockProducts = [
-  { id: 1, producto: 'Farol Toyota Hilux', stock: 0, ubicacion: 'Tienda 1' },
-  { id: 2, producto: 'Guiñador Nissan NP300', stock: 1, ubicacion: 'Almacén 2' },
-  { id: 3, producto: 'Stop Toyota RAV4', stock: 2, ubicacion: 'Tienda 3' },
-  { id: 4, producto: 'Espejo Mazda CX-5', stock: 1, ubicacion: 'Almacén 1' },
-] as const;
+import { useAdminDashboard } from '../hooks/useDashboard';
 
 const actions = [
   { label: 'Inventario', iconName: 'cube' },
   { label: 'Nueva Venta', iconName: 'cash' },
-  { label: 'Reportes', iconName: 'analytics' },
+  { label: 'Reportes', iconName: 'stats-chart' },
   { label: 'Movimientos', iconName: 'swap-horizontal' },
   { label: 'Precios', iconName: 'pricetag' },
   { label: 'Costos', iconName: 'wallet' },
@@ -52,10 +33,45 @@ export default function AdminDashboardScreen() {
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
   const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
+  const { data, loading, error, refetch } = useAdminDashboard();
 
   const handleSignOut = () => {
     signOut();
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryBtn} onPress={refetch} accessibilityRole={a11y.button}>
+            <Text style={styles.retryBtnText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const inventario = data?.inventario;
+  const ventas = data?.ventas;
+
+  const adminStats = inventario && ventas ? [
+    { label: 'Total Productos', value: inventario.totalProductos.toLocaleString(), iconName: 'cube' as const, color: colors.primary },
+    { label: 'Stock Bajo', value: inventario.stockBajo.toString(), iconName: 'alert-circle' as const, color: colors.warning },
+    { label: 'Sin Stock', value: inventario.sinStock.toString(), iconName: 'close-circle' as const, color: colors.danger },
+    { label: 'Ventas Hoy', value: `Bs ${ventas.hoy.total.toLocaleString()}`, iconName: 'cash' as const, color: colors.success },
+  ] as const : [] as const;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -70,102 +86,102 @@ export default function AdminDashboardScreen() {
         }}
       />
 
-      <ScrollView contentContainerStyle={[styles.content, isSmallScreen && styles.contentSmall]} showsVerticalScrollIndicator={false}>
-        {/* Welcome */}
-        <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeTitle}>Panel de Administración</Text>
-          <Text style={styles.welcomeSubtitle}>Resumen general del sistema</Text>
-        </View>
+<ScrollView contentContainerStyle={[styles.content, isSmallScreen && styles.contentSmall]} showsVerticalScrollIndicator={false}>
+          {/* Welcome */}
+          <View style={styles.welcomeCard}>
+            <Text style={styles.welcomeTitle}>Panel de Administración</Text>
+            <Text style={styles.welcomeSubtitle}>Resumen general del sistema</Text>
+          </View>
 
-        {/* Primary CTA */}
-        <PrimaryCTA
-          label="Nueva Venta"
-          hint="Registrar una venta rápidamente"
-          iconName="add-circle"
-          color={colors.success}
-          onPress={() => {}}
-          accessibilityLabel="Crear nueva venta"
-        />
+          {/* Primary CTA */}
+          <PrimaryCTA
+            label="Nueva Venta"
+            hint="Registrar una venta rápidamente"
+            iconName="add-circle"
+            color={colors.success}
+            onPress={() => {}}
+            accessibilityLabel="Crear nueva venta"
+          />
 
-        {/* Stats Grid */}
-        <Text style={styles.sectionTitle}>Resumen General</Text>
-        <View style={styles.statsGrid}>
-          {statCards.map((stat, i) => (
-            <StatCard
-              key={i}
-              label={stat.label}
-              value={stat.value}
-              iconName={stat.iconName}
-              color={stat.color}
-              minWidth={statCardMinWidth}
-              accessibilityLabel={`${stat.label}: ${stat.value}`}
-            />
-          ))}
-        </View>
+          {/* Stats Grid */}
+          <Text style={styles.sectionTitle}>Resumen General</Text>
+          <View style={styles.statsGrid}>
+            {adminStats.map((stat, i) => (
+              <StatCard
+                key={i}
+                label={stat.label}
+                value={stat.value}
+                iconName={stat.iconName}
+                color={stat.color}
+                minWidth={statCardMinWidth}
+                accessibilityLabel={`${stat.label}: ${stat.value}`}
+              />
+            ))}
+          </View>
 
-        {/* Recent Sales */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Ventas Recientes</Text>
-          <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver todas las ventas">
-            <Text style={styles.seeAllText}>Ver todas</Text>
-            <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
-          </Pressable>
-        </View>
-        <TableCard>
-          {recentSales.map((sale, i) => (
-            <TableRow key={i} borderTop={i > 0} accessibilityLabel={`Venta ${sale.codigo}, ${sale.cliente}, ${sale.tienda}, Bs ${sale.total.toFixed(2)}`}>
-              <View style={styles.saleInfo}>
-                <Text style={styles.saleCode}>{sale.codigo}</Text>
-                <Text style={styles.saleMeta}>{sale.cliente} · {sale.tienda}</Text>
-              </View>
-              <View style={styles.saleRight}>
-                <Text style={styles.saleTotal}>Bs {sale.total.toFixed(2)}</Text>
-                <Text style={styles.saleDate}>{sale.fecha}</Text>
-              </View>
-            </TableRow>
-          ))}
-        </TableCard>
+          {/* Recent Sales */}
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Ventas Recientes</Text>
+            <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver todas las ventas">
+              <Text style={styles.seeAllText}>Ver todas</Text>
+              <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
+            </Pressable>
+          </View>
+          <TableCard>
+            {ventas?.porTienda?.slice(0, 5).map((tienda, i) => (
+              <TableRow key={i} borderTop={i > 0} accessibilityLabel={`Tienda ${tienda.nombre}, ${tienda.cantidad} ventas, Bs ${tienda.total.toFixed(2)}`}>
+                <View style={styles.saleInfo}>
+                  <Text style={styles.saleCode}>{tienda.nombre}</Text>
+                  <Text style={styles.saleMeta}>{tienda.cantidad} ventas este mes</Text>
+                </View>
+                <View style={styles.saleRight}>
+                  <Text style={styles.saleTotal}>Bs {tienda.total.toLocaleString()}</Text>
+                  <Text style={styles.saleDate}>{tienda.cantidad} transacciones</Text>
+                </View>
+              </TableRow>
+            ))}
+          </TableCard>
 
-        {/* Low Stock */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Stock Crítico</Text>
-          <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver inventario completo">
-            <Text style={styles.seeAllText}>Ver inventario</Text>
-            <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
-          </Pressable>
-        </View>
-        <TableCard>
-          {lowStockProducts.map((p, i) => (
-            <TableRow key={i} borderTop={i > 0} accessibilityLabel={`${p.producto}, ${p.ubicacion}, ${p.stock === 0 ? 'Sin stock' : `Stock: ${p.stock}`}`}>
-              <View style={styles.alertInfo}>
-                <Text style={styles.alertName}>{p.producto}</Text>
-                <Text style={styles.alertLocation}>{p.ubicacion}</Text>
-              </View>
-              <Badge
-                variant={p.stock === 0 ? 'danger' : 'warning'}
-                size="md"
-              >
-                {p.stock === 0 ? 'SIN STOCK' : `Stock: ${p.stock}`}
-              </Badge>
-            </TableRow>
-          ))}
-        </TableCard>
+          {/* Low Stock */}
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Stock Crítico</Text>
+            <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver inventario completo">
+              <Text style={styles.seeAllText}>Ver inventario</Text>
+              <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
+            </Pressable>
+          </View>
+          <TableCard>
+            {inventario && [
+              { producto: 'Sin Stock', count: inventario.sinStock, variant: 'danger' as const },
+              { producto: 'Stock Bajo', count: inventario.stockBajo, variant: 'warning' as const },
+            ].map((item, i) => (
+              <TableRow key={i} borderTop={i > 0} accessibilityLabel={`${item.producto}: ${item.count}`}>
+                <View style={styles.alertInfo}>
+                  <Text style={styles.alertName}>{item.producto}</Text>
+                  <Text style={styles.alertLocation}>{item.count} productos afectados</Text>
+                </View>
+                <Badge variant={item.variant} size="md">
+                  {item.count === 0 ? 'OK' : `${item.count} items`}
+                </Badge>
+              </TableRow>
+            ))}
+          </TableCard>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-        <View style={styles.actionsGrid}>
-          {actions.map((a, i) => (
-            <ActionCard
-              key={i}
-              label={a.label}
-              iconName={a.iconName}
-              onPress={() => {}}
-              minWidth={actionCardMinWidth}
-              accessibilityLabel={a.label}
-            />
-          ))}
-        </View>
-      </ScrollView>
+          {/* Quick Actions */}
+          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+          <View style={styles.actionsGrid}>
+            {actions.map((a, i) => (
+              <ActionCard
+                key={i}
+                label={a.label}
+                iconName={a.iconName}
+                onPress={() => {}}
+                minWidth={actionCardMinWidth}
+                accessibilityLabel={a.label}
+              />
+            ))}
+          </View>
+        </ScrollView>
     </SafeAreaView>
   );
 }
@@ -206,5 +222,40 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.md,
     marginTop: space.sm,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  loadingText: {
+    color: colors.textMuted,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.lg,
+    gap: space.md,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
+    borderRadius: radius.md,
+  },
+  retryBtnText: {
+    color: colors.white,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
   },
 });
