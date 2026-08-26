@@ -5,8 +5,8 @@ import { Wrench, Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 import '../../styles/login.css';
 
 export function LoginPage() {
-  const [email, setEmail] = useState('admin@autorepuestos.com');
-  const [password, setPassword] = useState('Admin1234!');
+  const [email, setEmail] = useState('admin@importadoras.com');
+  const [password, setPassword] = useState('admin123');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -66,23 +66,37 @@ export function LoginPage() {
             <button
               type="button"
               className="quick-role-btn"
-              onClick={() => handleQuickFill('admin@autorepuestos.com', 'Admin1234!')}
+              onClick={() => handleQuickFill('admin@importadoras.com', 'admin123')}
             >
-              👑 Admin (Marco)
+              👑 Administrador
             </button>
             <button
               type="button"
               className="quick-role-btn"
-              onClick={() => handleQuickFill('tienda1@autorepuestos.com', 'Tienda1234!')}
+              onClick={() => handleQuickFill('inventario@importadoras.com', 'inventario123')}
             >
-              🛒 Tienda (Raúl)
+              📦 Encargado Inventario
             </button>
             <button
               type="button"
               className="quick-role-btn"
-              onClick={() => handleQuickFill('almacen@autorepuestos.com', 'Almacen1234!')}
+              onClick={() => handleQuickFill('tienda1@importadoras.com', 'venta123')}
             >
-              📦 Almacén (Brian)
+              🛒 Vendedor Tienda 1
+            </button>
+            <button
+              type="button"
+              className="quick-role-btn"
+              onClick={() => handleQuickFill('tienda2@importadoras.com', 'venta123')}
+            >
+              🛒 Vendedor Tienda 2
+            </button>
+            <button
+              type="button"
+              className="quick-role-btn"
+              onClick={() => handleQuickFill('tienda3@importadoras.com', 'venta123')}
+            >
+              🛒 Vendedor Tienda 3
             </button>
           </div>
         </div>
