@@ -24,6 +24,8 @@ export interface Product {
   stockTotal: number;
   stockMinimo?: number;
   stock?: LocationStock[];
+  stockByLocation?: Record<number, number>;
+  stockLocationDetails?: Array<{ locationId: number; ubicacion: string; tipo: string; cantidad: number }>;
   activo: boolean;
   createdAt?: string;
 }

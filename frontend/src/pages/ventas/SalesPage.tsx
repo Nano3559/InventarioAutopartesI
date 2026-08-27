@@ -121,7 +121,11 @@ export function SalesPage() {
   const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + item.cantidad * item.precio, 0), [cart]);
   const paymentsTotal = useMemo(() => payments.reduce((sum, p) => sum + p.monto, 0), [payments]);
   const change = paymentsTotal - cartTotal;
-  const canSubmit = cart.length > 0 && Math.abs(paymentsTotal - cartTotal) < 0.01;
+  const hasStockViolation = cart.some((item) => {
+    const p = products.find((pr) => pr.id === item.productId);
+    return p && item.cantidad > (p.stockTotal ?? 0);
+  });
+  const canSubmit = cart.length > 0 && !hasStockViolation && Math.abs(paymentsTotal - cartTotal) < 0.01;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     if (type === 'success') {
@@ -137,21 +141,37 @@ export function SalesPage() {
   const handleAddToCart = (product: Product) => {
     const existing = cart.find((item) => item.productId === product.id);
     const price = product.precio1 ?? product.precio2 ?? product.precioMayor ?? product.costo ?? 0;
+    const available = product.stockTotal ?? 0;
     
     if (existing) {
+      if (existing.cantidad >= available) {
+        showToast(`No hay más stock disponible de "${product.producto}". Disponible: ${available}`, 'error');
+        return;
+      }
       setCart(cart.map((item) =>
         item.productId === product.id ? { ...item, cantidad: item.cantidad + 1 } : item
       ));
     } else {
+      if (available <= 0) {
+        showToast(`"${product.producto}" no tiene stock disponible`, 'error');
+        return;
+      }
       setCart([...cart, { productId: product.id, cantidad: 1, precio: price }]);
     }
     showToast(`Agregado: ${product.producto}`);
   };
 
   const handleQtyChange = (productId: number, delta: number) => {
+    const product = products.find((p) => p.id === productId);
+    const available = product?.stockTotal ?? 0;
+    
     setCart(cart.map((item) => {
       if (item.productId === productId) {
         const newQty = Math.max(1, item.cantidad + delta);
+        if (newQty > available) {
+          showToast(`Stock máximo disponible: ${available} unidades`, 'error');
+          return { ...item, cantidad: available };
+        }
         return { ...item, cantidad: newQty };
       }
       return item;
@@ -303,40 +323,67 @@ export function SalesPage() {
                   <p>{searchTerm ? 'No se encontraron productos' : 'Catálogo vacío'}</p>
                 </div>
               ) : (
-                filteredProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    className="product-card"
-                    onClick={() => handleAddToCart(product)}
-                    title={`${product.producto} - ${product.marca} ${product.modelo}`}
-                  >
-                    <div className="product-card-image">
-                      {product.imagen ? (
-                        <img src={product.imagen} alt={product.producto} />
-                      ) : (
-                        <ShoppingCart size={24} className="product-placeholder" />
-                      )}
-                    </div>
-                    <div className="product-card-info">
-                      <div className="product-card-name">{product.producto}</div>
-                      <div className="product-card-vehicle">
-                        {product.marca} {product.modelo} {product.anio && `(${product.anio})`}
+                filteredProducts.map((product) => {
+                  const outOfStock = (product.stockTotal ?? 0) <= 0;
+                  return (
+                    <button
+                      key={product.id}
+                      className="product-card"
+                      onClick={() => !outOfStock && handleAddToCart(product)}
+                      title={`${product.producto} - ${product.marca} ${product.modelo}`}
+                      disabled={outOfStock}
+                      style={outOfStock ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                    >
+                      <div className="product-card-image">
+                        {product.imagen ? (
+                          <img src={product.imagen} alt={product.producto} />
+                        ) : (
+                          <ShoppingCart size={24} className="product-placeholder" />
+                        )}
                       </div>
-                      <div className="product-card-codes">
-                        {product.codigoFabrica && <span className="code-tag">Fáb: {product.codigoFabrica}</span>}
-                        {product.codigoOem && <span className="code-tag oem">OEM: {product.codigoOem}</span>}
+                      <div className="product-card-info">
+                        <div className="product-card-name">{product.producto}</div>
+                        <div className="product-card-vehicle">
+                          {product.marca} {product.modelo} {product.anio && `(${product.anio})`}
+                        </div>
+                        <div className="product-card-codes">
+                          {product.codigoFabrica && <span className="code-tag">Fáb: {product.codigoFabrica}</span>}
+                          {product.codigoOem && <span className="code-tag oem">OEM: {product.codigoOem}</span>}
+                        </div>
+                        <div className="product-card-prices">
+                          <span className="price-tag">P1: {formatCurrency(product.precio1 ?? product.costo ?? 0)}</span>
+                          {product.precio2 && <span className="price-secondary">P2: {formatCurrency(product.precio2)}</span>}
+                        </div>
+                        <div className="product-card-stock" style={{
+                          color: outOfStock ? '#ef4444' : (product.stockTotal ?? 0) <= (product.stockMinimo ?? 1) ? '#f59e0b' : 'var(--text-muted)',
+                          fontWeight: outOfStock ? 600 : undefined,
+                        }}>
+                          {outOfStock ? 'Sin stock' : `Stock: ${product.stockTotal ?? 0} uds.`}
+                        </div>
+                        {product.stockLocationDetails && product.stockLocationDetails.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                            {product.stockLocationDetails.map((sl) => (
+                              <span
+                                key={sl.locationId}
+                                style={{
+                                  fontSize: '0.65rem',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  background: sl.tipo === 'almacen' ? 'rgba(56,189,248,0.12)' : 'rgba(16,185,129,0.12)',
+                                  color: sl.tipo === 'almacen' ? '#38bdf8' : '#34d399',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {sl.ubicacion}: {sl.cantidad}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="product-card-prices">
-                        <span className="price-tag">P1: {formatCurrency(product.precio1 ?? product.costo ?? 0)}</span>
-                        {product.precio2 && <span className="price-secondary">P2: {formatCurrency(product.precio2)}</span>}
-                      </div>
-                      <div className="product-card-stock">
-                        Stock: {product.stockTotal ?? 0} uds.
-                      </div>
-                    </div>
-                    <Plus size={20} className="add-btn" />
-                  </button>
-                ))
+                      {!outOfStock && <Plus size={20} className="add-btn" />}
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
@@ -360,6 +407,8 @@ export function SalesPage() {
                   {cart.map((item) => {
                     const product = getCartProduct(item.productId);
                     const subtotal = item.cantidad * item.precio;
+                    const available = product?.stockTotal ?? 0;
+                    const atMax = item.cantidad >= available;
                     return (
                       <div key={item.productId} className="cart-item">
                         <div className="cart-item-main">
@@ -368,13 +417,22 @@ export function SalesPage() {
                             <div className="cart-item-detail">
                               {product?.marca} {product?.modelo} | {formatCurrency(item.precio)} c/u
                             </div>
+                            <div style={{ fontSize: '0.72rem', color: atMax ? '#ef4444' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                              Stock disp.: {available} uds.{atMax ? ' (máximo)' : ''}
+                            </div>
                           </div>
                           <div className="cart-item-qty">
                             <button onClick={() => handleQtyChange(item.productId, -1)} className="qty-btn" aria-label="Disminuir">
                               <Minus size={16} />
                             </button>
-                            <span className="qty-value">{item.cantidad}</span>
-                            <button onClick={() => handleQtyChange(item.productId, 1)} className="qty-btn" aria-label="Aumentar">
+                            <span className="qty-value" style={atMax ? { color: '#ef4444' } : undefined}>{item.cantidad}</span>
+                            <button
+                              onClick={() => handleQtyChange(item.productId, 1)}
+                              className="qty-btn"
+                              aria-label="Aumentar"
+                              disabled={atMax}
+                              style={atMax ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                            >
                               <Plus size={16} />
                             </button>
                           </div>

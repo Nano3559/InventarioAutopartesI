@@ -83,6 +83,22 @@ export class SalesService {
     const items: SaleItem[] = [];
 
     for (const it of input.items) {
+      if (!it.productId || it.productId <= 0) {
+        throw new BadRequestException('ID de producto inválido');
+      }
+      if (
+        !Number.isFinite(it.cantidad) ||
+        it.cantidad <= 0 ||
+        !Number.isInteger(it.cantidad)
+      ) {
+        throw new BadRequestException(
+          'La cantidad debe ser un número entero mayor a 0',
+        );
+      }
+      if (!Number.isFinite(it.precio) || it.precio < 0) {
+        throw new BadRequestException('El precio no puede ser negativo');
+      }
+
       const product = await this.dataSource.getRepository(Product).findOne({
         where: { id: it.productId },
       });
@@ -94,7 +110,7 @@ export class SalesService {
       );
       if (it.cantidad > stock) {
         throw new BadRequestException(
-          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}`,
+          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}, Solicita: ${it.cantidad}`,
         );
       }
 
@@ -276,6 +292,22 @@ export class SalesService {
     const items: SaleItem[] = [];
 
     for (const it of input.items) {
+      if (!it.productId || it.productId <= 0) {
+        throw new BadRequestException('ID de producto inválido');
+      }
+      if (
+        !Number.isFinite(it.cantidad) ||
+        it.cantidad <= 0 ||
+        !Number.isInteger(it.cantidad)
+      ) {
+        throw new BadRequestException(
+          'La cantidad debe ser un número entero mayor a 0',
+        );
+      }
+      if (!Number.isFinite(it.precio) || it.precio < 0) {
+        throw new BadRequestException('El precio no puede ser negativo');
+      }
+
       const product = await this.dataSource.getRepository(Product).findOne({
         where: { id: it.productId },
       });
@@ -287,7 +319,7 @@ export class SalesService {
       );
       if (it.cantidad > stock) {
         throw new BadRequestException(
-          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}`,
+          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}, Solicita: ${it.cantidad}`,
         );
       }
 

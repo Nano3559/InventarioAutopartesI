@@ -1,6 +1,9 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { getDashboard, type DashboardData } from '../api/reportes';
+import { getToken } from '../storage/token';
 import {
   colors,
   space,
@@ -17,49 +20,7 @@ import {
 import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-const almacenStats = [
-  { label: 'Solicitudes Pendientes', value: '8', iconName: 'document-text', color: colors.warning },
-  { label: 'En Preparación', value: '3', iconName: 'cube', color: colors.primary },
-  { label: 'Enviadas Hoy', value: '12', iconName: 'car-sport', color: colors.success },
-  { label: 'Productos Críticos', value: '5', iconName: 'alert-circle', color: colors.danger },
-] as const;
-
-const pendingRequests = [
-  { id: 1, producto: 'Farol Toyota Hilux', tienda: 'Tienda 1', cantidad: 5, estado: 'Pendiente', auto: true, fecha: 'Hoy 08:30' },
-  { id: 2, producto: 'Guiñador Nissan NP300', tienda: 'Tienda 2', cantidad: 10, estado: 'Pendiente', auto: false, fecha: 'Hoy 09:15' },
-  { id: 3, producto: 'Stop Toyota RAV4', tienda: 'Tienda 3', cantidad: 3, estado: 'En preparación', auto: true, fecha: 'Ayer 16:45' },
-  { id: 4, producto: 'Espejo Mazda CX-5', tienda: 'Tienda 1', cantidad: 2, estado: 'Pendiente', auto: false, fecha: 'Ayer 14:20' },
-] as const;
-
-const inventoryAlerts = [
-  { producto: 'Farol Toyota Hilux', almacen: 'Almacén 1', stock: 2, minimo: 5, ubicaciones: 'A1:2, A2:0, A3:1, A4:0' },
-  { producto: 'Parachoques Dodge Ram', almacen: 'Almacén 2', stock: 1, minimo: 3, ubicaciones: 'A1:0, A2:1, A3:0, A4:0' },
-  { producto: 'Radiador Jeep Grand Cherokee', almacen: 'Almacén 3', stock: 0, minimo: 2, ubicaciones: 'A1:0, A2:0, A3:0, A4:0' },
-] as const;
-
-const actions = [
-  { label: 'Gestionar Solicitudes', iconName: 'document-text' },
-  { label: 'Registrar Entrada', iconName: 'add-circle' },
-  { label: 'Registrar Salida', iconName: 'remove-circle' },
-  { label: 'Traslado Entre Almacenes', iconName: 'swap-horizontal' },
-  { label: 'Ver Stock Global', iconName: 'analytics' },
-  { label: 'Historial Movimientos', iconName: 'time' },
-] as const;
-
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'primary' | 'info';
-
-const getStatusStyle = (estado: string): { variant: BadgeVariant; icon: string } => {
-  switch (estado) {
-    case 'Pendiente':
-      return { variant: 'warning', icon: 'time' };
-    case 'En preparación':
-      return { variant: 'primary', icon: 'cube' };
-    case 'Enviado':
-      return { variant: 'success', icon: 'checkmark-circle' };
-    default:
-      return { variant: 'default', icon: 'help-circle' };
-  }
-};
 
 export default function InventarioDashboardScreen() {
   const { user, signOut } = useAuth();
@@ -67,6 +28,43 @@ export default function InventarioDashboardScreen() {
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
   const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
+
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const token = await getToken();
+        const data = await getDashboard(token ?? undefined);
+        setDashboard(data);
+      } catch (e) {
+        console.error('Error cargando dashboard:', e);
+        setError('No se pudieron cargar los datos');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const inv = dashboard?.inventario;
+  const ven = dashboard?.ventas;
+  const pendingCount = dashboard?.solicitudesPendientes ?? 0;
+
+  const almacenStats = [
+    { label: 'Solicitudes Pendientes', value: String(pendingCount), iconName: 'document-text', color: colors.warning },
+    { label: 'Productos Sin Stock', value: String(inv?.sinStock ?? 0), iconName: 'alert-circle', color: colors.danger },
+    { label: 'Stock Bajo', value: String(inv?.stockBajo ?? 0), iconName: 'cube', color: colors.primary },
+    { label: 'Ventas del Mes', value: `Bs ${ven?.mes?.total?.toLocaleString() ?? '0'}`, iconName: 'trending-up', color: colors.success },
+  ] as const;
+
+  const criticalProducts = (inv?.stockPorAlmacen ?? [])
+    .flatMap(loc => {
+      const alerts: Array<{ producto: string; almacen: string; stock: number; ubicaciones: string }> = [];
+      return alerts;
+    });
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -88,120 +86,94 @@ export default function InventarioDashboardScreen() {
           <Text style={styles.welcomeSubtitle}>Gestión de stock, solicitudes y movimientos</Text>
         </View>
 
-        {/* Stats Grid */}
-        <Text style={styles.sectionTitle}>Resumen de Almacenes</Text>
-        <View style={styles.statsGrid}>
-          {almacenStats.map((stat, i) => (
-            <StatCard
-              key={i}
-              label={stat.label}
-              value={stat.value}
-              iconName={stat.iconName}
-              color={stat.color}
-              minWidth={statCardMinWidth}
-              accessibilityLabel={`${stat.label}: ${stat.value}`}
-            />
-          ))}
-        </View>
+        {loading ? (
+          <View style={{ padding: space.xl, alignItems: 'center', gap: space.md }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted }}>Cargando datos...</Text>
+          </View>
+        ) : error ? (
+          <View style={{ padding: space.xl, alignItems: 'center', gap: space.md }}>
+            <Ionicons name="alert-circle" size={iconSize['2xl']} color={colors.danger} />
+            <Text style={{ fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.danger }}>{error}</Text>
+          </View>
+        ) : (
+          <>
+            {/* Stats Grid */}
+            <Text style={styles.sectionTitle}>Resumen de Almacenes</Text>
+            <View style={styles.statsGrid}>
+              {almacenStats.map((stat, i) => (
+                <StatCard
+                  key={i}
+                  label={stat.label}
+                  value={stat.value}
+                  iconName={stat.iconName}
+                  color={stat.color}
+                  minWidth={statCardMinWidth}
+                  accessibilityLabel={`${stat.label}: ${stat.value}`}
+                />
+              ))}
+            </View>
 
-        {/* Primary CTA - Gestionar Solicitudes */}
-        <PrimaryCTA
-          label="Gestionar Solicitudes"
-          hint={`${pendingRequests.length} pendientes · ${pendingRequests.filter(r => r.auto).length} auto`}
-          iconName="document-text"
-          color={colors.warning}
-          onPress={() => {}}
-          accessibilityLabel="Gestionar solicitudes de tiendas"
-        />
+            {/* Stock por Almacen */}
+            {inv && inv.stockPorAlmacen.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Stock por Almacén</Text>
+                <TableCard>
+                  {inv.stockPorAlmacen.map((alm, i) => (
+                    <TableRow key={alm.locationId} borderTop={i > 0} accessibilityLabel={`${alm.nombre}, ${alm.productos} productos, ${alm.totalStock} unidades`}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.requestProduct}>{alm.nombre}</Text>
+                        <Text style={styles.requestMeta}>{alm.productos} productos · {alm.totalStock} unidades totales</Text>
+                      </View>
+                      <Badge variant={alm.totalStock === 0 ? 'danger' : alm.totalStock < 50 ? 'warning' : 'success'} size="sm">
+                        {alm.totalStock} uds
+                      </Badge>
+                    </TableRow>
+                  ))}
+                </TableCard>
+              </>
+            )}
 
-        {/* Pending Requests */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Solicitudes de Tiendas</Text>
-          <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver todas las solicitudes">
-            <Text style={styles.seeAllText}>Ver todas</Text>
-            <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
-          </Pressable>
-        </View>
-        <TableCard>
-          {pendingRequests.map((req, i) => {
-            const statusStyle = getStatusStyle(req.estado);
-            return (
-              <TableRow
-                key={i}
-                borderTop={i > 0}
-                accessibilityLabel={`${req.producto}, ${req.tienda}, ${req.cantidad} unidades, ${req.estado}`}
-              >
-                <View style={styles.requestMain}>
-                  <Badge variant={statusStyle.variant} size="sm" dot />
-                  <View style={styles.requestInfo}>
-                    <View style={styles.requestHeader}>
-                      <Text style={styles.requestProduct}>{req.producto}</Text>
-                      {req.auto && (
-                        <Badge variant="primary" size="sm">AUTO</Badge>
-                      )}
-                    </View>
-                    <Text style={styles.requestMeta}>{req.tienda} · {req.cantidad} und · {req.fecha}</Text>
-                  </View>
-                </View>
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() => {}}
-                  accessibilityRole={a11y.button}
-                  accessibilityLabel={`Gestionar solicitud de ${req.producto}`}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  android_ripple={{ color: colors.primarySoft }}
-                >
-                  <Text style={styles.actionBtnText}>Gestionar</Text>
-                </Pressable>
-              </TableRow>
-            );
-          })}
-        </TableCard>
+            {/* Stock por Tienda */}
+            {inv && inv.stockPorTienda.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Stock por Tienda</Text>
+                <TableCard>
+                  {inv.stockPorTienda.map((tienda, i) => (
+                    <TableRow key={tienda.locationId} borderTop={i > 0} accessibilityLabel={`${tienda.nombre}, ${tienda.productos} productos, ${tienda.totalStock} unidades`}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.requestProduct}>{tienda.nombre}</Text>
+                        <Text style={styles.requestMeta}>{tienda.productos} productos · {tienda.totalStock} unidades totales</Text>
+                      </View>
+                      <Badge variant={tienda.totalStock === 0 ? 'danger' : tienda.totalStock < 30 ? 'warning' : 'success'} size="sm">
+                        {tienda.totalStock} uds
+                      </Badge>
+                    </TableRow>
+                  ))}
+                </TableCard>
+              </>
+            )}
 
-        {/* Stock Alerts */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Alertas de Stock Crítico</Text>
-          <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver inventario completo">
-            <Text style={styles.seeAllText}>Ver inventario completo</Text>
-            <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
-          </Pressable>
-        </View>
-        <TableCard>
-          {inventoryAlerts.map((alert, i) => (
-            <TableRow
-              key={i}
-              borderTop={i > 0}
-              accessibilityLabel={`${alert.producto}, ${alert.almacen}, stock ${alert.stock}, mínimo ${alert.minimo}`}
-            >
-              <View style={styles.alertInfo}>
-                <Text style={styles.alertProduct}>{alert.producto}</Text>
-                <Text style={styles.alertLocation}>{alert.almacen}</Text>
-                <Text style={styles.alertDistribution}>{alert.ubicaciones}</Text>
-              </View>
-              <Badge
-                variant={alert.stock === 0 ? 'danger' : 'warning'}
-                size="md"
-              >
-                {alert.stock === 0 ? 'SIN STOCK' : `Stock: ${alert.stock} (Mín: ${alert.minimo})`}
-              </Badge>
-            </TableRow>
-          ))}
-        </TableCard>
-
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-        <View style={styles.actionsGrid}>
-          {actions.map((a, i) => (
-            <ActionCard
-              key={i}
-              label={a.label}
-              iconName={a.iconName}
-              onPress={() => {}}
-              minWidth={actionCardMinWidth}
-              accessibilityLabel={a.label}
-            />
-          ))}
-        </View>
+            {/* Quick Actions */}
+            <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+            <View style={styles.actionsGrid}>
+              <ActionCard
+                label="Gestionar Solicitudes"
+                iconName="document-text"
+                onPress={() => {}}
+                minWidth={actionCardMinWidth}
+                accessibilityLabel="Gestionar solicitudes"
+              />
+              <ActionCard
+                label="Ver Inventario"
+                iconName="analytics"
+                onPress={() => {}}
+                minWidth={actionCardMinWidth}
+                accessibilityLabel="Ver inventario completo"
+              />
+            </View>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

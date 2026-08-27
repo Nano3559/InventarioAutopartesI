@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { getSolicitudes, createSolicitud, updateSolicitudEstado, type Solicitud, type CreateSolicitudInput, type UpdateSolicitudEstadoInput } from '../../api/solicitudes';
 import { productsService } from '../../services/products.service';
-import { getAlmacenes } from '../../api/locations';
+import { getAlmacenes, getTiendas } from '../../api/locations';
 import { useAuth } from '../../context';
 import type { Product } from '../../types/product.types';
 import '../../styles/inventory.css';
@@ -38,6 +38,7 @@ export function SolicitudesPage() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [almacenes, setAlmacenes] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
+  const [tiendas, setTiendas] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
 
   const [formOpen, setFormOpen] = useState<boolean>(false);
   const [editingSolicitud, setEditingSolicitud] = useState<Solicitud | null>(null);
@@ -54,6 +55,14 @@ export function SolicitudesPage() {
 
   const isTienda = user?.rol === 'tienda';
   const isAdminOrInventario = ['admin', 'inventario'].includes(user?.rol || '');
+
+  const getAvailableStock = (productId: number): number => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return 0;
+    return product.stockTotal ?? 0;
+  };
+
+  const selectedAvailable = getAvailableStock(formData.productId);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -82,6 +91,18 @@ export function SolicitudesPage() {
       }
     }
     loadAlmacenes();
+  }, []);
+
+  useEffect(() => {
+    async function loadTiendas() {
+      try {
+        const data = await getTiendas();
+        setTiendas(data);
+      } catch (err) {
+        console.error('Error cargando tiendas:', err);
+      }
+    }
+    loadTiendas();
   }, []);
 
   useEffect(() => {
@@ -117,6 +138,10 @@ export function SolicitudesPage() {
     e.preventDefault();
     if (!formData.productId || formData.cantidad <= 0) {
       showToast('Complete todos los campos requeridos', 'error');
+      return;
+    }
+    if (selectedAvailable > 0 && formData.cantidad > selectedAvailable) {
+      showToast(`La cantidad no puede superar el stock disponible (${selectedAvailable})`, 'error');
       return;
     }
     setSubmitting(true);
@@ -393,7 +418,8 @@ export function SolicitudesPage() {
         )}
       </div>
 
-      <div className={`modal-overlay ${formOpen ? 'open' : ''}`} onClick={handleCloseForm}>
+      {formOpen && (
+      <div className="modal-overlay" onClick={handleCloseForm}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h3>{editingSolicitud ? 'Editar Solicitud' : 'Nueva Solicitud a Almacén'}</h3>
@@ -413,7 +439,7 @@ export function SolicitudesPage() {
                   <option value={0}>Seleccionar producto...</option>
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.producto} — {p.marca} {p.modelo} ({p.codigoFabrica})
+                      {p.producto} — {p.marca} {p.modelo} ({p.codigoFabrica}) [Disponible: {p.stockTotal ?? 0}]
                     </option>
                   ))}
                 </select>
@@ -421,16 +447,30 @@ export function SolicitudesPage() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="cantidad">Cantidad <span className="required">*</span></label>
+                  <label htmlFor="cantidad">
+                    Cantidad <span className="required">*</span>
+                    {formData.productId > 0 && (
+                      <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#38bdf8', marginLeft: '0.5rem' }}>
+                        (Disponible: {selectedAvailable})
+                      </span>
+                    )}
+                  </label>
                   <input
                     id="cantidad"
                     type="number"
                     className="form-input"
                     value={formData.cantidad}
-                    onChange={(e) => setFormData({ ...formData, cantidad: Number(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setFormData({ ...formData, cantidad: val > selectedAvailable && selectedAvailable > 0 ? selectedAvailable : val });
+                    }}
                     min="1"
+                    max={selectedAvailable > 0 ? selectedAvailable : undefined}
                     required
                   />
+                  {formData.productId > 0 && selectedAvailable === 0 && (
+                    <small style={{ color: '#f87171', fontSize: '0.78rem' }}>Sin stock disponible</small>
+                  )}
                 </div>
 
                 {isTienda ? null : (
@@ -444,10 +484,11 @@ export function SolicitudesPage() {
                       required
                     >
                       <option value="">Seleccionar tienda...</option>
-                      {/* Tiendas se cargarían desde API, por ahora hardcodeadas */}
-                      <option value={1}>Tienda 1</option>
-                      <option value={2}>Tienda 2</option>
-                      <option value={3}>Tienda 3</option>
+                      {tiendas.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.nombre}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 )}
@@ -474,6 +515,7 @@ export function SolicitudesPage() {
           </form>
         </div>
       </div>
+      )}
 
       {estadoModalOpen && (
         <div className="modal-overlay open" onClick={handleCloseEstadoModal}>

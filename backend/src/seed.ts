@@ -8,6 +8,7 @@ import { Inventory } from './entities/inventory.entity';
 import { Proveedor } from './entities/proveedor.entity';
 import { Cliente } from './entities/cliente.entity';
 import { Factura } from './entities/factura.entity';
+import { FacturaItem } from './entities/factura-item.entity';
 import { Movimiento } from './entities/movimiento.entity';
 import { Sale } from './entities/sale.entity';
 import { SaleItem } from './entities/sale-item.entity';
@@ -56,6 +57,7 @@ const dataSource = new DataSource({
     Proveedor,
     Cliente,
     Factura,
+    FacturaItem,
     Movimiento,
     Sale,
     SaleItem,
@@ -140,37 +142,37 @@ const USERS: Array<{
   tiendaCodigo: string | null;
 }> = [
   {
-    nombre: 'Brian Admin',
-    email: 'admin@importadoras.com',
-    password: 'admin123',
+    nombre: 'Marco Admin',
+    email: 'admin@autorepuestos.com',
+    password: 'Admin1234!',
     rol: 'admin',
     tiendaCodigo: null,
   },
   {
-    nombre: 'Encargado Inventario',
-    email: 'inventario@importadoras.com',
-    password: 'inventario123',
+    nombre: 'Brian Almacén',
+    email: 'almacen@autorepuestos.com',
+    password: 'Almacen1234!',
     rol: 'inventario',
     tiendaCodigo: null,
   },
   {
-    nombre: 'Vendedor Tienda 1',
-    email: 'tienda1@importadoras.com',
-    password: 'venta123',
+    nombre: 'Raúl Tienda',
+    email: 'tienda1@autorepuestos.com',
+    password: 'Tienda1234!',
     rol: 'tienda',
     tiendaCodigo: 'TDA-1',
   },
   {
     nombre: 'Vendedora Tienda 2',
-    email: 'tienda2@importadoras.com',
-    password: 'venta123',
+    email: 'tienda2@autorepuestos.com',
+    password: 'Tienda1234!',
     rol: 'tienda',
     tiendaCodigo: 'TDA-2',
   },
   {
     nombre: 'Vendedor Tienda 3',
-    email: 'tienda3@importadoras.com',
-    password: 'venta123',
+    email: 'tienda3@autorepuestos.com',
+    password: 'Tienda1234!',
     rol: 'tienda',
     tiendaCodigo: 'TDA-3',
   },
@@ -898,11 +900,9 @@ async function seed(): Promise<void> {
     await seedInventory(products, locations);
 
     console.log('[seed] SEED COMPLETADO');
-    console.log('       admin: admin@importadoras.com / admin123');
-    console.log(
-      '       inventario: inventario@importadoras.com / inventario123',
-    );
-    console.log('       tienda N: tienda1@importadoras.com / venta123');
+    console.log('       admin: admin@autorepuestos.com / Admin1234!');
+    console.log('       inventario: almacen@autorepuestos.com / Almacen1234!');
+    console.log('       tienda: tienda1@autorepuestos.com / Tienda1234!');
   } finally {
     await dataSource.destroy();
   }

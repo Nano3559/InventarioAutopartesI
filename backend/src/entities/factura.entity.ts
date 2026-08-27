@@ -3,9 +3,11 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Proveedor } from './proveedor.entity';
+import { FacturaItem } from './factura-item.entity';
 
 @Entity('facturas')
 export class Factura {
@@ -36,4 +38,7 @@ export class Factura {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
+
+  @OneToMany(() => FacturaItem, (item) => item.factura)
+  items: FacturaItem[];
 }
