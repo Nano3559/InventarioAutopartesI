@@ -65,6 +65,10 @@ export interface LocationItem {
   nombre: string;
   tipo: 'almacen' | 'tienda';
   numero: number;
+  codigo?: string;
+  ubicacion?: string;
+  horarios?: string;
+  contacto?: string;
   ciudad?: string;
   direccion?: string;
   telefono?: string;

@@ -7,7 +7,6 @@ import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import {
   ShoppingBag,
-  ArrowLeftRight,
   Tags,
   DollarSign,
   BarChart3,
@@ -18,6 +17,7 @@ import { ProductDetailPage } from '../pages/inventory/ProductDetailPage';
 import { SalesPage } from '../pages/ventas/SalesPage';
 import { DevolucionesPage } from '../pages/ventas/DevolucionesPage';
 import { SolicitudesPage } from '../pages/ventas/SolicitudesPage';
+import { MovimientosPage } from '../pages/movimientos/MovimientosPage';
 
 export function AppRoutes() {
   return (
@@ -88,18 +88,12 @@ export function AppRoutes() {
           }
         />
 
+        {/* Módulo de Movimientos de Marco (M5) */}
         <Route
           path="movimientos"
           element={
             <ProtectedRoute allowedRoles={['admin', 'inventario']}>
-              <PlaceholderPage
-                title="Movimientos y Traslados"
-                description="Control de traslados entre almacenes y tiendas, confirmación de salidas e ingresos físicos."
-                milestoneCode="M5"
-                responsible="Marco (Web Admin)"
-                targetDay="Día 5 (Lun 24/08)"
-                icon={<ArrowLeftRight size={32} color="#38bdf8" />}
-              />
+              <MovimientosPage />
             </ProtectedRoute>
           }
         />
