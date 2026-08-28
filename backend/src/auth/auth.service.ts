@@ -13,9 +13,17 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string) {
+    if (
+      typeof email !== 'string' ||
+      !email.trim() ||
+      typeof password !== 'string' ||
+      !password
+    ) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
     const repo = this.dataSource.getRepository(User);
     const user = await repo.findOne({
-      where: { email: email.toLowerCase() },
+      where: { email: email.trim().toLowerCase() },
       relations: { tienda: true },
     });
     if (!user) throw new UnauthorizedException('Credenciales inválidas');

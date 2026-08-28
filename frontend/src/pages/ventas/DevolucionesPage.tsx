@@ -35,7 +35,6 @@ export function DevolucionesPage() {
   const [locations, setLocations] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
 
   const [formOpen, setFormOpen] = useState<boolean>(false);
-  const [editingDevolucion, setEditingDevolucion] = useState<Devolucion | null>(null);
 
   const [formData, setFormData] = useState<CreateDevolucionInput>({
     productId: 0,
@@ -113,21 +112,7 @@ export function DevolucionesPage() {
   };
 
   const handleOpenNew = () => {
-    setEditingDevolucion(null);
     setFormData({ productId: 0, motivo: '', cantidad: 1, monto: 0, metodo: 'Efectivo', locationId: undefined });
-    setFormOpen(true);
-  };
-
-  const handleEdit = (dev: Devolucion) => {
-    setEditingDevolucion(dev);
-    setFormData({
-      productId: dev.productId,
-      motivo: dev.motivo,
-      cantidad: dev.cantidad,
-      monto: dev.monto,
-      metodo: dev.metodo,
-      locationId: dev.locationId,
-    });
     setFormOpen(true);
   };
 
@@ -144,7 +129,7 @@ export function DevolucionesPage() {
     setSubmitting(true);
     try {
       await createDevolucion(formData);
-      showToast(editingDevolucion ? 'Devolución actualizada' : 'Devolución registrada');
+      showToast('Devolución registrada');
       handleRefresh();
       setFormOpen(false);
     } catch (err: unknown) {
@@ -157,7 +142,6 @@ export function DevolucionesPage() {
 
   const handleCloseForm = () => {
     setFormOpen(false);
-    setEditingDevolucion(null);
   };
 
   const totalDevueltos = devoluciones.reduce((sum, d) => sum + d.cantidad, 0);
@@ -275,13 +259,12 @@ export function DevolucionesPage() {
                   <th>Método</th>
                   <th>Ubicación</th>
                   <th>Registrado por</th>
-                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {devoluciones.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                       No hay devoluciones registradas
                     </td>
                   </tr>
@@ -305,15 +288,6 @@ export function DevolucionesPage() {
                       <td><span className="badge badge-primary">{dev.metodo}</span></td>
                       <td>{dev.location?.nombre} <small>({dev.location?.tipo})</small></td>
                       <td>{dev.usuario?.nombre}</td>
-                      <td>
-                        <button
-                          className="btn-icon"
-                          onClick={() => handleEdit(dev)}
-                          title="Editar"
-                        >
-                          <History size={16} />
-                        </button>
-                      </td>
                     </tr>
                   ))
                 )}
@@ -327,7 +301,7 @@ export function DevolucionesPage() {
       <div className="modal-overlay" onClick={handleCloseForm}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
-            <h3>{editingDevolucion ? 'Editar Devolución' : 'Nueva Devolución'}</h3>
+            <h3>Nueva Devolución</h3>
             <button className="modal-close" onClick={handleCloseForm}>&times;</button>
           </div>
           <form onSubmit={handleSubmit}>
@@ -462,7 +436,7 @@ export function DevolucionesPage() {
                 ) : (
                   <>
                     <CheckCircle2 size={15} />
-                    <span>{editingDevolucion ? 'Actualizar' : 'Registrar'}</span>
+                    <span>Registrar</span>
                   </>
                 )}
               </button>

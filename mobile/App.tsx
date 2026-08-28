@@ -18,6 +18,7 @@ import SalesScreen from './src/screens/SalesScreen';
 import SalesEditScreen from './src/screens/SalesEditScreen';
 import DevolucionesScreen from './src/screens/DevolucionesScreen';
 import SolicitudesScreen from './src/screens/SolicitudesScreen';
+import VentaMayorScreen from './src/screens/VentaMayorScreen';
 import {
   colors,
   space,
@@ -78,6 +79,9 @@ function getTabIcon(routeName: string, focused: boolean) {
   if (routeName === 'Solicitudes') {
     return focused ? 'document-text' : 'document-text-outline';
   }
+  if (routeName === 'VentaMayor') {
+    return focused ? 'briefcase' : 'briefcase-outline';
+  }
   return focused ? 'cash' : 'cash-outline';
 }
 
@@ -93,6 +97,7 @@ function AdminTabs() {
     >
       <Tab.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Inicio' }} />
       <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
+      <Tab.Screen name="VentaMayor" component={VentaMayorScreen} options={{ title: 'Mayorista' }} />
       <Tab.Screen name="Devoluciones" component={DevolucionesScreen} options={{ title: 'Devoluciones' }} />
       <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
     </Tab.Navigator>
@@ -111,6 +116,7 @@ function TiendaTabs() {
     >
       <Tab.Screen name="TiendaDashboard" component={TiendaDashboardScreen} options={{ title: 'Inicio' }} />
       <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
+      <Tab.Screen name="VentaMayor" component={VentaMayorScreen} options={{ title: 'Mayorista' }} />
       <Tab.Screen name="Devoluciones" component={DevolucionesScreen} options={{ title: 'Devoluciones' }} />
       <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
     </Tab.Navigator>

@@ -5,16 +5,14 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
-import {
-  ShoppingBag,
-  BarChart3,
-} from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 import { InventoryPage } from '../pages/inventory/InventoryPage';
 import { ProductDetailPage } from '../pages/inventory/ProductDetailPage';
 import { SalesPage } from '../pages/ventas/SalesPage';
 import { DevolucionesPage } from '../pages/ventas/DevolucionesPage';
 import { SolicitudesPage } from '../pages/ventas/SolicitudesPage';
+import { VentaMayorPage } from '../pages/ventas/VentaMayorPage';
 import { MovimientosPage } from '../pages/movimientos/MovimientosPage';
 import { CostosPage } from '../pages/costos/CostosPage';
 import { PreciosPage } from '../pages/precios/PreciosPage';
@@ -124,14 +122,7 @@ export function AppRoutes() {
           path="ventas-mayor"
           element={
             <ProtectedRoute allowedRoles={['admin', 'tienda']}>
-              <PlaceholderPage
-                title="Ventas por Mayor"
-                description="Carga rápida de pedidos por lista o importación de archivo Excel con validación de stock."
-                milestoneCode="R7"
-                responsible="Raúl (Web Tienda)"
-                targetDay="Día 7 (Mié 26/08)"
-                icon={<ShoppingBag size={32} color="#60a5fa" />}
-              />
+              <VentaMayorPage />
             </ProtectedRoute>
           }
         />

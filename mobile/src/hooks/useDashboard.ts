@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getDashboard, DashboardResponse } from '../api/reportes';
+import { getDashboard, DashboardData } from '../api/reportes';
 import { getSolicitudes, Solicitud } from '../api/solicitudes';
 import { getSales, Sale } from '../api/sales';
 import { getLocations, Location } from '../api/locations';
 
 export function useAdminDashboard() {
   const { token } = useAuth();
-  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
