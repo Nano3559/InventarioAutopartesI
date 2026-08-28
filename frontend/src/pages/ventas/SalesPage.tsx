@@ -18,7 +18,6 @@ export function SalesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [showProductSearch, setShowProductSearch] = useState(false);
 
   const [cart, setCart] = useState<SaleItemInput[]>([]);
@@ -42,7 +41,6 @@ export function SalesPage() {
       try {
         const data = await productsService.getProducts({});
         setProducts(data);
-        setFilteredProducts(data);
       } catch (err) {
         console.error('Error loading products:', err);
       } finally {
@@ -93,7 +91,7 @@ export function SalesPage() {
         setLastSaleId(sale.id);
       } catch (err) {
         console.error('Error loading sale:', err);
-        showToast('Error al cargar la venta para editar', 'error');
+        setError('Error al cargar la venta para editar');
         navigate('/ventas');
       } finally {
         setLoadingSale(false);
@@ -103,8 +101,8 @@ export function SalesPage() {
     loadSale();
   }, [isEditing, editingSaleId, navigate]);
 
-  useEffect(() => {
-    const results = products.filter((p) => {
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
       const search = searchTerm.toLowerCase();
       return (
         p.producto.toLowerCase().includes(search) ||
@@ -115,7 +113,6 @@ export function SalesPage() {
         p.fabricante.toLowerCase().includes(search)
       );
     });
-    setFilteredProducts(results);
   }, [searchTerm, products]);
 
   const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + item.cantidad * item.precio, 0), [cart]);
@@ -263,7 +260,8 @@ export function SalesPage() {
         setTimeout(() => printWindow.print(), 500);
       }
     } catch (err) {
-      showToast('Error al generar nota de venta', 'error');
+      console.error('Error al generar nota de venta:', err);
+      setError('Error al generar nota de venta');
     }
   };
 
