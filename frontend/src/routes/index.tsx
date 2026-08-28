@@ -7,7 +7,6 @@ import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import {
   ShoppingBag,
-  Tags,
   BarChart3,
 } from 'lucide-react';
 
@@ -18,6 +17,7 @@ import { DevolucionesPage } from '../pages/ventas/DevolucionesPage';
 import { SolicitudesPage } from '../pages/ventas/SolicitudesPage';
 import { MovimientosPage } from '../pages/movimientos/MovimientosPage';
 import { CostosPage } from '../pages/costos/CostosPage';
+import { PreciosPage } from '../pages/precios/PreciosPage';
 
 export function AppRoutes() {
   return (
@@ -56,18 +56,12 @@ export function AppRoutes() {
           }
         />
 
+        {/* Módulo de Precios de Marco (M8) */}
         <Route
           path="precios"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <PlaceholderPage
-                title="Gestión de Precios"
-                description="Cálculo automático de Precio 1 y Precio 2 con porcentajes de margen configurables y exportación a Excel."
-                milestoneCode="M8"
-                responsible="Marco (Web Admin)"
-                targetDay="Día 8 (Jue 27/08)"
-                icon={<Tags size={32} color="#38bdf8" />}
-              />
+              <PreciosPage />
             </ProtectedRoute>
           }
         />

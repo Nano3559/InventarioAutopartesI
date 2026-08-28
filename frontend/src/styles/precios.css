@@ -1,0 +1,100 @@
+/* ==========================================================================
+   Gestión de Precios, Márgenes y Exportación Excel Styles
+   ========================================================================== */
+
+.precios-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   Pricing Table & Margin Badges
+   -------------------------------------------------------------------------- */
+.price-cell-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.price-main-val {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-strong);
+}
+
+.margin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.margin-chip.p1 {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.margin-chip.p2 {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.margin-chip.mayor {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   Export Excel Button
+   -------------------------------------------------------------------------- */
+.btn-excel-export {
+  background: linear-gradient(135deg, #107c41, #185c37);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 124, 65, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-excel-export:hover {
+  background: linear-gradient(135deg, #185c37, #107c41);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 124, 65, 0.45);
+}
+
+.btn-excel-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   Inline Price Edit Modal
+   -------------------------------------------------------------------------- */
+.price-edit-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 100px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.65rem;
+}
