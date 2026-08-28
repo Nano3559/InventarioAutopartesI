@@ -37,11 +37,11 @@ interface Credential {
 }
 
 const CREDENTIALS: readonly Credential[] = [
-  { role: 'Administrador', email: 'admin@importadoras.com', password: 'admin123' },
-  { role: 'Encargado Inventario', email: 'inventario@importadoras.com', password: 'inventario123' },
-  { role: 'Vendedor Tienda 1', email: 'tienda1@importadoras.com', password: 'venta123' },
-  { role: 'Vendedor Tienda 2', email: 'tienda2@importadoras.com', password: 'venta123' },
-  { role: 'Vendedor Tienda 3', email: 'tienda3@importadoras.com', password: 'venta123' },
+  { role: 'Administrador', email: 'admin@autorepuestos.com', password: 'Admin1234!' },
+  { role: 'Encargado Inventario', email: 'almacen@autorepuestos.com', password: 'Almacen1234!' },
+  { role: 'Vendedor Tienda 1', email: 'tienda1@autorepuestos.com', password: 'Tienda1234!' },
+  { role: 'Vendedor Tienda 2', email: 'tienda2@autorepuestos.com', password: 'Tienda1234!' },
+  { role: 'Vendedor Tienda 3', email: 'tienda3@autorepuestos.com', password: 'Tienda1234!' },
 ] as const;
 
 const compStyles = createComponentStyles('light');
@@ -167,7 +167,7 @@ export default function LoginScreen() {
                     onChangeText={setEmail}
                     onFocus={() => setFocusedField('email')}
                     onBlur={() => setFocusedField(null)}
-                    placeholder={isSmallScreen ? 'correo@ejemplo.com' : 'ejemplo@importadoras.com'}
+                    placeholder={isSmallScreen ? 'correo@ejemplo.com' : 'ejemplo@autorepuestos.com'}
                     placeholderTextColor={colors.textPlaceholder}
                     autoCapitalize="none"
                     autoCorrect={false}

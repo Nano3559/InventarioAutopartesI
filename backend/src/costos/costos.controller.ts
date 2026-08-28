@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   UploadedFile,
   UseGuards,
@@ -33,6 +36,11 @@ export class CostosController {
     return this.costosService.findAll();
   }
 
+  @Get('facturas/:id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.costosService.findOne(id);
+  }
+
   @Post('facturas')
   @Roles('admin')
   @UseInterceptors(FileInterceptor('archivo'))
@@ -59,5 +67,11 @@ export class CostosController {
       },
       archivo,
     );
+  }
+
+  @Delete('facturas/:id')
+  @Roles('admin')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.costosService.remove(id);
   }
 }

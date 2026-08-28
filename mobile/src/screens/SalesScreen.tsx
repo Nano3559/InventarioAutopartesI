@@ -165,9 +165,13 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   );
 
   const change = totalPagado - total;
-  const EPSILON = 0.01;
-  const canSubmit = cart.length > 0 && payments.length > 0 && Math.abs(totalPagado - total) <= EPSILON;
-  const paymentMismatch = Math.abs(totalPagado - total) > EPSILON;
+  const canSubmit = cart.length > 0 && payments.length > 0 && Math.abs(totalPagado - total) < 0.01;
+  const hasStockViolation = cart.some((item) => {
+    const p = products.find(pr => pr.product.id === item.productId);
+    return p && item.cantidad > (p.stock ?? 0);
+  });
+  const canSubmitFinal = canSubmit && !hasStockViolation;
+  const paymentMismatch = Math.abs(totalPagado - total) > 0.01;
   const remaining = total - totalPagado;
 
   // Verificar que el usuario tiene tienda asignada
@@ -207,11 +211,20 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
 
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id);
+      const available = product.stockTotal ?? 0;
       if (existing) {
+        if (existing.cantidad >= available) {
+          Alert.alert('Sin stock', `No hay mas stock disponible de "${product.producto}". Disponible: ${available}`);
+          return prev;
+        }
         return prev.map(i => i.productId === product.id
           ? { ...i, cantidad: i.cantidad + 1 }
           : i
         );
+      }
+      if (available <= 0) {
+        Alert.alert('Sin stock', `"${product.producto}" no tiene stock disponible`);
+        return prev;
       }
       return [...prev, { productId: product.id, cantidad: 1, precio: product.precio1 || 0 }];
     });
@@ -221,9 +234,15 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const updateCartQty = (productId: number, cantidad: number) => {
     if (cantidad <= 0) {
       setCart(prev => prev.filter(i => i.productId !== productId));
-      setStockError(null);
-      setStockErrorProductId(null);
-      return;
+    } else {
+      const product = products.find(p => p.product.id === productId);
+      const available = product?.stock ?? 0;
+      if (cantidad > available) {
+        Alert.alert('Stock maximo', `Stock maximo disponible: ${available} unidades`);
+        setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad: available } : i));
+      } else {
+        setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad } : i));
+      }
     }
 
     const productData = products.find(p => p.product.id === productId);
@@ -307,22 +326,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
-    
-    if (!user?.tiendaId) {
-      showToast('Solo usuarios de tienda pueden registrar ventas', 'error');
-      return;
-    }
-    
-    console.log('=== DEBUG VENTA ===');
-    console.log('user.tiendaId:', user?.tiendaId);
-    console.log('user.rol:', user?.rol);
-    console.log('cart:', cart);
-    console.log('payments:', payments);
-    console.log('total:', total);
-    console.log('totalPagado:', totalPagado);
-    console.log('locationId to send:', user?.tiendaId || undefined);
-    
+    if (!canSubmitFinal) return;
     setSubmitting(true);
     try {
       const input: SaleInput = {
@@ -377,53 +381,45 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   }
 
   const renderProductItem = useCallback(({ item }: { item: { product: any; stock: number } }) => {
-    const inCart = cart.find(i => i.productId === item.product.id)?.cantidad ?? 0;
-    const available = item.stock - inCart;
-    const isOutOfStock = available <= 0;
-    const hasError = stockErrorProductId === item.product.id;
-
+    const outOfStock = item.stock <= 0;
     return (
-      <TableRow
-        onPress={isOutOfStock ? undefined : () => addToCart(item.product)}
-        accessibilityLabel={`${item.product.producto}, ${item.product.marca} ${item.product.modelo}, ${item.stock === 0 ? 'Sin stock' : `Disponible: ${available}`}, Bs ${item.product.precio1?.toFixed(2) || '—'}`}
-        accessibilityHint={isOutOfStock ? 'Sin stock disponible' : 'Tocar para agregar al carrito'}
-      >
-        <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.product.producto}</Text>
-          <Text style={styles.productDetail}>
-            {item.product.marca} {item.product.modelo} · {item.product.codigoFabrica}
-          </Text>
-          <View style={styles.productMeta}>
-            <Badge
-              variant={
-                item.stock === 0 ? 'danger' :
-                available <= 0 ? 'danger' :
-                item.stock > 0 && item.stock <= (item.product.stockMinimo || 1) ? 'warning' :
-                'success'
-              }
-              size="sm"
-            >
-              {item.stock === 0 ? 'Sin stock' :
-               available <= 0 ? `En carrito: ${inCart} / Stock: ${item.stock}` :
-               item.stock <= (item.product.stockMinimo || 1) ? `Stock bajo: ${available} disp.` :
-               `Disponible: ${available}`}
-            </Badge>
-            <Text style={styles.priceText}>Bs {item.product.precio1?.toFixed(2) || '—'}</Text>
-          </View>
-          {hasError && (
-            <Text style={styles.stockErrorText}>{stockError}</Text>
-          )}
+    <TableRow
+      onPress={() => !outOfStock && addToCart(item.product)}
+      accessibilityLabel={`${item.product.producto}, ${item.product.marca} ${item.product.modelo}, ${item.stock === 0 ? 'Sin stock' : item.stock <= (item.product.stockMinimo || 1) ? `Stock bajo: ${item.stock}` : `Disponible: ${item.stock}`}, Bs ${item.product.precio1?.toFixed(2) || '—'}`}
+      accessibilityHint={outOfStock ? 'Sin stock disponible' : "Tocar para agregar al carrito"}
+      style={outOfStock ? { opacity: 0.5 } : undefined}
+    >
+      <View style={styles.productInfo}>
+        <Text style={styles.productName}>{item.product.producto}</Text>
+        <Text style={styles.productDetail}>
+          {item.product.marca} {item.product.modelo} · {item.product.codigoFabrica}
+        </Text>
+        <View style={styles.productMeta}>
+          <Badge
+            variant={
+              item.stock === 0 ? 'danger' :
+              item.stock > 0 && item.stock <= (item.product.stockMinimo || 1) ? 'warning' :
+              'success'
+            }
+            size="sm"
+          >
+            {item.stock === 0 ? 'Sin stock' :
+             item.stock <= (item.product.stockMinimo || 1) ? `Stock bajo: ${item.stock}` :
+             `Disponible: ${item.stock}`}
+          </Badge>
+          <Text style={styles.priceText}>Bs {item.product.precio1?.toFixed(2) || '—'}</Text>
         </View>
-        <View style={styles.productAction}>
-          <Ionicons
-            name={isOutOfStock ? 'close-circle' : 'add-circle'}
-            size={iconSize.xl}
-            color={isOutOfStock ? colors.textMuted : colors.primary}
-          />
-        </View>
-      </TableRow>
+      </View>
+      <View style={styles.productAction}>
+        {!outOfStock ? (
+          <Ionicons name="add-circle" size={iconSize.xl} color={colors.primary} />
+        ) : (
+          <Ionicons name="close-circle" size={iconSize.xl} color={colors.danger} />
+        )}
+      </View>
+    </TableRow>
     );
-  }, [cart, stockError, stockErrorProductId]);
+  }, []);
 
   const renderCartItem = useCallback(({ item }: { item: SaleItem }) => {
     const prod = products.find(p => p.product.id === item.productId)?.product;
@@ -826,11 +822,11 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
                 label={isEditing ? 'Actualizar Venta' : 'Confirmar Venta'}
                 hint={`Total: Bs ${total.toFixed(2)}`}
                 iconName="checkmark-circle"
-                color={canSubmit ? colors.success : colors.textMuted}
+                color={canSubmitFinal ? colors.success : colors.textMuted}
                 onPress={handleSubmit}
-                disabled={!canSubmit || submitting || loadingSale}
+                disabled={!canSubmitFinal || submitting || loadingSale}
                 accessibilityLabel={isEditing ? 'Actualizar la venta' : 'Confirmar y registrar la venta'}
-                accessibilityHint={canSubmit ? (isEditing ? 'Presiona para actualizar la venta' : 'Presiona para finalizar la venta') : 'Completa el carrito y los pagos para continuar'}
+                accessibilityHint={canSubmitFinal ? (isEditing ? 'Presiona para actualizar la venta' : 'Presiona para finalizar la venta') : 'Completa el carrito y los pagos para continuar'}
               />
             </View>
           )}

@@ -1,4 +1,4 @@
-import { request } from './client';
+import { api } from '../api/client';
 
 export interface StockUbicacion {
   locationId: number;
@@ -38,6 +38,8 @@ export interface DashboardData {
   solicitudesPendientes: number;
 }
 
-export async function getDashboard(token?: string): Promise<DashboardData> {
-  return request<DashboardData>('/reportes/dashboard', {}, token);
-}
+export const reportesService = {
+  async getDashboard(): Promise<DashboardData> {
+    return api.get<DashboardData>('/reportes/dashboard');
+  },
+};

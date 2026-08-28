@@ -117,6 +117,7 @@ export class SolicitudesService {
         observacion: `Despacho de solicitud #${sol.id}`,
       });
       await movRepo.save(mov);
+      sol.origen = origen;
       sol.origenId = origenId;
     }
 

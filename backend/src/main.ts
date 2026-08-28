@@ -15,15 +15,19 @@ async function bootstrap() {
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
 
-  const listen = (p: number) =>
-    app.listen(p).catch((err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') {
+  const listen = async (p: number): Promise<void> => {
+    try {
+      await app.listen(p);
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException;
+      if (e.code === 'EADDRINUSE') {
         console.warn(`Puerto ${p} en uso, intentando ${p + 1}...`);
         return listen(p + 1);
       }
       throw err;
-    });
+    }
+  };
 
-  await listen(port);
+  void listen(port);
 }
-bootstrap();
+void bootstrap();
