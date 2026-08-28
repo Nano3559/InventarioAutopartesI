@@ -28,6 +28,38 @@ export default function InventarioDashboardScreen() {
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
   const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
+  const { solicitudes, stats, loading, error, refetch } = useInventarioDashboard();
+
+  const almacenStats = [
+    { label: 'Solicitudes Pendientes', value: stats.pendientes.toString(), iconName: 'document-text' as const, color: colors.warning },
+    { label: 'En Preparación', value: stats.enPreparacion.toString(), iconName: 'cube' as const, color: colors.primary },
+    { label: 'Enviadas Hoy', value: stats.enviadasHoy.toString(), iconName: 'car-sport' as const, color: colors.success },
+    { label: 'Productos Críticos', value: stats.criticos.toString(), iconName: 'alert-circle' as const, color: colors.danger },
+  ] as const;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryBtn} onPress={refetch} accessibilityRole={a11y.button}>
+            <Text style={styles.retryBtnText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -222,5 +254,40 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.md,
     marginTop: space.sm,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  loadingText: {
+    color: colors.textMuted,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.lg,
+    gap: space.md,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
+    borderRadius: radius.md,
+  },
+  retryBtnText: {
+    color: colors.white,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
   },
 });

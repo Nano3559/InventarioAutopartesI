@@ -56,7 +56,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Array<{ product: any; stock: number }>>([]);
   const [cart, setCart] = useState<SaleItem[]>([]);
-  const [payments, setPayments] = useState<{ metodo: string; monto: number }[]>([]);
+  const [payments, setPayments] = useState<{ metodo: string; monto: number }[]>([{ metodo: 'Efectivo', monto: 0 }]);
   const [cliente, setCliente] = useState({ nombre: '', ciNit: '', celular: '' });
   const [requiereFactura, setRequiereFactura] = useState(false);
   const [lugarEntrega, setLugarEntrega] = useState('');
@@ -67,20 +67,24 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
   const [printing, setPrinting] = useState(false);
   const [loadingSale, setLoadingSale] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
+  const [stockErrorProductId, setStockErrorProductId] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const editingSaleId = initialSaleId ?? null;
   const isEditing = editingSaleId !== null;
 
   const loadProducts = useCallback(async () => {
     try {
       const token = await getToken();
-      const data = await getProducts({ search: search || undefined }, token ?? undefined);
+      const tiendaId = user?.tiendaId ?? undefined;
+      const data = await getProducts({ search: search || undefined, locationId: tiendaId }, token ?? undefined);
       setProducts(data.map(p => ({ product: p, stock: p.stockTotal })));
     } catch (e) {
       console.error('Error cargando productos:', e);
     } finally {
       setLoadingProducts(false);
     }
-  }, [search]);
+  }, [search, user?.tiendaId]);
 
   useEffect(() => {
     loadProducts();
@@ -170,7 +174,41 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const paymentMismatch = Math.abs(totalPagado - total) > 0.01;
   const remaining = total - totalPagado;
 
+  // Verificar que el usuario tiene tienda asignada
+  const hasTienda = !!user?.tiendaId;
+  if (!hasTienda && cart.length > 0) {
+    console.warn('Usuario sin tiendaId intentando vender:', user?.rol);
+  }
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const addToCart = (product: any) => {
+    if (loadingProducts) {
+      showToast('Cargando productos...', 'error');
+      return;
+    }
+
+    const productData = products.find(p => p.product.id === product.id);
+    if (!productData) {
+      showToast('Producto no encontrado en la lista', 'error');
+      return;
+    }
+
+    const productStock = productData.stock ?? 0;
+    const inCart = cart.find(i => i.productId === product.id)?.cantidad ?? 0;
+    const available = productStock - inCart;
+
+    if (available <= 0) {
+      showToast(`Sin stock: ${product.producto} (disponible: ${productStock})`, 'error');
+      return;
+    }
+
+    setStockError(null);
+    setStockErrorProductId(null);
+
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id);
       const available = product.stockTotal ?? 0;
@@ -190,6 +228,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       }
       return [...prev, { productId: product.id, cantidad: 1, precio: product.precio1 || 0 }];
     });
+    showToast(`Agregado: ${product.producto}`);
   };
 
   const updateCartQty = (productId: number, cantidad: number) => {
@@ -205,6 +244,18 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad } : i));
       }
     }
+
+    const productData = products.find(p => p.product.id === productId);
+    const productStock = productData?.stock ?? 0;
+    if (cantidad > productStock) {
+      const product = productData?.product;
+      showToast(`Stock insuficiente: ${product?.producto || 'producto'} (disponible: ${productStock})`, 'error');
+      return;
+    }
+
+    setStockError(null);
+    setStockErrorProductId(null);
+    setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad } : i));
   };
 
   const updateCartPrice = (productId: number, precio: number) => {
@@ -294,10 +345,10 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       let sale: Sale;
       if (isEditing && editingSaleId !== null) {
         sale = await updateSale(editingSaleId, input, token);
-        Alert.alert('Éxito', `Venta ${sale.codigo} actualizada correctamente`);
+        showToast(`¡Venta ${sale.codigo} actualizada exitosamente!`);
       } else {
         sale = await createSale(input, token);
-        Alert.alert('Éxito', `Venta ${sale.codigo} registrada correctamente`);
+        showToast(`¡Venta ${sale.codigo} registrada exitosamente!`);
       }
       
       setLastSaleId(sale.id);
@@ -305,14 +356,17 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       // Si no estamos editando, limpiar formulario para nueva venta
       if (!isEditing) {
         setCart([]);
-        setPayments([]);
+        setPayments([{ metodo: 'Efectivo', monto: 0 }]);
         setCliente({ nombre: '', ciNit: '', celular: '' });
         setRequiereFactura(false);
         setLugarEntrega('');
         setParaQuien('');
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo procesar la venta');
+      console.error('Error creando venta:', e);
+      console.error('Error status:', e.status);
+      console.error('Error data:', e.data);
+      showToast(e.message || 'No se pudo procesar la venta', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -369,6 +423,10 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
 
   const renderCartItem = useCallback(({ item }: { item: SaleItem }) => {
     const prod = products.find(p => p.product.id === item.productId)?.product;
+    const productStock = products.find(p => p.product.id === item.productId)?.stock ?? 0;
+    const hasError = stockErrorProductId === item.productId;
+    const atMaxStock = item.cantidad >= productStock;
+
     return (
       <TableRow borderTop={true} accessibilityLabel={`${prod?.producto || 'Producto'}, cantidad ${item.cantidad}, precio unitario Bs ${item.precio.toFixed(2)}`}>
         <View style={styles.cartItemInfo}>
@@ -396,14 +454,18 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
                 editable={!submitting}
               />
               <Pressable
-                onPress={() => updateCartQty(item.productId, item.cantidad + 1)}
-                style={styles.qtyBtn}
+                onPress={atMaxStock ? undefined : () => updateCartQty(item.productId, item.cantidad + 1)}
+                style={[
+                  styles.qtyBtn,
+                  atMaxStock && styles.qtyBtnDisabled
+                ]}
                 accessibilityRole={a11y.button}
                 accessibilityLabel="Aumentar cantidad"
+                accessibilityState={{ disabled: atMaxStock }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 android_ripple={{ color: colors.primarySoft }}
               >
-                <Ionicons name="add" size={iconSize.md} color={colors.text} />
+                <Ionicons name="add" size={iconSize.md} color={atMaxStock ? colors.textMuted : colors.text} />
               </Pressable>
             </View>
             <View style={styles.priceControl}>
@@ -417,6 +479,14 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
                 editable={!submitting}
               />
             </View>
+          </View>
+          <View style={styles.stockInfo}>
+            <Text style={styles.stockInfoText}>
+              Stock: {productStock} · {atMaxStock ? 'Máximo alcanzado' : `${productStock - item.cantidad} disponibles`}
+            </Text>
+            {hasError && (
+              <Text style={styles.stockErrorText}>{stockError}</Text>
+            )}
           </View>
         </View>
         <View style={styles.cartItemTotal}>
@@ -434,7 +504,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         </View>
       </TableRow>
     );
-  }, [products, submitting]);
+  }, [products, submitting, stockError, stockErrorProductId]);
 
   const renderPaymentItem = useCallback(({ item, index }: { item: { metodo: string; monto: number }; index: number }) => (
     <TableRow borderTop={index > 0} accessibilityLabel={`Pago ${item.metodo}, Bs ${item.monto.toFixed(2)}`}>
@@ -463,6 +533,15 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         keyboardVerticalOffset={0}
       >
         <Header title="Nueva Venta" />
+
+        {toast && (
+          <View style={[
+            styles.toast,
+            toast.type === 'error' ? styles.toastError : styles.toastSuccess
+          ]}>
+            <Text style={styles.toastText}>{toast.message}</Text>
+          </View>
+        )}
 
         <ScrollView
           contentContainerStyle={styles.content}
@@ -887,5 +966,47 @@ const styles = StyleSheet.create({
   editModeBannerStrong: {
     fontFamily: fontFamily.sansSemiBold,
     color: colors.primary,
+  },
+  stockErrorText: {
+    color: colors.danger,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    marginTop: space.xs,
+  },
+  stockInfo: {
+    marginTop: space.xs,
+    gap: space.xs,
+  },
+  stockInfoText: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+  qtyBtnDisabled: {
+    opacity: 0.4,
+  },
+  toast: {
+    marginHorizontal: space.lg,
+    marginTop: space.md,
+    padding: space.md,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...shadows.level2,
+  },
+  toastSuccess: {
+    backgroundColor: colors.successSoft,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  toastError: {
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  toastText: {
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+    color: colors.text,
   },
 });

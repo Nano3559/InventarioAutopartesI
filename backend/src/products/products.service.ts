@@ -23,6 +23,7 @@ export interface ProductFilters {
   anio?: string;
   codigoOem?: string;
   codigoFabrica?: string;
+  locationId?: number;
 }
 
 @Injectable()
@@ -71,7 +72,7 @@ export class ProductsService {
       .orderBy('p.id', 'DESC')
       .getMany();
 
-    const withStock = await this.attachStock(products);
+    const withStock = await this.attachStock(products, filters.locationId);
     return withStock;
   }
 
@@ -91,7 +92,7 @@ export class ProductsService {
   > {
     if (products.length === 0) return [];
     const ids = products.map((p) => p.id);
-    const inv = await this.invRepo()
+    const qb = this.invRepo()
       .createQueryBuilder('i')
       .select('i."productId"', 'productId')
       .addSelect('SUM(i.cantidad)', 'total')
