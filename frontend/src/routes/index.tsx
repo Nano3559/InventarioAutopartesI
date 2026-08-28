@@ -8,7 +8,6 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import {
   ShoppingBag,
   Tags,
-  DollarSign,
   BarChart3,
 } from 'lucide-react';
 
@@ -18,6 +17,7 @@ import { SalesPage } from '../pages/ventas/SalesPage';
 import { DevolucionesPage } from '../pages/ventas/DevolucionesPage';
 import { SolicitudesPage } from '../pages/ventas/SolicitudesPage';
 import { MovimientosPage } from '../pages/movimientos/MovimientosPage';
+import { CostosPage } from '../pages/costos/CostosPage';
 
 export function AppRoutes() {
   return (
@@ -72,18 +72,12 @@ export function AppRoutes() {
           }
         />
 
+        {/* Módulo de Costos de Marco (M7) */}
         <Route
           path="costos"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <PlaceholderPage
-                title="Costos y Facturas de Compra"
-                description="Registro de compras por factura y proveedor, actualización de stock y costos por ítem."
-                milestoneCode="M7"
-                responsible="Marco (Web Admin)"
-                targetDay="Día 7 (Mié 26/08)"
-                icon={<DollarSign size={32} color="#38bdf8" />}
-              />
+              <CostosPage />
             </ProtectedRoute>
           }
         />

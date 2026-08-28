@@ -1,0 +1,94 @@
+/* ==========================================================================
+   Costos, Facturas de Compra y Proveedores Styles
+   ========================================================================== */
+
+.costos-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   Dynamic Items Table inside Factura Form Modal
+   -------------------------------------------------------------------------- */
+.factura-items-table-container {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-alt);
+}
+
+.factura-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.factura-items-table th {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.factura-items-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.factura-items-table tr:last-child td {
+  border-bottom: none;
+}
+
+.factura-summary-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1.25rem;
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.factura-total-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.factura-total-amount {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #38bdf8;
+  font-family: monospace;
+}
+
+/* --------------------------------------------------------------------------
+   Supplier Pill Badge
+   -------------------------------------------------------------------------- */
+.supplier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.supplier-country-tag {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
