@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { getDashboard, type DashboardData } from '../api/reportes';
-import { getToken } from '../storage/token';
+import { useInventarioDashboard } from '../hooks/useDashboard';
 import {
   colors,
   space,
@@ -28,7 +26,7 @@ export default function InventarioDashboardScreen() {
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
   const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
-  const { solicitudes, stats, loading, error, refetch } = useInventarioDashboard();
+  const { dashboard, stats, loading, error, refetch } = useInventarioDashboard();
 
   const almacenStats = [
     { label: 'Solicitudes Pendientes', value: stats.pendientes.toString(), iconName: 'document-text' as const, color: colors.warning },
@@ -61,42 +59,7 @@ export default function InventarioDashboardScreen() {
     );
   }
 
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const token = await getToken();
-        const data = await getDashboard(token ?? undefined);
-        setDashboard(data);
-      } catch (e) {
-        console.error('Error cargando dashboard:', e);
-        setError('No se pudieron cargar los datos');
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
   const inv = dashboard?.inventario;
-  const ven = dashboard?.ventas;
-  const pendingCount = dashboard?.solicitudesPendientes ?? 0;
-
-  const almacenStats = [
-    { label: 'Solicitudes Pendientes', value: String(pendingCount), iconName: 'document-text', color: colors.warning },
-    { label: 'Productos Sin Stock', value: String(inv?.sinStock ?? 0), iconName: 'alert-circle', color: colors.danger },
-    { label: 'Stock Bajo', value: String(inv?.stockBajo ?? 0), iconName: 'cube', color: colors.primary },
-    { label: 'Ventas del Mes', value: `Bs ${ven?.mes?.total?.toLocaleString() ?? '0'}`, iconName: 'trending-up', color: colors.success },
-  ] as const;
-
-  const criticalProducts = (inv?.stockPorAlmacen ?? [])
-    .flatMap(loc => {
-      const alerts: Array<{ producto: string; almacen: string; stock: number; ubicaciones: string }> = [];
-      return alerts;
-    });
 
   return (
     <SafeAreaView style={styles.safe}>

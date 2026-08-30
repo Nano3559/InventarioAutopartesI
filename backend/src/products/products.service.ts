@@ -72,8 +72,7 @@ export class ProductsService {
       .orderBy('p.id', 'DESC')
       .getMany();
 
-    const withStock = await this.attachStock(products, filters.locationId);
-    return withStock;
+    return this.attachStock(products);
   }
 
   async attachStock(products: Product[]): Promise<
@@ -92,7 +91,7 @@ export class ProductsService {
   > {
     if (products.length === 0) return [];
     const ids = products.map((p) => p.id);
-    const qb = this.invRepo()
+    const inv = await this.invRepo()
       .createQueryBuilder('i')
       .select('i."productId"', 'productId')
       .addSelect('SUM(i.cantidad)', 'total')
