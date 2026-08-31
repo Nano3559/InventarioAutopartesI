@@ -56,7 +56,7 @@ export class ProductsService {
     if (filters.fabricante)
       qb.andWhere('p.fabricante = :f', { f: filters.fabricante });
     if (filters.producto)
-      qb.andWhere('p.producto LIKE :p', { p: `%${filters.producto}%` });
+      qb.andWhere('p.producto LIKE :prod', { prod: `%${filters.producto}%` });
     if (filters.modelo)
       qb.andWhere('p.modelo LIKE :m', { m: `%${filters.modelo}%` });
     if (filters.anio) qb.andWhere('p.anio LIKE :a', { a: `%${filters.anio}%` });
