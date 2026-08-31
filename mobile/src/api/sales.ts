@@ -10,7 +10,7 @@ export interface SaleItem {
 
 export interface PaymentInput {
   metodo: string;
-  cantidad: number;
+  monto: number;
 }
 
 export interface ClienteInput {
@@ -28,6 +28,32 @@ export interface SaleInput {
   lugarEntrega?: string;
   paraQuien?: string;
   locationId?: number;
+}
+
+export interface WholesaleExcelRow {
+  productId: number;
+  producto: string;
+  codigoFabrica: string;
+  cantidad: number;
+  precio: number;
+  stockDisponible: number;
+}
+
+export interface WholesalePreviewResult {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  items: WholesaleExcelRow[];
+  total: number;
+}
+
+export interface WholesaleImportMeta {
+  cliente?: ClienteInput;
+  requiereFactura?: boolean;
+  lugarEntrega?: string;
+  paraQuien?: string;
+  locationId?: number;
+  pagos?: { metodo: string; monto: number }[];
 }
 
 export interface Sale {
@@ -104,5 +130,33 @@ export async function updateSale(id: number, input: SaleInput, token: string): P
   return request<Sale>(`/sales/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
+  }, token);
+}
+
+export async function previewExcel(file: { uri: string; name: string; type: string }, token: string): Promise<WholesalePreviewResult> {
+  const formData = new FormData();
+  formData.append('archivo', file as any);
+  return request<WholesalePreviewResult>('/sales/import-mayor/preview', {
+    method: 'POST',
+    body: formData,
+  }, token);
+}
+
+export async function importExcel(
+  file: { uri: string; name: string; type: string },
+  meta: WholesaleImportMeta,
+  token: string
+): Promise<Sale> {
+  const formData = new FormData();
+  formData.append('archivo', file as any);
+  if (meta.cliente) formData.append('cliente', JSON.stringify(meta.cliente));
+  if (meta.requiereFactura) formData.append('requiereFactura', 'true');
+  if (meta.lugarEntrega) formData.append('lugarEntrega', meta.lugarEntrega);
+  if (meta.paraQuien) formData.append('paraQuien', meta.paraQuien);
+  if (meta.locationId) formData.append('locationId', String(meta.locationId));
+  if (meta.pagos) formData.append('pagos', JSON.stringify(meta.pagos));
+  return request<Sale>('/sales/import-mayor', {
+    method: 'POST',
+    body: formData,
   }, token);
 }

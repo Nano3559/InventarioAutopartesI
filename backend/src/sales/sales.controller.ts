@@ -34,14 +34,18 @@ export class SalesController {
     @Query('tiendaId') tiendaId?: string,
     @Query('tipo') tipo?: string,
     @Query('search') search?: string,
+    @CurrentUser() user?: AuthUser,
   ) {
-    return this.salesService.findAll({
-      desde,
-      hasta,
-      tiendaId: tiendaId ? Number(tiendaId) : undefined,
-      tipo,
-      search,
-    });
+    return this.salesService.findAll(
+      {
+        desde,
+        hasta,
+        tiendaId: tiendaId ? Number(tiendaId) : undefined,
+        tipo,
+        search,
+      },
+      user,
+    );
   }
 
   @Get(':id')
@@ -75,8 +79,11 @@ export class SalesController {
   @Post('import-mayor/preview')
   @Roles('admin', 'tienda', 'inventario')
   @UseInterceptors(FileInterceptor('archivo'))
-  async previewExcel(@UploadedFile() file: Express.Multer.File) {
-    return this.salesService.previewExcel(file);
+  async previewExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.salesService.previewExcel(file, user.tiendaId ?? 1);
   }
 
   @Post('import-mayor')

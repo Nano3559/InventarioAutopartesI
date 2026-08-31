@@ -73,14 +73,38 @@ export class SalesService {
         'Debe registrar al menos un método de pago',
       );
     }
+    if (
+      input.tipo !== undefined &&
+      input.tipo !== 'menor' &&
+      input.tipo !== 'mayor'
+    ) {
+      throw new BadRequestException('Tipo de venta inválido');
+    }
 
     const locationId = input.locationId ?? (user.tiendaId as number) ?? 1;
     const location = await this.locationsService.findOne(locationId);
     if (!location) throw new BadRequestException('Ubicación inválida');
+    if (user.rol === 'tienda' && user.tiendaId !== locationId) {
+      throw new BadRequestException(
+        'La tienda no puede vender desde otra ubicación',
+      );
+    }
 
+    for (const payment of input.pagos) {
+      if (
+        !payment.metodo?.trim() ||
+        !Number.isFinite(payment.monto) ||
+        payment.monto <= 0
+      ) {
+        throw new BadRequestException(
+          'Cada pago requiere método y monto mayor a 0',
+        );
+      }
+    }
     const totalPagos = input.pagos.reduce((a, p) => a + p.monto, 0);
     let total = 0;
     const items: SaleItem[] = [];
+    const requestedByProduct = new Map<number, number>();
 
     for (const it of input.items) {
       if (!it.productId || it.productId <= 0) {
@@ -104,13 +128,16 @@ export class SalesService {
       });
       if (!product) throw new BadRequestException('Producto inexistente');
 
+      const requested =
+        (requestedByProduct.get(it.productId) ?? 0) + it.cantidad;
+      requestedByProduct.set(it.productId, requested);
       const stock = await this.productsService.stockAt(
         it.productId,
         locationId,
       );
-      if (it.cantidad > stock) {
+      if (requested > stock) {
         throw new BadRequestException(
-          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}, Solicita: ${it.cantidad}`,
+          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}, Solicita: ${requested}`,
         );
       }
 
@@ -203,13 +230,16 @@ export class SalesService {
     await solicitudRepo.save(s);
   }
 
-  async findAll(filters: {
-    desde?: string;
-    hasta?: string;
-    tiendaId?: number;
-    tipo?: string;
-    search?: string;
-  }) {
+  async findAll(
+    filters: {
+      desde?: string;
+      hasta?: string;
+      tiendaId?: number;
+      tipo?: string;
+      search?: string;
+    },
+    user?: AuthUser,
+  ) {
     let qb = this.saleRepo()
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.location', 'location')
@@ -225,9 +255,15 @@ export class SalesService {
         s: `%${filters.search}%`,
       });
     }
-    if (filters.tiendaId) {
+    const tiendaId = user?.rol === 'tienda' ? user.tiendaId : filters.tiendaId;
+    if (user?.rol === 'tienda' && !tiendaId) {
+      throw new BadRequestException(
+        'La tienda no está asignada a una ubicación',
+      );
+    }
+    if (tiendaId) {
       qb = qb.andWhere('s.locationId = :tiendaId', {
-        tiendaId: filters.tiendaId,
+        tiendaId,
       });
     }
     if (filters.tipo) {
@@ -273,23 +309,48 @@ export class SalesService {
         'Debe registrar al menos un método de pago',
       );
     }
+    if (
+      input.tipo !== undefined &&
+      input.tipo !== 'menor' &&
+      input.tipo !== 'mayor'
+    ) {
+      throw new BadRequestException('Tipo de venta inválido');
+    }
 
     const locationId = input.locationId ?? sale.locationId;
     const location = await this.locationsService.findOne(locationId);
     if (!location) throw new BadRequestException('Ubicación inválida');
-
-    // Restaurar stock anterior
-    for (const item of sale.items) {
-      await this.productsService.adjustStock(
-        item.productId,
-        sale.locationId,
-        item.cantidad,
+    if (user.rol === 'tienda' && user.tiendaId !== locationId) {
+      throw new BadRequestException(
+        'La tienda no puede vender desde otra ubicación',
       );
+    }
+
+    for (const payment of input.pagos) {
+      if (
+        !payment.metodo?.trim() ||
+        !Number.isFinite(payment.monto) ||
+        payment.monto <= 0
+      ) {
+        throw new BadRequestException(
+          'Cada pago requiere método y monto mayor a 0',
+        );
+      }
     }
 
     const totalPagos = input.pagos.reduce((a, p) => a + p.monto, 0);
     let total = 0;
     const items: SaleItem[] = [];
+    const requestedByProduct = new Map<number, number>();
+    const restoredByProduct = new Map<number, number>();
+    if (sale.locationId === locationId) {
+      for (const item of sale.items) {
+        restoredByProduct.set(
+          item.productId,
+          (restoredByProduct.get(item.productId) ?? 0) + item.cantidad,
+        );
+      }
+    }
 
     for (const it of input.items) {
       if (!it.productId || it.productId <= 0) {
@@ -313,13 +374,17 @@ export class SalesService {
       });
       if (!product) throw new BadRequestException('Producto inexistente');
 
+      const requested =
+        (requestedByProduct.get(it.productId) ?? 0) + it.cantidad;
+      requestedByProduct.set(it.productId, requested);
       const stock = await this.productsService.stockAt(
         it.productId,
         locationId,
       );
-      if (it.cantidad > stock) {
+      const available = stock + (restoredByProduct.get(it.productId) ?? 0);
+      if (requested > available) {
         throw new BadRequestException(
-          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${stock}, Solicita: ${it.cantidad}`,
+          `Stock insuficiente de "${product.producto}" en ${location.nombre}. Disponible: ${available}, Solicita: ${requested}`,
         );
       }
 
@@ -338,6 +403,15 @@ export class SalesService {
     if (Math.abs(totalPagos - total) > 0.01) {
       throw new BadRequestException(
         `El total de pagos (Bs ${totalPagos.toFixed(2)}) no coincide con el total de la venta (Bs ${total.toFixed(2)})`,
+      );
+    }
+
+    // Only mutate inventory after every input has passed validation.
+    for (const item of sale.items) {
+      await this.productsService.adjustStock(
+        item.productId,
+        sale.locationId,
+        item.cantidad,
       );
     }
 
@@ -461,6 +535,7 @@ export class SalesService {
 
   async previewExcel(
     file: Express.Multer.File,
+    locationId = 1,
   ): Promise<WholesaleImportResult> {
     if (!file) {
       throw new BadRequestException('No se recibió ningún archivo Excel');
@@ -482,6 +557,7 @@ export class SalesService {
     const errors: string[] = [];
     const warnings: string[] = [];
     const items: WholesaleImportResult['items'] = [];
+    const requestedByProduct = new Map<number, number>();
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -527,11 +603,16 @@ export class SalesService {
         continue;
       }
 
-      const stockDisponible = await this.productsService.stockAt(product.id, 1);
+      const stockDisponible = await this.productsService.stockAt(
+        product.id,
+        locationId,
+      );
+      const requested = (requestedByProduct.get(product.id) ?? 0) + cantidad;
+      requestedByProduct.set(product.id, requested);
 
-      if (cantidad > stockDisponible) {
+      if (requested > stockDisponible) {
         errors.push(
-          `Fila ${rowNum}: Stock insuficiente de "${product.producto}" (${product.codigoFabrica}). Solicita: ${cantidad}, Disponible: ${stockDisponible}`,
+          `Fila ${rowNum}: Stock insuficiente de "${product.producto}" (${product.codigoFabrica}). Solicita acumulada: ${requested}, Disponible: ${stockDisponible}`,
         );
         continue;
       }
@@ -587,7 +668,8 @@ export class SalesService {
     },
     user: AuthUser,
   ): Promise<Sale> {
-    const preview = await this.previewExcel(file);
+    const locationId = meta.locationId ?? (user.tiendaId as number) ?? 1;
+    const preview = await this.previewExcel(file, locationId);
 
     if (!preview.ok) {
       throw new BadRequestException({
@@ -603,15 +685,30 @@ export class SalesService {
       );
     }
 
-    const locationId = meta.locationId ?? (user.tiendaId as number) ?? 1;
     const location = await this.locationsService.findOne(locationId);
     if (!location) throw new BadRequestException('Ubicación inválida');
+    if (user.rol === 'tienda' && user.tiendaId !== locationId) {
+      throw new BadRequestException(
+        'La tienda no puede vender desde otra ubicación',
+      );
+    }
 
     const total = preview.total;
     const pagos =
       meta.pagos && meta.pagos.length > 0
         ? meta.pagos
         : [{ metodo: 'efectivo', monto: total }];
+    for (const payment of pagos) {
+      if (
+        !payment.metodo?.trim() ||
+        !Number.isFinite(payment.monto) ||
+        payment.monto <= 0
+      ) {
+        throw new BadRequestException(
+          'Cada pago requiere método y monto mayor a 0',
+        );
+      }
+    }
 
     const totalPagos = pagos.reduce((a, p) => a + p.monto, 0);
     if (Math.abs(totalPagos - total) > 0.01) {

@@ -38,10 +38,10 @@ export const bearer = (token: string) => ({
 });
 
 export const TEST_USERS = {
-  admin: { email: 'admin@autorepuestos.com', password: 'Admin1234!' },
+  admin: { email: 'admin@importadoras.com', password: 'admin123' },
   inventario: {
-    email: 'almacen@autorepuestos.com',
-    password: 'Almacen1234!',
+    email: 'inventario@importadoras.com',
+    password: 'inventario123',
   },
-  tienda: { email: 'tienda1@autorepuestos.com', password: 'Tienda1234!' },
+  tienda: { email: 'tienda1@importadoras.com', password: 'venta123' },
 };

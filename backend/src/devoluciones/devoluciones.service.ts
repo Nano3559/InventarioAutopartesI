@@ -48,12 +48,25 @@ export class DevolucionesService {
       .getRepository(Product)
       .findOne({ where: { id: input.productId } });
     if (!product) throw new NotFoundException('Producto no encontrado');
-    if (input.cantidad <= 0 || input.monto <= 0) {
-      throw new BadRequestException('Cantidad y monto deben ser mayores a 0');
+    if (
+      !Number.isFinite(input.cantidad) ||
+      !Number.isInteger(input.cantidad) ||
+      input.cantidad <= 0 ||
+      !Number.isFinite(input.monto) ||
+      input.monto <= 0
+    ) {
+      throw new BadRequestException(
+        'Cantidad debe ser entera y monto debe ser mayor a 0',
+      );
     }
     const locationId = input.locationId ?? user.tiendaId ?? 1;
     const location = await this.locationsService.findOne(locationId);
     if (!location) throw new BadRequestException('Ubicación inválida');
+    if (user.rol === 'tienda' && user.tiendaId !== locationId) {
+      throw new BadRequestException(
+        'La tienda no puede registrar devoluciones en otra ubicación',
+      );
+    }
 
     const dev = this.repo().create({
       productId: input.productId,

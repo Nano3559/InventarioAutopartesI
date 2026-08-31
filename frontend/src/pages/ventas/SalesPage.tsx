@@ -161,6 +161,12 @@ export function SalesPage() {
   const handleQtyChange = (productId: number, delta: number) => {
     const product = products.find((p) => p.id === productId);
     const available = product?.stockTotal ?? 0;
+
+    if (available <= 0) {
+      setCart((current) => current.filter((item) => item.productId !== productId));
+      showToast('El producto ya no tiene stock disponible.', 'error');
+      return;
+    }
     
     setCart(cart.map((item) => {
       if (item.productId === productId) {
