@@ -2,14 +2,13 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 
-export async function createApp(): Promise<INestApplication<App>> {
+export async function createApp(): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  const app = moduleFixture.createNestApplication<App>();
+  const app = moduleFixture.createNestApplication();
   app.setGlobalPrefix('api');
   await app.init();
   return app;

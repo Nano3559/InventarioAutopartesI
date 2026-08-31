@@ -31,7 +31,9 @@ import { ReportesModule } from './reportes/reportes.module';
         password: config.get('DB_PASSWORD', 'postgres'),
         database: config.get('DB_NAME', 'inventario'),
         autoLoadEntities: true,
-        synchronize: true,
+        // Activar synchronize solo en desarrollo. En producción usar DB_SYNC=false
+        // y aplicar migraciones de forma controlada.
+        synchronize: config.get('DB_SYNC', 'true') === 'true',
       }),
     }),
     AuthModule,

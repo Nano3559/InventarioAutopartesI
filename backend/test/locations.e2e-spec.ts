@@ -1,10 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { createApp, login, bearer, TEST_USERS } from './test-utils';
 
 describe('Locations (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
 
   beforeAll(async () => {
     app = await createApp();

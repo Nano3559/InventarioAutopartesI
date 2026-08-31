@@ -1,6 +1,5 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { Product } from '../src/entities/product.entity';
 import { Inventory } from '../src/entities/inventory.entity';
@@ -8,7 +7,7 @@ import { Movimiento } from '../src/entities/movimiento.entity';
 import { createApp, db, login, bearer, TEST_USERS } from './test-utils';
 
 describe('Movimientos (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let ds: DataSource;
   let adminToken: string;
   let tiendaToken: string;
