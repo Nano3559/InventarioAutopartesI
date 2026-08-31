@@ -1,0 +1,70 @@
+/* ==========================================================================
+   Global Responsive Web Optimizations
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Layout Adjustments */
+  .app-main {
+    padding: 1rem !important;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  /* Form Grids */
+  .form-grid-2cols,
+  .form-grid-3cols,
+  .form-grid-4cols {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Modals */
+  .modal-dialog {
+    width: 94vw !important;
+    max-height: 92vh !important;
+    padding: 1.25rem !important;
+    margin: 1rem auto;
+  }
+
+  /* Tables wrapper */
+  .table-responsive-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-sm);
+  }
+
+  .inventory-table th,
+  .inventory-table td {
+    padding: 0.75rem 0.6rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Filters */
+  .filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .filters-search-wrapper {
+    min-width: 100% !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .ranking-grid-2cols {
+    grid-template-columns: 1fr !important;
+  }
+}

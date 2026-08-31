@@ -1,6 +1,9 @@
-import { useAuth } from '../context';
-import { LogOut, Menu, Store, Warehouse, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { useAuth, useNotifications } from '../context';
+import { LogOut, Menu, Store, Warehouse, Shield, Bell } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { NotificationDrawer } from '../components/notifications/NotificationDrawer';
+import '../styles/notifications.css';
 
 interface NavbarProps {
   onToggleMobileSidebar: () => void;
@@ -8,6 +11,8 @@ interface NavbarProps {
 
 export function Navbar({ onToggleMobileSidebar }: NavbarProps) {
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const location = useLocation();
 
   // Generar título o breadcrumb a partir del pathname
@@ -67,6 +72,29 @@ export function Navbar({ onToggleMobileSidebar }: NavbarProps) {
             <span>Vista Centralizada</span>
           </div>
         )}
+
+        {/* Campana de Notificaciones */}
+        <div className="notifications-menu-wrapper">
+          <button
+            type="button"
+            className="notification-bell-btn"
+            onClick={() => setNotificationsOpen((prev) => !prev)}
+            title="Alertas y Notificaciones"
+            aria-label="Notificaciones"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className="notification-badge-pill">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          <NotificationDrawer
+            isOpen={notificationsOpen}
+            onClose={() => setNotificationsOpen(false)}
+          />
+        </div>
 
         <button
           type="button"
