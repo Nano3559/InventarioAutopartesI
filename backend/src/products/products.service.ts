@@ -75,7 +75,10 @@ export class ProductsService {
     return this.attachStock(products);
   }
 
-  async attachStock(products: Product[]): Promise<
+  async attachStock(
+    products: Product[],
+    locationId?: number,
+  ): Promise<
     Array<
       Product & {
         stockTotal: number;
@@ -91,13 +94,19 @@ export class ProductsService {
   > {
     if (products.length === 0) return [];
     const ids = products.map((p) => p.id);
-    const inv = await this.invRepo()
+    const stockQuery = this.invRepo()
       .createQueryBuilder('i')
       .select('i."productId"', 'productId')
       .addSelect('SUM(i.cantidad)', 'total')
       .where('i."productId" IN (:...ids)', { ids })
-      .groupBy('i."productId"')
-      .getRawMany<{ productId: number; total: number }>();
+      .groupBy('i."productId"');
+    if (locationId) {
+      stockQuery.andWhere('i."locationId" = :locationId', { locationId });
+    }
+    const inv = await stockQuery.getRawMany<{
+      productId: number;
+      total: number;
+    }>();
     const map = new Map(inv.map((r) => [Number(r.productId), Number(r.total)]));
 
     const allInv = await this.invRepo()
@@ -313,10 +322,20 @@ export class ProductsService {
   }
 
   async setStock(productId: number, locationId: number, cantidad: number) {
-    if (cantidad < 0)
+    if (
+      !Number.isFinite(cantidad) ||
+      !Number.isInteger(cantidad) ||
+      cantidad < 0
+    )
       throw new BadRequestException(
-        'La cantidad de stock no puede ser negativa',
+        'La cantidad de stock debe ser un entero no negativo',
       );
+    const product = await this.repo().findOne({ where: { id: productId } });
+    if (!product) throw new NotFoundException('Producto no encontrado');
+    const location = await this.locRepo().findOne({
+      where: { id: locationId },
+    });
+    if (!location) throw new BadRequestException('Ubicación inválida');
     const inv = await this.invRepo().findOne({
       where: { productId, locationId },
     });

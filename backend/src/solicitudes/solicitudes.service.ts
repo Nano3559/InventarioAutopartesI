@@ -47,14 +47,23 @@ export class SolicitudesService {
       .getRepository(Product)
       .findOne({ where: { id: input.productId } });
     if (!product) throw new NotFoundException('Producto no encontrado');
-    if (input.cantidad <= 0)
-      throw new BadRequestException('La cantidad debe ser mayor a 0');
+    if (
+      !Number.isFinite(input.cantidad) ||
+      !Number.isInteger(input.cantidad) ||
+      input.cantidad <= 0
+    )
+      throw new BadRequestException('La cantidad debe ser un entero mayor a 0');
     const tiendaId = input.tiendaId ?? user.tiendaId;
     if (!tiendaId)
       throw new BadRequestException('Tienda no asignada al usuario');
     const tienda = await this.locationsService.findOne(tiendaId);
     if (!tienda || tienda.tipo !== 'tienda')
       throw new BadRequestException('Ubicación destino debe ser una tienda');
+    if (user.rol === 'tienda' && user.tiendaId !== tiendaId) {
+      throw new BadRequestException(
+        'La tienda no puede crear solicitudes para otra tienda',
+      );
+    }
 
     const sol = this.repo().create({
       productId: input.productId,
@@ -82,6 +91,19 @@ export class SolicitudesService {
       .where('s.id = :id', { id })
       .getOne();
     if (!sol) throw new NotFoundException('Solicitud no encontrada');
+
+    const allowedTransitions: Record<string, string[]> = {
+      Pendiente: ['En preparación', 'Cancelado'],
+      'En preparación': ['Enviado', 'Cancelado'],
+      Enviado: ['Recibido'],
+      Recibido: [],
+      Cancelado: [],
+    };
+    if (!allowedTransitions[sol.estado]?.includes(input.estado)) {
+      throw new BadRequestException(
+        `No se puede cambiar de ${sol.estado} a ${input.estado}`,
+      );
+    }
 
     if (input.estado === 'Enviado' && sol.estado === 'En preparación') {
       const origenId = input.origenId ?? sol.origenId;

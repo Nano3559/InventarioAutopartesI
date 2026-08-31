@@ -232,30 +232,21 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   };
 
   const updateCartQty = (productId: number, cantidad: number) => {
+    const product = products.find(p => p.product.id === productId);
+    const available = product?.stock ?? 0;
+    const nextQuantity = Math.min(Math.max(0, cantidad), available);
     if (cantidad <= 0) {
       setCart(prev => prev.filter(i => i.productId !== productId));
+    } else if (available <= 0) {
+      setCart(prev => prev.filter(i => i.productId !== productId));
     } else {
-      const product = products.find(p => p.product.id === productId);
-      const available = product?.stock ?? 0;
       if (cantidad > available) {
         Alert.alert('Stock maximo', `Stock maximo disponible: ${available} unidades`);
-        setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad: available } : i));
-      } else {
-        setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad } : i));
       }
+      setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad: nextQuantity } : i));
     }
-
-    const productData = products.find(p => p.product.id === productId);
-    const productStock = productData?.stock ?? 0;
-    if (cantidad > productStock) {
-      const product = productData?.product;
-      showToast(`Stock insuficiente: ${product?.producto || 'producto'} (disponible: ${productStock})`, 'error');
-      return;
-    }
-
     setStockError(null);
     setStockErrorProductId(null);
-    setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad } : i));
   };
 
   const updateCartPrice = (productId: number, precio: number) => {
@@ -387,7 +378,6 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       onPress={() => !outOfStock && addToCart(item.product)}
       accessibilityLabel={`${item.product.producto}, ${item.product.marca} ${item.product.modelo}, ${item.stock === 0 ? 'Sin stock' : item.stock <= (item.product.stockMinimo || 1) ? `Stock bajo: ${item.stock}` : `Disponible: ${item.stock}`}, Bs ${item.product.precio1?.toFixed(2) || '—'}`}
       accessibilityHint={outOfStock ? 'Sin stock disponible' : "Tocar para agregar al carrito"}
-      style={outOfStock ? { opacity: 0.5 } : undefined}
     >
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.product.producto}</Text>
