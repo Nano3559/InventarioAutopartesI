@@ -833,9 +833,7 @@ async function seedProducts(): Promise<Product[]> {
     }
 
     if (!prod.imagenHash) {
-      const buffer = await generatePlaceholderImage(
-        prod.id || PRODUCTS.indexOf(def) + 1,
-      );
+      const buffer = await generatePlaceholderImage(prod.id || PRODUCTS.indexOf(def) + 1);
       const filename = `seed-${prod.codigoFabrica}-${Date.now()}.png`;
       fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
       prod.imagen = `/uploads/${filename}`;
