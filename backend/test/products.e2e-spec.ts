@@ -1,6 +1,5 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,7 +13,7 @@ const PNG_1PX = Buffer.from(
 );
 
 describe('Products (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let ds: DataSource;
   let adminToken: string;
   let inventarioToken: string;

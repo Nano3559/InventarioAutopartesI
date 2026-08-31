@@ -1,6 +1,5 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Product } from '../src/entities/product.entity';
@@ -22,7 +21,7 @@ function buildExcel(rows: Array<[string, string, number, number]>): Buffer {
 }
 
 describe('Sales (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let ds: DataSource;
   let adminToken: string;
   let tiendaToken: string;

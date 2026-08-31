@@ -1,10 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { createApp, login, bearer, TEST_USERS } from './test-utils';
 
 describe('Reportes (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let adminToken: string;
   let tiendaToken: string;
 

@@ -1,12 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { User } from '../src/entities/user.entity';
 import { createApp, db, login, bearer, TEST_USERS } from './test-utils';
 
 describe('Users (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let ds: DataSource;
   let adminToken: string;
   let tiendaToken: string;
