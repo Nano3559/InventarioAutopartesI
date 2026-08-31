@@ -3,10 +3,7 @@ import { MainLayout } from '../layouts/MainLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
-import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
-import { BarChart3 } from 'lucide-react';
-
 import { InventoryPage } from '../pages/inventory/InventoryPage';
 import { ProductDetailPage } from '../pages/inventory/ProductDetailPage';
 import { SalesPage } from '../pages/ventas/SalesPage';
@@ -16,6 +13,7 @@ import { VentaMayorPage } from '../pages/ventas/VentaMayorPage';
 import { MovimientosPage } from '../pages/movimientos/MovimientosPage';
 import { CostosPage } from '../pages/costos/CostosPage';
 import { PreciosPage } from '../pages/precios/PreciosPage';
+import { ReportesPage } from '../pages/reportes/ReportesPage';
 
 export function AppRoutes() {
   return (
@@ -84,18 +82,12 @@ export function AppRoutes() {
           }
         />
 
+        {/* Módulo de Reportes de Marco (M9) */}
         <Route
           path="reportes"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <PlaceholderPage
-                title="Reportes y Estadísticas"
-                description="Métricas de ventas diarias, mensuales, por tienda, por marca y reportes de rentabilidad."
-                milestoneCode="M9"
-                responsible="Marco (Web Admin)"
-                targetDay="Día 9 (Vie 28/08)"
-                icon={<BarChart3 size={32} color="#38bdf8" />}
-              />
+              <ReportesPage />
             </ProtectedRoute>
           }
         />
