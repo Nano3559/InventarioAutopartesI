@@ -19,6 +19,7 @@ import SalesEditScreen from './src/screens/SalesEditScreen';
 import DevolucionesScreen from './src/screens/DevolucionesScreen';
 import SolicitudesScreen from './src/screens/SolicitudesScreen';
 import VentaMayorScreen from './src/screens/VentaMayorScreen';
+import InventarioScreen from './src/screens/InventarioScreen';
 import {
   colors,
   space,
@@ -70,6 +71,9 @@ function getTabIcon(routeName: string, focused: boolean) {
   if (routeName === 'AdminDashboard' || routeName === 'TiendaDashboard' || routeName === 'InventarioDashboard') {
     return focused ? 'home' : 'home-outline';
   }
+  if (routeName === 'Inventario') {
+    return focused ? 'cube' : 'cube-outline';
+  }
   if (routeName === 'Sales') {
     return focused ? 'cash' : 'cash-outline';
   }
@@ -96,9 +100,9 @@ function AdminTabs() {
       })}
     >
       <Tab.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Inicio' }} />
+      <Tab.Screen name="Inventario" component={InventarioScreen} options={{ title: 'Inventario' }} />
       <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
       <Tab.Screen name="VentaMayor" component={VentaMayorScreen} options={{ title: 'Mayorista' }} />
-      <Tab.Screen name="Devoluciones" component={DevolucionesScreen} options={{ title: 'Devoluciones' }} />
       <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
     </Tab.Navigator>
   );
@@ -115,9 +119,9 @@ function TiendaTabs() {
       })}
     >
       <Tab.Screen name="TiendaDashboard" component={TiendaDashboardScreen} options={{ title: 'Inicio' }} />
+      <Tab.Screen name="Inventario" component={InventarioScreen} options={{ title: 'Catálogo' }} />
       <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
       <Tab.Screen name="VentaMayor" component={VentaMayorScreen} options={{ title: 'Mayorista' }} />
-      <Tab.Screen name="Devoluciones" component={DevolucionesScreen} options={{ title: 'Devoluciones' }} />
       <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
     </Tab.Navigator>
   );
@@ -134,7 +138,7 @@ function InventarioTabs() {
       })}
     >
       <Tab.Screen name="InventarioDashboard" component={InventarioDashboardScreen} options={{ title: 'Inicio' }} />
-      <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
+      <Tab.Screen name="Inventario" component={InventarioScreen} options={{ title: 'Inventario' }} />
       <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
     </Tab.Navigator>
   );

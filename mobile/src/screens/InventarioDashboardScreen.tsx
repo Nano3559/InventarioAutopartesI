@@ -1,6 +1,10 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useState, useEffect } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../types/navigation';
 import { getDashboard, type DashboardData } from '../api/reportes';
 import {
   colors,
@@ -8,18 +12,15 @@ import {
   radius,
   fontFamily,
   fontSize,
-  lineHeight,
-  componentStyles,
-  shadows,
-  opacity,
   iconSize,
-  a11y,
+  shadows,
 } from '../theme';
-import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
+import { Header, StatCard, ActionCard, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function InventarioDashboardScreen() {
   const { user, signOut } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
@@ -44,6 +45,13 @@ export default function InventarioDashboardScreen() {
   }, []);
 
   const inv = dashboard?.inventario;
+
+  const almacenStats = inv ? [
+    { label: 'Total Productos', value: inv.totalProductos.toLocaleString(), iconName: 'cube' as const, color: colors.primary },
+    { label: 'Stock Bajo', value: inv.stockBajo.toString(), iconName: 'alert-circle' as const, color: colors.warning },
+    { label: 'Sin Stock', value: inv.sinStock.toString(), iconName: 'close-circle' as const, color: colors.danger },
+    { label: 'Solicitudes', value: (dashboard?.solicitudesPendientes ?? 0).toString(), iconName: 'document-text' as const, color: colors.success },
+  ] : [];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -139,14 +147,14 @@ export default function InventarioDashboardScreen() {
               <ActionCard
                 label="Gestionar Solicitudes"
                 iconName="document-text"
-                onPress={() => {}}
+                onPress={() => navigation.navigate('Solicitudes')}
                 minWidth={actionCardMinWidth}
                 accessibilityLabel="Gestionar solicitudes"
               />
               <ActionCard
                 label="Ver Inventario"
                 iconName="analytics"
-                onPress={() => {}}
+                onPress={() => navigation.navigate('Inventario')}
                 minWidth={actionCardMinWidth}
                 accessibilityLabel="Ver inventario completo"
               />

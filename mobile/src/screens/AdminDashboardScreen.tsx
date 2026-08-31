@@ -7,28 +7,28 @@ import {
   radius,
   fontFamily,
   fontSize,
-  lineHeight,
-  componentStyles,
-  shadows,
-  opacity,
   iconSize,
+  shadows,
   a11y,
 } from '../theme';
 import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAdminDashboard } from '../hooks/useDashboard';
 
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../types/navigation';
+
 const actions = [
-  { label: 'Inventario', iconName: 'cube' },
-  { label: 'Nueva Venta', iconName: 'cash' },
-  { label: 'Reportes', iconName: 'stats-chart' },
-  { label: 'Movimientos', iconName: 'swap-horizontal' },
-  { label: 'Precios', iconName: 'pricetag' },
-  { label: 'Costos', iconName: 'wallet' },
+  { label: 'Inventario', iconName: 'cube', route: 'Inventario' },
+  { label: 'Nueva Venta', iconName: 'cash', route: 'Sales' },
+  { label: 'Solicitudes', iconName: 'document-text', route: 'Solicitudes' },
+  { label: 'Mayorista', iconName: 'briefcase', route: 'VentaMayor' },
 ] as const;
 
 export default function AdminDashboardScreen() {
   const { user, signOut } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
@@ -145,7 +145,7 @@ export default function AdminDashboardScreen() {
           {/* Low Stock */}
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Stock Crítico</Text>
-            <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver inventario completo">
+            <Pressable style={styles.seeAll} onPress={() => navigation.navigate('Inventario')} accessibilityRole={a11y.button} accessibilityLabel="Ver inventario completo">
               <Text style={styles.seeAllText}>Ver inventario</Text>
               <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
             </Pressable>
@@ -175,7 +175,7 @@ export default function AdminDashboardScreen() {
                 key={i}
                 label={a.label}
                 iconName={a.iconName}
-                onPress={() => {}}
+                onPress={() => navigation.navigate(a.route as any)}
                 minWidth={actionCardMinWidth}
                 accessibilityLabel={a.label}
               />
