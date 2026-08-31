@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { getDashboard, type DashboardData } from '../api/reportes';
-import { getToken } from '../storage/token';
 import {
   colors,
   space,
@@ -20,47 +19,12 @@ import {
 import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'primary' | 'info';
-
 export default function InventarioDashboardScreen() {
   const { user, signOut } = useAuth();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 380;
   const statCardMinWidth = isSmallScreen ? '100%' : '46%';
   const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
-  const { solicitudes, stats, loading, error, refetch } = useInventarioDashboard();
-
-  const almacenStats = [
-    { label: 'Solicitudes Pendientes', value: stats.pendientes.toString(), iconName: 'document-text' as const, color: colors.warning },
-    { label: 'En Preparación', value: stats.enPreparacion.toString(), iconName: 'cube' as const, color: colors.primary },
-    { label: 'Enviadas Hoy', value: stats.enviadasHoy.toString(), iconName: 'car-sport' as const, color: colors.success },
-    { label: 'Productos Críticos', value: stats.criticos.toString(), iconName: 'alert-circle' as const, color: colors.danger },
-  ] as const;
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando dashboard...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={refetch} accessibilityRole={a11y.button}>
-            <Text style={styles.retryBtnText}>Reintentar</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +32,7 @@ export default function InventarioDashboardScreen() {
   useEffect(() => {
     async function load() {
       try {
-        const token = await getToken();
-        const data = await getDashboard(token ?? undefined);
+        const data = await getDashboard();
         setDashboard(data);
       } catch (e) {
         console.error('Error cargando dashboard:', e);

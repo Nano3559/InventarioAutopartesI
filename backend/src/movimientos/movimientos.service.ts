@@ -48,8 +48,12 @@ export class MovimientosService {
       .getRepository(Product)
       .findOne({ where: { id: input.productId } });
     if (!product) throw new NotFoundException('Producto no encontrado');
-    if (input.cantidad <= 0)
-      throw new BadRequestException('La cantidad debe ser mayor a 0');
+    if (
+      !Number.isFinite(input.cantidad) ||
+      !Number.isInteger(input.cantidad) ||
+      input.cantidad <= 0
+    )
+      throw new BadRequestException('La cantidad debe ser un entero mayor a 0');
     if (input.origenId === input.destinoId)
       throw new BadRequestException('El origen y destino deben ser diferentes');
 

@@ -142,37 +142,37 @@ const USERS: Array<{
   tiendaCodigo: string | null;
 }> = [
   {
-    nombre: 'Marco Admin',
-    email: 'admin@autorepuestos.com',
-    password: 'Admin1234!',
+    nombre: 'Brian Admin',
+    email: 'admin@importadoras.com',
+    password: 'admin123',
     rol: 'admin',
     tiendaCodigo: null,
   },
   {
-    nombre: 'Brian Almacén',
-    email: 'almacen@autorepuestos.com',
-    password: 'Almacen1234!',
+    nombre: 'Encargado Inventario',
+    email: 'inventario@importadoras.com',
+    password: 'inventario123',
     rol: 'inventario',
     tiendaCodigo: null,
   },
   {
-    nombre: 'Raúl Tienda',
-    email: 'tienda1@autorepuestos.com',
-    password: 'Tienda1234!',
+    nombre: 'Vendedor Tienda 1',
+    email: 'tienda1@importadoras.com',
+    password: 'venta123',
     rol: 'tienda',
     tiendaCodigo: 'TDA-1',
   },
   {
     nombre: 'Vendedora Tienda 2',
-    email: 'tienda2@autorepuestos.com',
-    password: 'Tienda1234!',
+    email: 'tienda2@importadoras.com',
+    password: 'venta123',
     rol: 'tienda',
     tiendaCodigo: 'TDA-2',
   },
   {
     nombre: 'Vendedor Tienda 3',
-    email: 'tienda3@autorepuestos.com',
-    password: 'Tienda1234!',
+    email: 'tienda3@importadoras.com',
+    password: 'venta123',
     rol: 'tienda',
     tiendaCodigo: 'TDA-3',
   },
@@ -900,9 +900,11 @@ async function seed(): Promise<void> {
     await seedInventory(products, locations);
 
     console.log('[seed] SEED COMPLETADO');
-    console.log('       admin: admin@autorepuestos.com / Admin1234!');
-    console.log('       inventario: almacen@autorepuestos.com / Almacen1234!');
-    console.log('       tienda: tienda1@autorepuestos.com / Tienda1234!');
+    console.log('       admin: admin@importadoras.com / admin123');
+    console.log(
+      '       inventario: inventario@importadoras.com / inventario123',
+    );
+    console.log('       tienda: tienda1@importadoras.com / venta123');
   } finally {
     await dataSource.destroy();
   }
