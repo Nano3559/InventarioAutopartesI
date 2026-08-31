@@ -54,6 +54,35 @@ export default function InventarioDashboardScreen() {
 
   const inv = dashboard?.inventario;
 
+  const almacenStats = inv
+    ? [
+        {
+          label: 'Total Productos',
+          value: String(inv.totalProductos),
+          iconName: 'cube' as const,
+          color: colors.primary,
+        },
+        {
+          label: 'Sin Stock',
+          value: String(inv.sinStock),
+          iconName: 'alert-circle' as const,
+          color: colors.danger,
+        },
+        {
+          label: 'Stock Bajo',
+          value: String(inv.stockBajo),
+          iconName: 'warning' as const,
+          color: colors.warning,
+        },
+        {
+          label: 'Valor Inventario',
+          value: `$${inv.valorInventario.toLocaleString()}`,
+          iconName: 'cash' as const,
+          color: colors.success,
+        },
+      ]
+    : [];
+
   return (
     <SafeAreaView style={styles.safe}>
       <Header

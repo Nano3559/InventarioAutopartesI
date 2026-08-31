@@ -18,7 +18,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.autopartes.pro",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "INTERNET"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
