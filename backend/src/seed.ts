@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import * as fs from 'fs';
+import * as path from 'path';
 import { User } from './entities/user.entity';
 import { Location } from './entities/location.entity';
 import { Product } from './entities/product.entity';
@@ -15,6 +17,9 @@ import { SaleItem } from './entities/sale-item.entity';
 import { Payment } from './entities/payment.entity';
 import { Solicitud } from './entities/solicitud.entity';
 import { Devolucion } from './entities/devolucion.entity';
+import { computeHash, generatePlaceholderImage } from './common/image-hash';
+
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 interface LocationSeed {
   codigo: string;
@@ -814,6 +819,8 @@ async function seedProveedores(): Promise<void> {
 
 async function seedProducts(): Promise<Product[]> {
   const repo = dataSource.getRepository(Product);
+  if (!fs.existsSync(UPLOADS_DIR))
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   const saved: Product[] = [];
   for (const def of PRODUCTS) {
     let prod = await repo.findOne({
@@ -824,6 +831,15 @@ async function seedProducts(): Promise<Product[]> {
     } else {
       Object.assign(prod, def);
     }
+
+    if (!prod.imagenHash) {
+      const buffer = await generatePlaceholderImage(prod.id || PRODUCTS.indexOf(def) + 1);
+      const filename = `seed-${prod.codigoFabrica}-${Date.now()}.png`;
+      fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
+      prod.imagen = `/uploads/${filename}`;
+      prod.imagenHash = await computeHash(buffer);
+    }
+
     saved.push(await repo.save(prod));
   }
   return saved;

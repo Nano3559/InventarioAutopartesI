@@ -35,6 +35,7 @@ export function useAdminDashboard() {
 export function useInventarioDashboard() {
   const { token } = useAuth();
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [stats, setStats] = useState<{
     pendientes: number;
     enPreparacion: number;
@@ -51,18 +52,19 @@ export function useInventarioDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [sols, dashboard] = await Promise.all([
+      const [sols, dash] = await Promise.all([
         getSolicitudes(token),
         getDashboard(token),
       ]);
       setSolicitudes(sols);
+      setDashboard(dash);
       setStats({
         pendientes: sols.filter((s) => s.estado === 'Pendiente').length,
         enPreparacion: sols.filter((s) => s.estado === 'En preparación').length,
         enviadasHoy: sols.filter((s) => s.estado === 'Enviado' && isToday(s.fecha)).length,
-        criticos: dashboard.inventario.sinStock + dashboard.inventario.stockBajo,
-        sinStock: dashboard.inventario.sinStock,
-        stockBajo: dashboard.inventario.stockBajo,
+        criticos: dash.inventario.sinStock + dash.inventario.stockBajo,
+        sinStock: dash.inventario.sinStock,
+        stockBajo: dash.inventario.stockBajo,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar datos');
@@ -75,7 +77,7 @@ export function useInventarioDashboard() {
     refetch();
   }, [token]);
 
-  return { solicitudes, stats, loading, error, refetch };
+  return { solicitudes, dashboard, stats, loading, error, refetch };
 }
 
 export function useTiendaDashboard() {

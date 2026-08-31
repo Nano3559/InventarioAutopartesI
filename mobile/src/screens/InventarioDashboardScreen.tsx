@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -45,21 +44,6 @@ export default function InventarioDashboardScreen() {
   }, []);
 
   const inv = dashboard?.inventario;
-  const ven = dashboard?.ventas;
-  const pendingCount = dashboard?.solicitudesPendientes ?? 0;
-
-  const almacenStats = [
-    { label: 'Solicitudes Pendientes', value: String(pendingCount), iconName: 'document-text', color: colors.warning },
-    { label: 'Productos Sin Stock', value: String(inv?.sinStock ?? 0), iconName: 'alert-circle', color: colors.danger },
-    { label: 'Stock Bajo', value: String(inv?.stockBajo ?? 0), iconName: 'cube', color: colors.primary },
-    { label: 'Ventas del Mes', value: `Bs ${ven?.mes?.total?.toLocaleString() ?? '0'}`, iconName: 'trending-up', color: colors.success },
-  ] as const;
-
-  const criticalProducts = (inv?.stockPorAlmacen ?? [])
-    .flatMap(loc => {
-      const alerts: Array<{ producto: string; almacen: string; stock: number; ubicaciones: string }> = [];
-      return alerts;
-    });
 
   return (
     <SafeAreaView style={styles.safe}>

@@ -72,8 +72,7 @@ export class ProductsService {
       .orderBy('p.id', 'DESC')
       .getMany();
 
-    const withStock = await this.attachStock(products, filters.locationId);
-    return withStock;
+    return this.attachStock(products);
   }
 
   async attachStock(

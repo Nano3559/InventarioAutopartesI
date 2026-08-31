@@ -8,6 +8,7 @@ interface TableRowProps {
   padding?: 'md' | 'lg';
   accessibilityLabel?: string;
   accessibilityHint?: string;
+  style?: object;
 }
 
 export default function TableRow({
@@ -17,6 +18,7 @@ export default function TableRow({
   padding = 'md',
   accessibilityLabel,
   accessibilityHint,
+  style,
 }: TableRowProps) {
   const Component = onPress ? Pressable : View;
 
@@ -26,6 +28,7 @@ export default function TableRow({
         styles.row,
         borderTop && styles.rowBorder,
         padding === 'lg' && styles.rowPaddingLg,
+        style,
       ]}
       onPress={onPress}
       accessibilityRole={onPress ? a11y.button : 'none'}
