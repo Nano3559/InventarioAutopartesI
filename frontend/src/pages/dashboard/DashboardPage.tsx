@@ -79,47 +79,130 @@ export function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Grid de Metricas Principales */}
+          {/* Metricas principales - Admin ve todo, tienda/inventario ven solo lo relevante */}
           <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon-wrapper" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
-                <Boxes size={24} />
-              </div>
-              <div className="stat-info">
-                <span className="stat-label">Total Productos</span>
-                <span className="stat-value">{inv?.totalProductos?.toLocaleString() ?? '0'}</span>
-              </div>
-            </div>
+            {user?.rol === 'admin' && (
+              <>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                    <Boxes size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Total Productos</span>
+                    <span className="stat-value">{inv?.totalProductos?.toLocaleString() ?? '0'}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                    <ShoppingCart size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Ventas del Día</span>
+                    <span className="stat-value">Bs. {ven?.hoy?.total?.toLocaleString() ?? '0'}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+                    <ClipboardList size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Solicitudes Pendientes</span>
+                    <span className="stat-value">{dashboard?.solicitudesPendientes ?? dashboard?.solicitudes?.pendientes ?? 0}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+                    <TrendingUp size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Ventas del Mes</span>
+                    <span className="stat-value">Bs. {ven?.mes?.total?.toLocaleString() ?? '0'}</span>
+                  </div>
+                </div>
+              </>
+            )}
 
-            <div className="stat-card">
-              <div className="stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                <ShoppingCart size={24} />
-              </div>
-              <div className="stat-info">
-                <span className="stat-label">Ventas del Día</span>
-                <span className="stat-value">Bs. {ven?.hoy?.total?.toLocaleString() ?? '0'}</span>
-              </div>
-            </div>
+            {user?.rol === 'tienda' && (
+              <>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                    <ShoppingCart size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Ventas del Día</span>
+                    <span className="stat-value">Bs. {ven?.hoy?.total?.toLocaleString() ?? '0'}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+                    <TrendingUp size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Ventas del Mes</span>
+                    <span className="stat-value">Bs. {ven?.mes?.total?.toLocaleString() ?? '0'}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                    <Boxes size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Productos Disponibles</span>
+                    <span className="stat-value">{inv?.totalProductos?.toLocaleString() ?? '0'}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+                    <ClipboardList size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Solicitudes Pendientes</span>
+                    <span className="stat-value">{dashboard?.solicitudesPendientes ?? dashboard?.solicitudes?.pendientes ?? 0}</span>
+                  </div>
+                </div>
+              </>
+            )}
 
-            <div className="stat-card">
-              <div className="stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
-                <ClipboardList size={24} />
-              </div>
-              <div className="stat-info">
-                <span className="stat-label">Solicitudes Pendientes</span>
-                <span className="stat-value">{dashboard?.solicitudesPendientes ?? 0}</span>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="stat-icon-wrapper" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
-                <TrendingUp size={24} />
-              </div>
-              <div className="stat-info">
-                <span className="stat-label">Ventas del Mes</span>
-                <span className="stat-value">Bs. {ven?.mes?.total?.toLocaleString() ?? '0'}</span>
-              </div>
-            </div>
+            {user?.rol === 'inventario' && (
+              <>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+                    <AlertTriangle size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Productos Sin Stock</span>
+                    <span className="stat-value" style={{ color: '#ef4444' }}>{inv?.sinStock ?? 0}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+                    <Boxes size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Stock Bajo</span>
+                    <span className="stat-value" style={{ color: '#f59e0b' }}>{inv?.stockBajo ?? 0}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+                    <ClipboardList size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Solicitudes Pendientes</span>
+                    <span className="stat-value">{dashboard?.solicitudesPendientes ?? dashboard?.solicitudes?.pendientes ?? 0}</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                    <Boxes size={24} />
+                  </div>
+                  <div className="stat-info">
+                    <span className="stat-label">Total Productos</span>
+                    <span className="stat-value">{inv?.totalProductos?.toLocaleString() ?? '0'}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Resumen Inventario */}

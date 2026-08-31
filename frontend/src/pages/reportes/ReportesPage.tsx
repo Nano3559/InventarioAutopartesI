@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context';
 import {
   TrendingUp,
   Store,
@@ -20,6 +21,8 @@ import '../../styles/reportes.css';
 type ReportTab = 'mensual' | 'tiendas' | 'marcas' | 'proveedores';
 
 export function ReportesPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.rol === 'admin';
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<ReportTab>('mensual');
@@ -38,26 +41,54 @@ export function ReportesPage() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchDashboard = async () => {
-      setLoading(true);
-      try {
-        const data = await reportesService.getDashboard();
-        if (isMounted) setDashboardData(data);
-      } catch (err) {
-        console.error('Error al cargar datos del dashboard:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    fetchDashboard();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    loadData();
+  }, [loadData]);
 
-  const handlePrint = () => {
-    window.print();
+  const generateReportHTML = (): string => {
+    if (!dashboardData) return '';
+    const ven = dashboardData.ventas;
+    const inv = dashboardData.inventario;
+    return `
+      <html><head><title>Reporte - ${user?.nombre || 'Tienda'}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        h1 { color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 8px; }
+        h2 { color: #555; margin-top: 20px; }
+        .stat { display: inline-block; width: 45%; margin: 5px 0; padding: 10px; background: #f8fafc; border-radius: 6px; }
+        .stat .label { font-size: 12px; color: #777; }
+        .stat .value { font-size: 18px; font-weight: bold; color: #0284c7; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+        th { background: #f1f5f9; }
+        .footer { margin-top: 30px; font-size: 11px; color: #999; text-align: center; }
+      </style></head><body>
+        <h1>Reporte de Ventas — ${isAdmin ? 'Sistema' : user?.nombre || 'Tienda'}</h1>
+        <p>Fecha: ${new Date().toLocaleDateString('es-BO')} | Año: ${selectedYear}</p>
+        <div class="stat"><div class="label">Ventas del Mes</div><div class="value">Bs. ${ven?.mes?.total?.toFixed(2) || '0.00'}</div></div>
+        <div class="stat"><div class="label">Ventas de Hoy</div><div class="value">Bs. ${ven?.hoy?.total?.toFixed(2) || '0.00'}</div></div>
+        <div class="stat"><div class="label">Total Productos</div><div class="value">${inv?.totalProductos || 0}</div></div>
+        <div class="stat"><div class="label">Sin Stock</div><div class="value" style="color:#ef4444">${inv?.sinStock || 0}</div></div>
+        <h2>Ventas por Marca</h2>
+        <table><thead><tr><th>Marca</th><th>Unidades</th><th>Total (Bs.)</th></tr></thead><tbody>
+        ${(ven?.porMarca || []).map(m => `<tr><td>${m.marca}</td><td>${m.unidades}</td><td>${m.total.toFixed(2)}</td></tr>`).join('')}
+        </tbody></table>
+        <h2>Top Productos</h2>
+        <table><thead><tr><th>Producto</th><th>Marca</th><th>Unidades</th><th>Total (Bs.)</th></tr></thead><tbody>
+        ${(dashboardData.topProductos || []).map(p => `<tr><td>${p.producto}</td><td>${p.marca}</td><td>${p.unidadesVendidas}</td><td>${p.totalVendido.toFixed(2)}</td></tr>`).join('')}
+        </tbody></table>
+        <div class="footer">AutoRepuestos Pro — Reporte generado automáticamente</div>
+      </body></html>`;
+  };
+
+  const handlePrintReport = () => {
+    const html = generateReportHTML();
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 300);
+    }
   };
 
   return (
@@ -65,9 +96,13 @@ export function ReportesPage() {
       {/* Cabecera Principal */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Reportes, Analíticas y Estadísticas Avanzadas</h1>
+          <h1 className="page-title">
+            {isAdmin ? 'Reportes, Analíticas y Estadísticas Avanzadas' : 'Reportes de Mi Tienda'}
+          </h1>
           <p className="page-subtitle">
-            Métricas consolidadas de facturación, rendimiento por sucursal, marcas automotrices y compras
+            {isAdmin
+              ? 'Métricas consolidadas de facturación, rendimiento por sucursal, marcas automotrices y compras'
+              : 'Resumen de ventas, productos más vendidos y evolución mensual de tu tienda'}
           </p>
         </div>
 
@@ -100,7 +135,7 @@ export function ReportesPage() {
           <button
             type="button"
             className="btn-secondary"
-            onClick={handlePrint}
+            onClick={handlePrintReport}
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
             <Printer size={16} />
@@ -123,14 +158,16 @@ export function ReportesPage() {
           <span>Evolución Mensual</span>
         </button>
 
-        <button
-          type="button"
-          className={`reportes-tab-btn ${activeTab === 'tiendas' ? 'active' : ''}`}
-          onClick={() => setActiveTab('tiendas')}
-        >
-          <Store size={16} />
-          <span>Rendimiento por Tienda</span>
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            className={`reportes-tab-btn ${activeTab === 'tiendas' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tiendas')}
+          >
+            <Store size={16} />
+            <span>Rendimiento por Tienda</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -141,14 +178,16 @@ export function ReportesPage() {
           <span>Marcas y Vehículos</span>
         </button>
 
-        <button
-          type="button"
-          className={`reportes-tab-btn ${activeTab === 'proveedores' ? 'active' : ''}`}
-          onClick={() => setActiveTab('proveedores')}
-        >
-          <Building2 size={16} />
-          <span>Compras a Proveedores</span>
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            className={`reportes-tab-btn ${activeTab === 'proveedores' ? 'active' : ''}`}
+            onClick={() => setActiveTab('proveedores')}
+          >
+            <Building2 size={16} />
+            <span>Compras a Proveedores</span>
+          </button>
+        )}
       </div>
 
       {/* Contenido de la Pestaña Activa */}

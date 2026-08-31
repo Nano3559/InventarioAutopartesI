@@ -95,59 +95,39 @@ const MOCK_PROVEEDORES_FALLBACK: ReporteProveedorItem[] = [
 
 export const reportesService = {
   async getDashboard(): Promise<DashboardResponse> {
-    try {
-      const data = await api.get<DashboardResponse>('/reportes/dashboard');
-      if (data && data.inventario && data.ventas) return data;
-      return MOCK_DASHBOARD_FALLBACK;
-    } catch (err) {
-      console.warn('Backend /reportes/dashboard inaccesible, usando mock:', err);
-      return MOCK_DASHBOARD_FALLBACK;
-    }
+    const data = await api.get<DashboardResponse>('/reportes/dashboard');
+    if (data && data.inventario && data.ventas) return data;
+    return MOCK_DASHBOARD_FALLBACK;
   },
 
   async getReporteVentas(filters: ReporteVentasFilters = {}) {
-    try {
-      const params = new URLSearchParams();
-      if (filters.desde) params.append('desde', filters.desde);
-      if (filters.hasta) params.append('hasta', filters.hasta);
-      if (filters.tiendaId) params.append('tiendaId', String(filters.tiendaId));
-      if (filters.tipo) params.append('tipo', filters.tipo);
-      if (filters.marca) params.append('marca', filters.marca);
+    const params = new URLSearchParams();
+    if (filters.desde) params.append('desde', filters.desde);
+    if (filters.hasta) params.append('hasta', filters.hasta);
+    if (filters.tiendaId) params.append('tiendaId', String(filters.tiendaId));
+    if (filters.tipo) params.append('tipo', filters.tipo);
+    if (filters.marca) params.append('marca', filters.marca);
 
-      const qs = params.toString();
-      const data = await api.get(`/reportes/ventas${qs ? `?${qs}` : ''}`);
-      return data;
-    } catch (err) {
-      console.warn('Backend /reportes/ventas falló:', err);
-      return null;
-    }
+    const qs = params.toString();
+    const data = await api.get(`/reportes/ventas${qs ? `?${qs}` : ''}`);
+    return data;
   },
 
   async getReporteMensual(anio?: number): Promise<ReporteMensualItem[]> {
-    try {
-      const targetYear = anio || new Date().getFullYear();
-      const data = await api.get<ReporteMensualItem[]>(`/reportes/mensual?anio=${targetYear}`);
-      if (Array.isArray(data) && data.length > 0) {
-        return data.map((item) => ({
-          ...item,
-          nombreMes: item.nombreMes || NOMBRES_MESES[(item.mes || 1) - 1],
-        }));
-      }
-      return MOCK_MENSUAL_FALLBACK;
-    } catch (err) {
-      console.warn('Backend /reportes/mensual falló, usando datos simulados:', err);
-      return MOCK_MENSUAL_FALLBACK;
+    const targetYear = anio || new Date().getFullYear();
+    const data = await api.get<ReporteMensualItem[]>(`/reportes/mensual?anio=${targetYear}`);
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((item) => ({
+        ...item,
+        nombreMes: item.nombreMes || NOMBRES_MESES[(item.mes || 1) - 1],
+      }));
     }
+    return MOCK_MENSUAL_FALLBACK;
   },
 
   async getReporteProveedores(): Promise<ReporteProveedorItem[]> {
-    try {
-      const data = await api.get<ReporteProveedorItem[]>('/reportes/proveedores');
-      if (Array.isArray(data) && data.length > 0) return data;
-      return MOCK_PROVEEDORES_FALLBACK;
-    } catch (err) {
-      console.warn('Backend /reportes/proveedores falló, usando catálogo local:', err);
-      return MOCK_PROVEEDORES_FALLBACK;
-    }
+    const data = await api.get<ReporteProveedorItem[]>('/reportes/proveedores');
+    if (Array.isArray(data) && data.length > 0) return data;
+    return MOCK_PROVEEDORES_FALLBACK;
   },
 };

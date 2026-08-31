@@ -5,8 +5,8 @@ import { Wrench, Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 import '../../styles/login.css';
 
 export function LoginPage() {
-  const [email, setEmail] = useState('admin@importadoras.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 

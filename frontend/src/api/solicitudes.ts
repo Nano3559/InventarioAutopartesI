@@ -44,8 +44,9 @@ export interface UpdateSolicitudEstadoInput {
   origenId?: number;
 }
 
-export async function getSolicitudes(): Promise<Solicitud[]> {
-  return api.get<Solicitud[]>('/solicitudes');
+export async function getSolicitudes(tiendaId?: number): Promise<Solicitud[]> {
+  const params = tiendaId ? `?tiendaId=${tiendaId}` : '';
+  return api.get<Solicitud[]>(`/solicitudes${params}`);
 }
 
 export async function createSolicitud(input: CreateSolicitudInput): Promise<Solicitud> {
