@@ -99,8 +99,12 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const loadProducts = useCallback(async () => {
     try {
       const token = await getToken();
+      if (!token) {
+        setProducts([]);
+        return;
+      }
       const tiendaId = user?.tiendaId ?? undefined;
-      const data = await getProducts({ search: search || undefined, locationId: tiendaId }, token ?? undefined);
+      const data = await getProducts({ search: search || undefined, locationId: tiendaId }, token);
       setProducts(data.map(p => ({
         product: p,
         stock: (tiendaId && p.stockByLocation) ? (p.stockByLocation[tiendaId] ?? 0) : p.stockTotal,
@@ -110,11 +114,13 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     } finally {
       setLoadingProducts(false);
     }
-  }, [search, user?.tiendaId]);
+  }, [search, user?.tiendaId, user]);
 
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    if (!authLoading) {
+      loadProducts();
+    }
+  }, [loadProducts, authLoading]);
 
   // Cargar venta existente si estamos en modo edición
   useEffect(() => {

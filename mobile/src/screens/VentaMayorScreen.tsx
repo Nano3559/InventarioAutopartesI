@@ -118,7 +118,11 @@ export default function VentaMayorScreen() {
   const loadProducts = useCallback(async () => {
     try {
       const token = await getToken();
-      setProducts(await getProducts({}, token ?? undefined));
+      if (!token) {
+        setProducts([]);
+        return;
+      }
+      setProducts(await getProducts({}, token));
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'No se pudo cargar el catálogo', 'error');
     } finally {
