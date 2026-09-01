@@ -14,6 +14,7 @@ import {
   Wrench,
   ChevronLeft,
   ChevronRight,
+  Camera,
 } from 'lucide-react';
 import type { UserRole } from '../types/auth.types';
 
@@ -28,7 +29,6 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   roles: UserRole[];
-  badge?: string;
 }
 
 interface NavSection {
@@ -54,7 +54,7 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
       ],
     },
     {
-      title: 'Administración Web (Marco)',
+      title: 'Administración',
       roles: ['admin'],
       items: [
         {
@@ -62,33 +62,29 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
           label: 'Inventario Global',
           icon: <Boxes size={18} />,
           roles: ['admin'],
-          badge: 'M2',
         },
         {
           to: '/precios',
           label: 'Gestión Precios',
           icon: <Tags size={18} />,
           roles: ['admin'],
-          badge: 'M8',
         },
         {
           to: '/costos',
           label: 'Costos y Facturas',
           icon: <DollarSign size={18} />,
           roles: ['admin'],
-          badge: 'M7',
         },
         {
           to: '/reportes',
           label: 'Reportes y Métricas',
           icon: <BarChart3 size={18} />,
           roles: ['admin'],
-          badge: 'M9',
         },
       ],
     },
     {
-      title: 'Operación Tienda (Raúl)',
+      title: 'Operación Tienda',
       roles: ['admin', 'tienda'],
       items: [
         {
@@ -96,28 +92,30 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
           label: 'Punto de Venta',
           icon: <ShoppingCart size={18} />,
           roles: ['admin', 'tienda'],
-          badge: 'R3',
         },
         {
           to: '/ventas-mayor',
           label: 'Ventas por Mayor',
           icon: <ShoppingBag size={18} />,
           roles: ['admin', 'tienda'],
-          badge: 'R7',
         },
         {
           to: '/devoluciones',
           label: 'Devoluciones',
           icon: <RotateCcw size={18} />,
           roles: ['admin', 'tienda'],
-          badge: 'R4',
         },
         {
           to: '/reportes',
           label: 'Reportes de Tienda',
           icon: <BarChart3 size={18} />,
           roles: ['tienda'],
-          badge: 'R8',
+        },
+        {
+          to: '/busqueda-imagen',
+          label: 'Búsqueda por Imagen',
+          icon: <Camera size={18} />,
+          roles: ['admin', 'tienda'],
         },
       ],
     },
@@ -130,14 +128,12 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
           label: 'Solicitudes Stock',
           icon: <ClipboardList size={18} />,
           roles: ['admin', 'inventario', 'tienda'],
-          badge: 'M6/R4',
         },
         {
           to: '/movimientos',
           label: 'Movimientos / Traslados',
           icon: <ArrowLeftRight size={18} />,
           roles: ['admin', 'inventario'],
-          badge: 'M5',
         },
       ],
     },
@@ -210,9 +206,7 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
                   >
                     <span className="nav-link-icon">{item.icon}</span>
                     {!collapsed && <span>{item.label}</span>}
-                    {!collapsed && item.badge && (
-                      <span className="nav-link-badge">{item.badge}</span>
-                    )}
+
                   </NavLink>
                 ))}
               </div>

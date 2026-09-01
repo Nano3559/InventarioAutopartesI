@@ -34,6 +34,13 @@ export function VentaMayorPage() {
 
   const paymentMethods = getPaymentMethods();
 
+  const getProductStock = (product: Product): number => {
+    if (user?.tiendaId && product.stockByLocation) {
+      return product.stockByLocation[user.tiendaId] ?? 0;
+    }
+    return product.stockTotal ?? 0;
+  };
+
   useEffect(() => {
     async function loadProducts() {
       try {
@@ -66,7 +73,7 @@ export function VentaMayorPage() {
   const paymentsTotal = useMemo(() => payments.reduce((sum, p) => sum + p.monto, 0), [payments]);
   const hasStockViolation = cart.some((item) => {
     const p = products.find((pr) => pr.id === item.productId);
-    return p && item.cantidad > (p.stockTotal ?? 0);
+    return p && item.cantidad > getProductStock(p);
   });
   const canSubmitManual = cart.length > 0 && !hasStockViolation && Math.abs(paymentsTotal - cartTotal) < 0.01;
 
@@ -89,7 +96,7 @@ export function VentaMayorPage() {
   const handleAddToCart = (product: Product) => {
     const existing = cart.find((item) => item.productId === product.id);
     const price = product.precioMayor ?? product.precio1 ?? product.precio2 ?? product.costo ?? 0;
-    const available = product.stockTotal ?? 0;
+    const available = getProductStock(product);
 
     if (existing) {
       if (existing.cantidad >= available) {
@@ -111,7 +118,7 @@ export function VentaMayorPage() {
 
   const handleQtyChange = (productId: number, delta: number) => {
     const product = products.find((p) => p.id === productId);
-    const available = product?.stockTotal ?? 0;
+    const available = product ? getProductStock(product) : 0;
 
     if (available <= 0) {
       setCart((current) => current.filter((item) => item.productId !== productId));
@@ -382,7 +389,8 @@ export function VentaMayorPage() {
                   </div>
                 ) : (
                   filteredProducts.map((product) => {
-                    const outOfStock = (product.stockTotal ?? 0) <= 0;
+                    const locationStock = getProductStock(product);
+                    const outOfStock = locationStock <= 0;
                     const precioMayor = product.precioMayor ?? product.precio1 ?? product.precio2 ?? product.costo ?? 0;
                     return (
                       <button
@@ -413,11 +421,14 @@ export function VentaMayorPage() {
                             <span className="price-tag">P. Mayor: {formatCurrency(precioMayor)}</span>
                             {product.precio1 && <span className="price-secondary">P1: {formatCurrency(product.precio1)}</span>}
                           </div>
-                          <div className="product-card-stock" style={{
-                            color: outOfStock ? '#ef4444' : (product.stockTotal ?? 0) <= (product.stockMinimo ?? 1) ? '#f59e0b' : 'var(--text-muted)',
-                            fontWeight: outOfStock ? 600 : undefined,
-                          }}>
-                            {outOfStock ? 'Sin stock' : `Stock: ${product.stockTotal ?? 0} uds.`}
+                          <div className="product-card-stock">
+                            {outOfStock ? (
+                              <span className="stock-label stock-label--out">Sin stock</span>
+                            ) : (
+                              <span className={`stock-label ${locationStock <= (product.stockMinimo ?? 1) ? 'stock-label--low' : 'stock-label--ok'}`}>
+                                Stock: {locationStock} uds.
+                              </span>
+                            )}
                           </div>
                         </div>
                         {!outOfStock && <Plus size={20} className="add-btn" />}
@@ -567,7 +578,7 @@ export function VentaMayorPage() {
                 {cart.map((item) => {
                   const product = getCartProduct(item.productId);
                   const subtotal = item.cantidad * item.precio;
-                  const available = product?.stockTotal ?? 0;
+                  const available = product ? getProductStock(product) : 0;
                   const atMax = item.cantidad >= available;
                   return (
                     <div key={item.productId} className="cart-item">
@@ -577,8 +588,10 @@ export function VentaMayorPage() {
                           <div className="cart-item-detail">
                             {product?.marca} {product?.modelo} | {formatCurrency(item.precio)} c/u
                           </div>
-                          <div style={{ fontSize: '0.72rem', color: atMax ? '#ef4444' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                            Stock disp.: {available} uds.{atMax ? ' (máximo)' : ''}
+                          <div className="cart-item-stock">
+                            <span className={`cart-stock-badge ${atMax ? 'cart-stock-badge--max' : ''}`}>
+                              Disp.: {available} uds.{atMax ? ' (máximo)' : ''}
+                            </span>
                           </div>
                         </div>
                         <div className="cart-item-qty">

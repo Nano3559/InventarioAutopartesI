@@ -14,6 +14,7 @@ import { MovimientosPage } from '../pages/movimientos/MovimientosPage';
 import { CostosPage } from '../pages/costos/CostosPage';
 import { PreciosPage } from '../pages/precios/PreciosPage';
 import { ReportesPage } from '../pages/reportes/ReportesPage';
+import { SearchByImagePage } from '../pages/inventory/SearchByImagePage';
 
 export function AppRoutes() {
   return (
@@ -33,7 +34,7 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
 
-        {/* Módulos de Inventario de Marco (M2 y M3) */}
+        {/* Módulo de Inventario */}
         <Route
           path="inventario"
           element={
@@ -52,7 +53,7 @@ export function AppRoutes() {
           }
         />
 
-        {/* Módulo de Precios de Marco (M8) */}
+        {/* Módulo de Precios */}
         <Route
           path="precios"
           element={
@@ -62,7 +63,7 @@ export function AppRoutes() {
           }
         />
 
-        {/* Módulo de Costos de Marco (M7) */}
+        {/* Módulo de Costos */}
         <Route
           path="costos"
           element={
@@ -72,7 +73,7 @@ export function AppRoutes() {
           }
         />
 
-        {/* Módulo de Movimientos de Marco (M5) */}
+        {/* Módulo de Movimientos */}
         <Route
           path="movimientos"
           element={
@@ -92,7 +93,7 @@ export function AppRoutes() {
           }
         />
 
-        {/* Módulos de Raúl (Web Tienda) */}
+        {/* Módulos de Tienda */}
         <Route
           path="ventas"
           element={
@@ -134,6 +135,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'tienda', 'inventario']}>
               <SolicitudesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Búsqueda por Imagen */}
+        <Route
+          path="busqueda-imagen"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'tienda', 'inventario']}>
+              <SearchByImagePage />
             </ProtectedRoute>
           }
         />

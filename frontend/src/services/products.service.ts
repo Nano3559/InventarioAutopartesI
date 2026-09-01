@@ -65,4 +65,32 @@ export const productsService = {
   async deleteProduct(id: number): Promise<void> {
     await api.delete(`/products/${id}`);
   },
+
+  async searchByImage(file: File, limit = 5): Promise<ImageSearchResult[]> {
+    const token = localStorage.getItem('auth_token');
+    const formData = new FormData();
+    formData.append('file', file);
+    if (limit) formData.append('limit', String(limit));
+
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const res = await fetch(`${baseUrl}/products/search-by-image`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error('Error al buscar productos por imagen');
+    }
+
+    return res.json();
+  },
 };
+
+export interface ImageSearchResult {
+  product: Product;
+  similitud: number;
+  stockTotal: number;
+}

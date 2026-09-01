@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, NavLink } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -99,6 +99,22 @@ export function ProductDetailPage() {
     }
   };
 
+  const stockTotal = product?.stockTotal ?? 0;
+  const stockMinimo = product?.stockMinimo ?? 2;
+  const isLow = stockTotal > 0 && stockTotal <= stockMinimo;
+  const isOut = stockTotal === 0;
+
+  const almacenes = useMemo(
+    () => (product?.stock ?? []).filter((l) => l.tipo === 'almacen'),
+    [product?.stock]
+  );
+  const tiendas = useMemo(
+    () => (product?.stock ?? []).filter((l) => l.tipo === 'tienda'),
+    [product?.stock]
+  );
+  const totalAlmacenes = almacenes.reduce((acc, c) => acc + (c.cantidad || 0), 0);
+  const totalTiendas = tiendas.reduce((acc, c) => acc + (c.cantidad || 0), 0);
+
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: '1rem', color: 'var(--text-muted)' }}>
@@ -120,11 +136,6 @@ export function ProductDetailPage() {
       </div>
     );
   }
-
-  const stockTotal = product.stockTotal ?? 0;
-  const stockMinimo = product.stockMinimo ?? 2;
-  const isLow = stockTotal > 0 && stockTotal <= stockMinimo;
-  const isOut = stockTotal === 0;
 
   return (
     <div className="product-detail-page">
@@ -318,59 +329,118 @@ export function ProductDetailPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-strong)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Warehouse size={20} color="#38bdf8" />
-                <span>Existencias en las 7 Importadoras</span>
+                <span>Stock por Ubicación</span>
               </h3>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Total: <strong style={{ color: 'var(--text-strong)' }}>{stockTotal} unidades</strong>
               </span>
             </div>
 
-            <div className="stock-locations-grid">
-              {product.stock?.map((loc) => {
-                const isStore = loc.tipo === 'tienda';
-                const percentage = stockTotal > 0 ? (loc.cantidad / stockTotal) * 100 : 0;
-                const isZero = loc.cantidad === 0;
+            {/* Almacenes */}
+            {almacenes.length > 0 && (
+              <div className="stock-matrix-section">
+                <div className="stock-matrix-section-header stock-matrix-section-header--almacen">
+                  <Warehouse size={15} color="#a78bfa" />
+                  <span>Almacenes</span>
+                  <span className="stock-matrix-section-total">{totalAlmacenes} uds.</span>
+                </div>
+                <div className="stock-locations-grid">
+                  {almacenes.map((loc) => {
+                    const percentage = stockTotal > 0 ? (loc.cantidad / stockTotal) * 100 : 0;
+                    const isZero = loc.cantidad === 0;
 
-                return (
-                  <div key={loc.locationId} className="stock-location-card">
-                    <div className="stock-loc-header">
-                      <div className="stock-loc-title">
-                        {isStore ? <Store size={16} color="#60a5fa" /> : <Warehouse size={16} color="#a78bfa" />}
-                        <span>{loc.ubicacion}</span>
+                    return (
+                      <div key={loc.locationId} className="stock-location-card">
+                        <div className="stock-loc-header">
+                          <div className="stock-loc-title">
+                            <span>{loc.ubicacion}</span>
+                          </div>
+                          <span
+                            style={{
+                              fontWeight: 700,
+                              fontSize: '0.95rem',
+                              color: isZero ? '#f87171' : 'var(--text-strong)',
+                              fontFamily: 'monospace',
+                            }}
+                          >
+                            {loc.cantidad} ud.
+                          </span>
+                        </div>
+
+                        <div className="stock-bar-container">
+                          <div
+                            className="stock-bar-fill"
+                            style={{
+                              width: `${percentage}%`,
+                              background: isZero
+                                ? '#f87171'
+                                : 'linear-gradient(90deg, #8b5cf6, #a78bfa)',
+                            }}
+                          />
+                        </div>
+
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {percentage.toFixed(0)}% del total
+                        </span>
                       </div>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: '0.95rem',
-                          color: isZero ? '#f87171' : 'var(--text-strong)',
-                          fontFamily: 'monospace',
-                        }}
-                      >
-                        {loc.cantidad} ud.
-                      </span>
-                    </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-                    <div className="stock-bar-container">
-                      <div
-                        className="stock-bar-fill"
-                        style={{
-                          width: `${percentage}%`,
-                          background: isZero
-                            ? '#f87171'
-                            : isStore
-                            ? 'linear-gradient(90deg, #3b82f6, #60a5fa)'
-                            : 'linear-gradient(90deg, #8b5cf6, #a78bfa)',
-                        }}
-                      />
-                    </div>
+            {/* Tiendas */}
+            {tiendas.length > 0 && (
+              <div className="stock-matrix-section">
+                <div className="stock-matrix-section-header stock-matrix-section-header--tienda">
+                  <Store size={15} color="#60a5fa" />
+                  <span>Tiendas</span>
+                  <span className="stock-matrix-section-total">{totalTiendas} uds.</span>
+                </div>
+                <div className="stock-locations-grid">
+                  {tiendas.map((loc) => {
+                    const percentage = stockTotal > 0 ? (loc.cantidad / stockTotal) * 100 : 0;
+                    const isZero = loc.cantidad === 0;
 
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {isStore ? 'Tienda / Sucursal' : 'Centro de Distribución'} • {percentage.toFixed(0)}% del total
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                    return (
+                      <div key={loc.locationId} className="stock-location-card">
+                        <div className="stock-loc-header">
+                          <div className="stock-loc-title">
+                            <span>{loc.ubicacion}</span>
+                          </div>
+                          <span
+                            style={{
+                              fontWeight: 700,
+                              fontSize: '0.95rem',
+                              color: isZero ? '#f87171' : 'var(--text-strong)',
+                              fontFamily: 'monospace',
+                            }}
+                          >
+                            {loc.cantidad} ud.
+                          </span>
+                        </div>
+
+                        <div className="stock-bar-container">
+                          <div
+                            className="stock-bar-fill"
+                            style={{
+                              width: `${percentage}%`,
+                              background: isZero
+                                ? '#f87171'
+                                : 'linear-gradient(90deg, #3b82f6, #60a5fa)',
+                            }}
+                          />
+                        </div>
+
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {percentage.toFixed(0)}% del total
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

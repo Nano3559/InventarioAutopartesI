@@ -107,7 +107,7 @@ export function useTiendaDashboard() {
       
       const totalVendido = ventas.reduce((a, v) => a + v.total, 0);
       const productosVendidos = ventas.reduce((a, v) => a + v.items.reduce((b, i) => b + i.cantidad, 0), 0);
-      const pendientesFactura = ventas.filter((v) => !v.requiereFactura).length;
+      const pendientesFactura = ventas.filter((v) => v.requiereFactura).length;
 
       setStats({
         ventasHoy: ventas.length,

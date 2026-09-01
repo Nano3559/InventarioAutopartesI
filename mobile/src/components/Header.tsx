@@ -8,6 +8,7 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   onBack?: () => void;
+  onMenuPress?: () => void;
   rightAction?: {
     label: string;
     onPress: () => void;
@@ -21,13 +22,14 @@ export default function Header({
   title,
   subtitle,
   onBack,
+  onMenuPress,
   rightAction,
   showBack = false,
 }: HeaderProps) {
   return (
     <View style={styles.header}>
       <View style={styles.left}>
-        {showBack && onBack && (
+        {showBack && onBack ? (
           <Pressable
             style={styles.backBtn}
             onPress={onBack}
@@ -38,7 +40,18 @@ export default function Header({
           >
             <Ionicons name="chevron-back" size={iconSize.lg} color={colors.primary} />
           </Pressable>
-        )}
+        ) : onMenuPress ? (
+          <Pressable
+            style={styles.backBtn}
+            onPress={onMenuPress}
+            accessibilityRole={a11y.button}
+            accessibilityLabel="Abrir menú"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            android_ripple={{ color: colors.primarySoft }}
+          >
+            <Ionicons name="menu" size={iconSize.lg} color={colors.primary} />
+          </Pressable>
+        ) : null}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{title}</Text>
           {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
