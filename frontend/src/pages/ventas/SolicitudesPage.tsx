@@ -67,6 +67,13 @@ export function SolicitudesPage() {
     return product.stockTotal ?? 0;
   };
 
+  const getStockAtLocation = (productId: number, locationId: number): number => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return 0;
+    const detail = (product.stockLocationDetails || []).find((sl) => sl.locationId === locationId);
+    return detail?.cantidad ?? 0;
+  };
+
   const getAvailableStock = (productId: number): number => {
     const product = products.find((p) => p.id === productId);
     if (!product) return 0;
@@ -208,6 +215,18 @@ export function SolicitudesPage() {
 
   const handleUpdateEstado = async (estado: UpdateSolicitudEstadoInput['estado'], origenId?: number) => {
     if (!estadoModalOpen) return;
+
+    if (estado === 'Enviado' && origenId) {
+      const stockEnOrigen = getStockAtLocation(estadoModalOpen.solicitud.productId, origenId);
+      if (estadoModalOpen.solicitud.cantidad > stockEnOrigen) {
+        showToast(
+          `Stock insuficiente en el almacén de origen (disponible: ${stockEnOrigen})`,
+          'error'
+        );
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       await updateSolicitudEstado(estadoModalOpen.solicitud.id, { estado, origenId });

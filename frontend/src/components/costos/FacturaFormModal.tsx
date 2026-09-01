@@ -32,7 +32,7 @@ export function FacturaFormModal({
   onOpenNewProveedor,
   onSave,
 }: FacturaFormModalProps) {
-  const [proveedorId, setProveedorId] = useState<number>(() => proveedores[0]?.id || 1);
+  const [proveedorId, setProveedorId] = useState<number>(() => proveedores[0]?.id || 0);
   const [numero, setNumero] = useState<string>('');
   const [tipoCambio, setTipoCambio] = useState<number>(6.96);
   const [porcentaje, setPorcentaje] = useState<number>(0);
@@ -44,10 +44,10 @@ export function FacturaFormModal({
   // Filas dinámicas de repuestos
   const [items, setItems] = useState<FacturaItemInput[]>([
     {
-      productId: products[0]?.id || 1,
+      productId: products[0]?.id || 0,
       cantidad: 5,
       costoUnitario: products[0]?.costo || 100,
-      locationId: almacenes[0]?.id || 1,
+      locationId: almacenes[0]?.id || 0,
     },
   ]);
 
@@ -61,10 +61,10 @@ export function FacturaFormModal({
     setItems([
       ...items,
       {
-        productId: products[0]?.id || 1,
+        productId: products[0]?.id || 0,
         cantidad: 1,
         costoUnitario: products[0]?.costo || 50,
-        locationId: almacenes[0]?.id || 1,
+        locationId: almacenes[0]?.id || 0,
       },
     ]);
   };
@@ -98,8 +98,19 @@ export function FacturaFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!proveedorId || proveedorId <= 0) {
+      setError('Seleccione un proveedor para la factura.');
+      return;
+    }
+
     if (!numero.trim()) {
       setError('Ingrese el número o código de la factura.');
+      return;
+    }
+
+    if (tipoCambio <= 0) {
+      setError('El tipo de cambio debe ser mayor a 0.');
       return;
     }
 
@@ -108,16 +119,35 @@ export function FacturaFormModal({
       return;
     }
 
+    for (const it of items) {
+      if (!it.productId || it.productId <= 0) {
+        setError('Seleccione un repuesto del catálogo en todas las filas.');
+        return;
+      }
+      if (!it.cantidad || it.cantidad <= 0) {
+        setError('La cantidad de cada repuesto debe ser mayor a 0.');
+        return;
+      }
+      if (!it.costoUnitario || it.costoUnitario <= 0) {
+        setError('El costo unitario de cada repuesto debe ser mayor a 0.');
+        return;
+      }
+      if (!it.locationId || it.locationId <= 0) {
+        setError('Seleccione el almacén de ingreso en todas las filas.');
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       setError(null);
 
       await onSave(
         {
-          proveedorId: Number(proveedorId),
+          proveedorId,
           numero: numero.trim(),
-          tipoCambio: Number(tipoCambio) || 1,
-          porcentaje: Number(porcentaje) || 0,
+          tipoCambio,
+          porcentaje: porcentaje || 0,
           monto: Number(montoTotalBOB.toFixed(2)),
           items,
         },
@@ -178,6 +208,7 @@ export function FacturaFormModal({
                   onChange={(e) => setProveedorId(Number(e.target.value))}
                   required
                 >
+                  <option value={0}>— Seleccionar proveedor —</option>
                   {proveedores.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nombre} ({p.pais})
@@ -214,7 +245,7 @@ export function FacturaFormModal({
                   className="form-input"
                   style={{ paddingLeft: '0.85rem' }}
                   value={tipoCambio}
-                  onChange={(e) => setTipoCambio(parseFloat(e.target.value) || 1)}
+                  onChange={(e) => setTipoCambio(parseFloat(e.target.value) || 0)}
                 />
               </div>
 
@@ -292,6 +323,7 @@ export function FacturaFormModal({
                           onChange={(e) => handleItemChange(idx, 'productId', Number(e.target.value))}
                           required
                         >
+                          <option value={0}>— Seleccionar repuesto —</option>
                           {products.map((p) => (
                             <option key={p.id} value={p.id}>
                               #{p.id} - {p.producto} ({p.marca} {p.modelo})
@@ -333,6 +365,7 @@ export function FacturaFormModal({
                           onChange={(e) => handleItemChange(idx, 'locationId', Number(e.target.value))}
                           required
                         >
+                          <option value={0}>— Seleccionar almacén —</option>
                           {almacenes.map((l) => (
                             <option key={l.id} value={l.id}>
                               {l.nombre}
