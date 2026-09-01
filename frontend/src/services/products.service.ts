@@ -19,6 +19,7 @@ export const productsService = {
         anio: filters.anio,
         codigoOem: filters.codigoOem,
         codigoFabrica: filters.codigoFabrica,
+        activo: filters.activo,
       },
     });
     return Array.isArray(data) ? data : [];
@@ -56,7 +57,15 @@ export const productsService = {
     });
 
     if (!res.ok) {
-      throw new Error('Error al subir imagen');
+      let errorMsg = 'Error al subir imagen';
+      try {
+        const errorData = await res.json();
+        errorMsg = errorData?.message || errorMsg;
+        if (Array.isArray(errorMsg)) errorMsg = errorMsg.join(', ');
+      } catch {
+        errorMsg = `Error HTTP ${res.status}: ${res.statusText}`;
+      }
+      throw new Error(errorMsg);
     }
 
     return res.json();
@@ -64,6 +73,20 @@ export const productsService = {
 
   async deleteProduct(id: number): Promise<void> {
     await api.delete(`/products/${id}`);
+  },
+
+  async adjustStock(
+    productId: number,
+    locationId: number,
+    cantidad: number,
+  ): Promise<{ locationId: number; cantidad: number }> {
+    return api.patch(`/products/${productId}/stock`, { locationId, cantidad });
+  },
+
+  async toggleActive(
+    id: number,
+  ): Promise<{ id: number; activo: boolean }> {
+    return api.patch(`/products/${id}/toggle-active`);
   },
 
   async searchByImage(file: File, limit = 5): Promise<ImageSearchResult[]> {
@@ -82,7 +105,15 @@ export const productsService = {
     });
 
     if (!res.ok) {
-      throw new Error('Error al buscar productos por imagen');
+      let errorMsg = 'Error al buscar productos por imagen';
+      try {
+        const errorData = await res.json();
+        errorMsg = errorData?.message || errorMsg;
+        if (Array.isArray(errorMsg)) errorMsg = errorMsg.join(', ');
+      } catch {
+        errorMsg = `Error HTTP ${res.status}: ${res.statusText}`;
+      }
+      throw new Error(errorMsg);
     }
 
     return res.json();

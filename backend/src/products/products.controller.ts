@@ -13,11 +13,30 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ProductsService } from './products.service';
 import type { ProductFilters } from './products.service';
+
+const imageFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) => {
+  if (!file.mimetype.startsWith('image/')) {
+    cb(new Error('Solo se permiten archivos de imagen'), false);
+  } else {
+    cb(null, true);
+  }
+};
+
+const multerOptions = {
+  storage: memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFileFilter,
+};
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -57,9 +76,15 @@ export class ProductsController {
     return this.productsService.remove(id);
   }
 
+  @Post('search-by-image')
+  @UseInterceptors(FileInterceptor('file', multerOptions))
+  searchByImage(@UploadedFile() file: Express.Multer.File) {
+    return this.productsService.searchByImage(file);
+  }
+
   @Post(':id/image')
   @Roles('admin', 'inventario')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', multerOptions))
   uploadImage(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
@@ -67,9 +92,18 @@ export class ProductsController {
     return this.productsService.uploadImage(id, file);
   }
 
-  @Post('search-by-image')
-  @UseInterceptors(FileInterceptor('file'))
-  searchByImage(@UploadedFile() file: Express.Multer.File) {
-    return this.productsService.searchByImage(file);
+  @Patch(':id/stock')
+  @Roles('admin', 'inventario')
+  adjustStock(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { locationId: number; cantidad: number },
+  ) {
+    return this.productsService.adjustStock(id, body.locationId, body.cantidad);
+  }
+
+  @Patch(':id/toggle-active')
+  @Roles('admin')
+  toggleActive(@Param('id', ParseIntPipe) id: number) {
+    return this.productsService.toggleActive(id);
   }
 }

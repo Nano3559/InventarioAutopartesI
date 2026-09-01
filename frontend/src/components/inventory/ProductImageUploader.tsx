@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
-import { Image, UploadCloud, Link as LinkIcon, Check, Loader2, ZoomIn } from 'lucide-react';
+import { Image, UploadCloud, Link as LinkIcon, Check, Loader2, ZoomIn, AlertCircle } from 'lucide-react';
 import { productsService } from '../../services/products.service';
+import { resolveImageUrl } from '../../api/client';
 
 interface ProductImageUploaderProps {
   productId: number;
@@ -19,18 +20,33 @@ export function ProductImageUploader({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlValue, setUrlValue] = useState('');
   const [showZoom, setShowZoom] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
+    setError(null);
+
+    if (!file.type.startsWith('image/')) {
+      setError('Solo se permiten archivos de imagen (JPG, PNG, etc.)');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('La imagen no puede superar los 10 MB');
+      return;
+    }
+
     try {
       setUploading(true);
       const res = await productsService.uploadProductImage(productId, file);
       if (res.imagen) {
-        onImageUpdated(res.imagen);
+        onImageUpdated(resolveImageUrl(res.imagen) || res.imagen);
       }
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.message || 'Error desconocido al subir la imagen';
       console.error('Error al subir imagen:', err);
+      setError(msg);
     } finally {
       setUploading(false);
     }
@@ -38,25 +54,30 @@ export function ProductImageUploader({
 
   const handleSaveUrl = async () => {
     if (!urlValue.trim()) return;
+    setError(null);
     try {
       setUploading(true);
       await productsService.updateProduct(productId, { imagen: urlValue.trim() });
       onImageUpdated(urlValue.trim());
       setShowUrlInput(false);
       setUrlValue('');
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.message || 'Error al guardar la URL';
       console.error('Error al actualizar URL de imagen:', err);
+      setError(msg);
     } finally {
       setUploading(false);
     }
   };
 
+  const resolvedImage = resolveImageUrl(currentImage);
+
   return (
     <div className="product-image-card">
       <div className="product-image-display">
-        {currentImage ? (
+        {resolvedImage ? (
           <>
-            <img src={currentImage} alt={productName} />
+            <img src={resolvedImage} alt={productName} />
             <button
               type="button"
               onClick={() => setShowZoom(true)}
@@ -145,11 +166,29 @@ export function ProductImageUploader({
         </div>
       )}
 
+      {error && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          marginTop: '0.5rem',
+          padding: '0.5rem 0.75rem',
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: 'var(--radius-sm)',
+          color: '#ef4444',
+          fontSize: '0.8rem',
+        }}>
+          <AlertCircle size={14} />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Modal Zoom */}
-      {showZoom && currentImage && (
+      {showZoom && resolvedImage && (
         <div className="modal-overlay" onClick={() => setShowZoom(false)}>
           <div style={{ maxWidth: '650px', background: 'var(--bg-card)', padding: '0.75rem', borderRadius: 'var(--radius)' }}>
-            <img src={currentImage} alt={productName} style={{ width: '100%', borderRadius: 'var(--radius-sm)', display: 'block' }} />
+            <img src={resolvedImage} alt={productName} style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 'var(--radius-sm)', display: 'block', background: 'var(--bg-alt)' }} />
           </div>
         </div>
       )}

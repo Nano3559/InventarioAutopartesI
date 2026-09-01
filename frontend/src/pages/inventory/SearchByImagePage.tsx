@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { productsService, type ImageSearchResult } from '../../services/products.service';
+import { resolveImageUrl } from '../../api/client';
 import '../../styles/search-image.css';
 
 export function SearchByImagePage() {
@@ -202,7 +203,7 @@ export function SearchByImagePage() {
                 {results.map((r, idx) => (
                   <div key={r.product.id} className="result-card">
                     <img
-                      src={r.product.imagen || `https://placehold.co/64x64/141b24/8b96a5?text=${idx + 1}`}
+                      src={resolveImageUrl(r.product.imagen) || `https://placehold.co/64x64/141b24/8b96a5?text=${idx + 1}`}
                       alt={r.product.producto}
                       className="result-thumb"
                       onError={(e) => {

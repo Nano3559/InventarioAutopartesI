@@ -145,7 +145,8 @@
   height: 64px;
   border-radius: var(--radius-sm);
   background: var(--bg-alt);
-  object-fit: cover;
+  object-fit: contain;
+  padding: 4px;
   flex-shrink: 0;
 }
 

@@ -3,8 +3,29 @@ import { useAuth } from '../../context';
 import { productsService } from '../../services/products.service';
 import { salesService, type SaleInput, type SaleItemInput, type PaymentInput, type WholesalePreviewResult, type WholesaleImportMeta, getPaymentMethods, formatCurrency } from '../../services/sales.service';
 import type { Product } from '../../types/product.types';
+import { resolveImageUrl } from '../../api/client';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, RotateCcw, CheckCircle2, AlertCircle, AlertTriangle, Loader2, X, Printer, UserPlus, FileSpreadsheet, Upload, Download, Eye } from 'lucide-react';
 import '../../styles/sales.css';
+
+const validateCI = (value: string): boolean => {
+  if (!value) return true;
+  const trimmed = value.trim().toUpperCase();
+  const ciPattern = /^\d{7,8}$/;
+  const ciExtPattern = /^\d{7,8}(LP|CH|CB|OR|TJ|SC|BE|PA|PO|PT|ON|SA|DA|SU)$/;
+  const nitPattern = /^\d{10,12}$/;
+  return ciPattern.test(trimmed) || ciExtPattern.test(trimmed) || nitPattern.test(trimmed);
+};
+
+const validatePhone = (value: string): boolean => {
+  if (!value) return true;
+  const trimmed = value.trim();
+  return /^[67]\d{7}$/.test(trimmed);
+};
+
+const validateName = (value: string): boolean => {
+  if (!value) return true;
+  return /^[a-zA-ZáéíóúñüÁÉÍÓÚÑÜ\s]+$/.test(value.trim());
+};
 
 export function VentaMayorPage() {
   const { user } = useAuth();
@@ -26,6 +47,7 @@ export function VentaMayorPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
+  const [clientErrors, setClientErrors] = useState<{ nombre?: string; ciNit?: string; celular?: string }>({});
 
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [previewResult, setPreviewResult] = useState<WholesalePreviewResult | null>(null);
@@ -199,6 +221,19 @@ export function VentaMayorPage() {
       return;
     }
 
+    if (cliente.nombre && !validateName(cliente.nombre)) {
+      showToast('El nombre solo debe contener letras', 'error');
+      return;
+    }
+    if (cliente.ciNit && !validateCI(cliente.ciNit)) {
+      showToast('Formato de CI/NIT inválido', 'error');
+      return;
+    }
+    if (cliente.celular && !validatePhone(cliente.celular)) {
+      showToast('Celular inválido: 8 dígitos, empieza con 6 o 7', 'error');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -234,6 +269,19 @@ export function VentaMayorPage() {
   const handleSubmitExcel = async () => {
     if (!canSubmitExcel || !excelFile) {
       showToast('Verifique que el archivo sea válido y el total de pagos coincida', 'error');
+      return;
+    }
+
+    if (cliente.nombre && !validateName(cliente.nombre)) {
+      showToast('El nombre solo debe contener letras', 'error');
+      return;
+    }
+    if (cliente.ciNit && !validateCI(cliente.ciNit)) {
+      showToast('Formato de CI/NIT inválido', 'error');
+      return;
+    }
+    if (cliente.celular && !validatePhone(cliente.celular)) {
+      showToast('Celular inválido: 8 dígitos, empieza con 6 o 7', 'error');
       return;
     }
 
@@ -287,6 +335,31 @@ export function VentaMayorPage() {
 
   const getCartProduct = (productId: number): Product | undefined => {
     return products.find((p) => p.id === productId);
+  };
+
+  const validateClientField = (field: 'nombre' | 'ciNit' | 'celular', value: string) => {
+    const newErrors = { ...clientErrors };
+    if (field === 'nombre' && value && !validateName(value)) {
+      newErrors.nombre = 'Solo se permiten letras y espacios';
+    } else if (field === 'nombre') {
+      delete newErrors.nombre;
+    }
+    if (field === 'ciNit' && value && !validateCI(value)) {
+      newErrors.ciNit = 'CI: 7-8 dígitos (ej: 1234567 o 1234567LP). NIT: 10-12 dígitos';
+    } else if (field === 'ciNit') {
+      delete newErrors.ciNit;
+    }
+    if (field === 'celular' && value && !validatePhone(value)) {
+      newErrors.celular = 'Celular: 8 dígitos, empieza con 6 o 7';
+    } else if (field === 'celular') {
+      delete newErrors.celular;
+    }
+    setClientErrors(newErrors);
+  };
+
+  const handleClientChange = (field: 'nombre' | 'ciNit' | 'celular', value: string) => {
+    setCliente({ ...cliente, [field]: value });
+    validateClientField(field, value);
   };
 
   const downloadTemplate = () => {
@@ -402,8 +475,8 @@ export function VentaMayorPage() {
                         style={outOfStock ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                       >
                         <div className="product-card-image">
-                          {product.imagen ? (
-                            <img src={product.imagen} alt={product.producto} />
+                          {resolveImageUrl(product.imagen) ? (
+                            <img src={resolveImageUrl(product.imagen)!} alt={product.producto} />
                           ) : (
                             <ShoppingCart size={24} className="product-placeholder" />
                           )}
@@ -751,29 +824,44 @@ export function VentaMayorPage() {
             </div>
             <div className="client-form">
               <div className="form-row">
-                <input
-                  type="text"
-                  placeholder="Nombre / Razón Social"
-                  value={cliente.nombre}
-                  onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
-                  className="form-input"
-                />
-                <input
-                  type="text"
-                  placeholder="CI / NIT"
-                  value={cliente.ciNit}
-                  onChange={(e) => setCliente({ ...cliente, ciNit: e.target.value })}
-                  className="form-input"
-                />
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Nombre / Razón Social"
+                    value={cliente.nombre}
+                    onChange={(e) => handleClientChange('nombre', e.target.value)}
+                    className={`form-input ${clientErrors.nombre ? 'form-input-error' : ''}`}
+                    maxLength={100}
+                  />
+                  {clientErrors.nombre && <span className="form-error">{clientErrors.nombre}</span>}
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="CI / NIT"
+                    value={cliente.ciNit}
+                    onChange={(e) => handleClientChange('ciNit', e.target.value)}
+                    className={`form-input ${clientErrors.ciNit ? 'form-input-error' : ''}`}
+                    maxLength={15}
+                  />
+                  {clientErrors.ciNit && <span className="form-error">{clientErrors.ciNit}</span>}
+                </div>
               </div>
               <div className="form-row">
-                <input
-                  type="tel"
-                  placeholder="Celular"
-                  value={cliente.celular}
-                  onChange={(e) => setCliente({ ...cliente, celular: e.target.value })}
-                  className="form-input"
-                />
+                <div>
+                  <input
+                    type="tel"
+                    placeholder="Celular"
+                    value={cliente.celular}
+                    onChange={(e) => handleClientChange('celular', e.target.value)}
+                    className={`form-input ${clientErrors.celular ? 'form-input-error' : ''}`}
+                    maxLength={8}
+                    onKeyPress={(e) => {
+                      if (!/[0-9]/.test(e.key)) e.preventDefault();
+                    }}
+                  />
+                  {clientErrors.celular && <span className="form-error">{clientErrors.celular}</span>}
+                </div>
               </div>
               <label className="checkbox-label">
                 <input

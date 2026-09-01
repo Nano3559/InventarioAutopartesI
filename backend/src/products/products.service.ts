@@ -4,15 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import * as fs from 'fs';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as path from 'path';
 import { Product } from '../entities/product.entity';
 import { Inventory } from '../entities/inventory.entity';
 import { Location } from '../entities/location.entity';
 import { computeHash, hammingDistance } from '../common/image-hash';
-
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 export interface ProductFilters {
   search?: string;
@@ -24,11 +23,24 @@ export interface ProductFilters {
   codigoOem?: string;
   codigoFabrica?: string;
   locationId?: number;
+  activo?: string;
 }
 
 @Injectable()
 export class ProductsService {
-  constructor(@InjectDataSource() private dataSource: DataSource) {}
+  private supabase: SupabaseClient;
+  private bucket: string;
+
+  constructor(
+    @InjectDataSource() private dataSource: DataSource,
+    private config: ConfigService,
+  ) {
+    this.supabase = createClient(
+      this.config.get<string>('SUPABASE_URL')!,
+      this.config.get<string>('SUPABASE_KEY')!,
+    );
+    this.bucket = this.config.get<string>('SUPABASE_BUCKET') || 'products';
+  }
 
   private repo() {
     return this.dataSource.getRepository(Product);
@@ -67,8 +79,13 @@ export class ProductsService {
         cf: `%${filters.codigoFabrica}%`,
       });
 
+    if (filters.activo !== undefined) {
+      qb.andWhere('p.activo = :act', { act: filters.activo === 'true' });
+    } else {
+      qb.andWhere('p.activo = :act', { act: true });
+    }
+
     const products = await qb
-      .andWhere('p.activo = :act', { act: true })
       .orderBy('p.id', 'DESC')
       .getMany();
 
@@ -321,6 +338,14 @@ export class ProductsService {
     return { ok: true };
   }
 
+  async toggleActive(id: number) {
+    const product = await this.repo().findOne({ where: { id } });
+    if (!product) throw new NotFoundException('Producto no encontrado');
+    product.activo = !product.activo;
+    await this.repo().save(product);
+    return { id: product.id, activo: product.activo };
+  }
+
   async setStock(productId: number, locationId: number, cantidad: number) {
     if (
       !Number.isFinite(cantidad) ||
@@ -390,20 +415,51 @@ export class ProductsService {
     if (!product) throw new NotFoundException('Producto no encontrado');
     if (!file) throw new BadRequestException('No se recibió ninguna imagen');
 
-    if (!fs.existsSync(UPLOADS_DIR))
-      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
     const ext = path.extname(file.originalname) || '.png';
     const filename = `product-${id}-${Date.now()}${ext}`;
-    fs.writeFileSync(path.join(UPLOADS_DIR, filename), file.buffer);
 
-    product.imagen = `/uploads/${filename}`;
-    product.imagenHash = await computeHash(file.buffer);
+    console.log(`[Upload] Subiendo imagen: ${filename} (${file.size} bytes, ${file.mimetype}) al bucket "${this.bucket}"`);
+
+    const { data: uploadData, error: uploadError } = await this.supabase.storage
+      .from(this.bucket)
+      .upload(filename, file.buffer, {
+        contentType: file.mimetype || `image/${ext.replace('.', '')}`,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('[Upload] Error de Supabase al subir:', uploadError);
+      throw new BadRequestException(
+        `Error al subir imagen a Supabase: ${uploadError.message} (bucket: ${this.bucket})`,
+      );
+    }
+
+    console.log('[Upload] Imagen subida exitosamente:', uploadData?.path);
+
+    const { data: urlData } = this.supabase.storage
+      .from(this.bucket)
+      .getPublicUrl(filename);
+
+    const publicUrl = urlData?.publicUrl || '';
+    console.log('[Upload] URL pública generada:', publicUrl);
+
+    product.imagen = publicUrl;
+    try {
+      product.imagenHash = await computeHash(file.buffer);
+    } catch (hashErr) {
+      console.warn('[Upload] No se pudo calcular hash perceptual:', hashErr);
+    }
     return this.repo().save(product);
   }
 
   async searchByImage(file: Express.Multer.File, limit = 5) {
     if (!file) throw new BadRequestException('No se recibió ninguna imagen');
-    const hash = await computeHash(file.buffer);
+    let hash: string;
+    try {
+      hash = await computeHash(file.buffer);
+    } catch {
+      throw new BadRequestException('No se pudo procesar la imagen para búsqueda');
+    }
     const products = await this.repo().find({ where: { activo: true } });
     const results = products
       .filter((p) => p.imagenHash)

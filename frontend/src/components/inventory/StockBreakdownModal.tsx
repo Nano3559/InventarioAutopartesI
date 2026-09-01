@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { X, Warehouse, Store, Boxes, Loader2 } from 'lucide-react';
 import type { Product, LocationStock } from '../../types/product.types';
 import { productsService } from '../../services/products.service';
+import { resolveImageUrl } from '../../api/client';
 
 interface StockBreakdownModalProps {
   product: Product | null;
@@ -73,8 +74,8 @@ export function StockBreakdownModal({ product, onClose }: StockBreakdownModalPro
           {/* Ficha Resumen del Producto */}
           <div className="stock-product-summary">
             <div className="product-thumb-box" style={{ width: '54px', height: '54px' }}>
-              {product.imagen ? (
-                <img src={product.imagen} alt={product.producto} className="product-thumb-img" />
+              {resolveImageUrl(product.imagen) ? (
+                <img src={resolveImageUrl(product.imagen)!} alt={product.producto} className="product-thumb-img" />
               ) : (
                 <Boxes size={24} className="product-thumb-fallback" />
               )}

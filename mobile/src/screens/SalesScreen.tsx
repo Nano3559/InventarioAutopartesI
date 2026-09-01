@@ -48,6 +48,26 @@ const QUICK_PAYMENT_METHODS = [
   { id: 'Crédito', label: 'Crédito', icon: 'card' },
 ] as const;
 
+const validateCI = (value: string): boolean => {
+  if (!value) return true;
+  const trimmed = value.trim().toUpperCase();
+  const ciPattern = /^\d{7,8}$/;
+  const ciExtPattern = /^\d{7,8}(LP|CH|CB|OR|TJ|SC|BE|PA|PO|PT|ON|SA|DA|SU)$/;
+  const nitPattern = /^\d{10,12}$/;
+  return ciPattern.test(trimmed) || ciExtPattern.test(trimmed) || nitPattern.test(trimmed);
+};
+
+const validatePhone = (value: string): boolean => {
+  if (!value) return true;
+  const trimmed = value.trim();
+  return /^[67]\d{7}$/.test(trimmed);
+};
+
+const validateName = (value: string): boolean => {
+  if (!value) return true;
+  return /^[a-zA-ZáéíóúñüÁÉÍÓÚÑÜ\s]+$/.test(value.trim());
+};
+
 interface SalesScreenProps {
   initialSaleId?: number;
 }
@@ -72,6 +92,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const [stockError, setStockError] = useState<string | null>(null);
   const [stockErrorProductId, setStockErrorProductId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [clientErrors, setClientErrors] = useState<{ nombre?: string; ciNit?: string; celular?: string }>({});
   const editingSaleId = initialSaleId ?? null;
   const isEditing = editingSaleId !== null;
 
@@ -190,6 +211,31 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const validateClientField = (field: 'nombre' | 'ciNit' | 'celular', value: string) => {
+    const newErrors = { ...clientErrors };
+    if (field === 'nombre' && value && !validateName(value)) {
+      newErrors.nombre = 'Solo se permiten letras y espacios';
+    } else if (field === 'nombre') {
+      delete newErrors.nombre;
+    }
+    if (field === 'ciNit' && value && !validateCI(value)) {
+      newErrors.ciNit = 'CI: 7-8 dígitos. NIT: 10-12 dígitos';
+    } else if (field === 'ciNit') {
+      delete newErrors.ciNit;
+    }
+    if (field === 'celular' && value && !validatePhone(value)) {
+      newErrors.celular = 'Celular: 8 dígitos, empieza con 6 o 7';
+    } else if (field === 'celular') {
+      delete newErrors.celular;
+    }
+    setClientErrors(newErrors);
+  };
+
+  const handleClientChange = (field: 'nombre' | 'ciNit' | 'celular', value: string) => {
+    setCliente({ ...cliente, [field]: value });
+    validateClientField(field, value);
+  };
+
   const addToCart = (product: any) => {
     if (loadingProducts) {
       showToast('Cargando productos...', 'error');
@@ -298,6 +344,20 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
 
   const handleSubmit = async () => {
     if (!canSubmitFinal) return;
+
+    if (cliente.nombre && !validateName(cliente.nombre)) {
+      showToast('El nombre solo debe contener letras', 'error');
+      return;
+    }
+    if (cliente.ciNit && !validateCI(cliente.ciNit)) {
+      showToast('Formato de CI/NIT inválido', 'error');
+      return;
+    }
+    if (cliente.celular && !validatePhone(cliente.celular)) {
+      showToast('Celular inválido: 8 dígitos, empieza con 6 o 7', 'error');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const input: SaleInput = {
@@ -353,6 +413,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
 
   const renderProductItem = useCallback(({ item }: { item: { product: any; stock: number } }) => {
     const outOfStock = item.stock <= 0;
+    const inCartQty = cart.find(i => i.productId === item.product.id)?.cantidad ?? 0;
     return (
     <TableRow
       onPress={() => !outOfStock && addToCart(item.product)}
@@ -360,7 +421,14 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       accessibilityHint={outOfStock ? 'Sin stock disponible' : "Tocar para agregar al carrito"}
     >
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.product.producto}</Text>
+        <View style={styles.productNameRow}>
+          <Text style={styles.productName} numberOfLines={1}>{item.product.producto}</Text>
+          {inCartQty > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{inCartQty}</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.productDetail}>
           {item.product.marca} {item.product.modelo} · {item.product.codigoFabrica}
         </Text>
@@ -382,14 +450,20 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       </View>
       <View style={styles.productAction}>
         {!outOfStock ? (
-          <Ionicons name="add-circle" size={iconSize.xl} color={colors.primary} />
+          inCartQty > 0 ? (
+            <View style={styles.addedIndicator}>
+              <Ionicons name="checkmark-circle" size={iconSize.xl} color={colors.success} />
+            </View>
+          ) : (
+            <Ionicons name="add-circle" size={iconSize.xl} color={colors.primary} />
+          )
         ) : (
           <Ionicons name="close-circle" size={iconSize.xl} color={colors.danger} />
         )}
       </View>
     </TableRow>
     );
-  }, []);
+  }, [cart]);
 
   const renderCartItem = useCallback(({ item }: { item: SaleItem }) => {
     const prod = products.find(p => p.product.id === item.productId)?.product;
@@ -705,33 +779,44 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
                     style={[styles.input, componentStyles.inputBase, { fontFamily: fontFamily.sans }]}
                     placeholder="Nombre cliente"
                     value={cliente.nombre}
-                    onChangeText={t => setCliente({ ...cliente, nombre: t })}
+                    onChangeText={t => handleClientChange('nombre', t)}
                     placeholderTextColor={colors.textPlaceholder}
                     accessibilityLabel="Nombre del cliente"
                     autoComplete="name"
                     editable={!submitting}
                   />
+                  {clientErrors.nombre && (
+                    <Text style={styles.clientErrorText}>{clientErrors.nombre}</Text>
+                  )}
                   <TextInput
                     style={[styles.input, componentStyles.inputBase, { fontFamily: fontFamily.monoMedium }]}
                     placeholder="CI/NIT"
                     value={cliente.ciNit}
-                    onChangeText={t => setCliente({ ...cliente, ciNit: t })}
+                    onChangeText={t => handleClientChange('ciNit', t)}
                     placeholderTextColor={colors.textPlaceholder}
                     accessibilityLabel="CI o NIT del cliente"
                     autoComplete="off"
                     editable={!submitting}
+                    maxLength={15}
                   />
+                  {clientErrors.ciNit && (
+                    <Text style={styles.clientErrorText}>{clientErrors.ciNit}</Text>
+                  )}
                   <TextInput
                     style={[styles.input, componentStyles.inputBase, { fontFamily: fontFamily.monoMedium }]}
                     placeholder="Celular"
                     value={cliente.celular}
-                    onChangeText={t => setCliente({ ...cliente, celular: t })}
+                    onChangeText={t => handleClientChange('celular', t.replace(/[^0-9]/g, ''))}
                     placeholderTextColor={colors.textPlaceholder}
                     keyboardType="phone-pad"
                     accessibilityLabel="Celular del cliente"
                     autoComplete="tel"
                     editable={!submitting}
+                    maxLength={8}
                   />
+                  {clientErrors.celular && (
+                    <Text style={styles.clientErrorText}>{clientErrors.celular}</Text>
+                  )}
                 </>
               )}
 
@@ -804,6 +889,17 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
             </View>
           )}
         </ScrollView>
+
+        {/* Floating Cart Bar */}
+        {cart.length > 0 && (
+          <View style={styles.floatingCartBar}>
+            <View style={styles.floatingCartInfo}>
+              <Ionicons name="cart" size={iconSize.md} color={colors.primary} />
+              <Text style={styles.floatingCartCount}>{cart.length} {cart.length === 1 ? 'producto' : 'productos'}</Text>
+            </View>
+            <Text style={styles.floatingCartTotal}>Bs {total.toFixed(2)}</Text>
+          </View>
+        )}
       </KeyboardAvoidingView>
 
       {/* Payment Modal */}
@@ -863,7 +959,25 @@ const styles = StyleSheet.create({
   emptyList: { padding: space.xl, alignItems: 'center', gap: space.md },
   emptyText: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.textMuted },
   productInfo: { flex: 1, marginRight: space.md, minWidth: 0 },
-  productName: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
+  productNameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  productName: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text, flex: 1 },
+  cartBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    minWidth: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  cartBadgeText: {
+    color: colors.white,
+    fontSize: 11,
+    fontFamily: fontFamily.monoBold,
+  },
+  addedIndicator: {
+    opacity: 0.9,
+  },
   productDetail: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted, marginTop: 2 },
   productMeta: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.xs, flexWrap: 'wrap' },
   priceText: { fontSize: fontSize.data, fontFamily: fontFamily.monoBold, color: colors.primary },
@@ -904,6 +1018,13 @@ const styles = StyleSheet.create({
   addPaymentBtnText: { color: colors.primary, fontFamily: fontFamily.sansSemiBold },
   paymentError: { color: colors.danger, fontSize: fontSize.caption, fontFamily: fontFamily.monoMedium, marginTop: space.xs, textAlign: 'center' },
   input: { marginTop: space.sm },
+  clientErrorText: {
+    color: colors.danger,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    marginTop: 2,
+    marginLeft: 4,
+  },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space.sm },
   checkboxRowPressed: { opacity: opacity.pressed },
   checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: colors.border, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
@@ -1000,6 +1121,32 @@ const styles = StyleSheet.create({
   },
   qtyBtnDisabled: {
     opacity: 0.4,
+  },
+  floatingCartBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    ...shadows.level2,
+  },
+  floatingCartInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  floatingCartCount: {
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.text,
+  },
+  floatingCartTotal: {
+    fontSize: fontSize.dataLg,
+    fontFamily: fontFamily.monoBold,
+    color: colors.primary,
   },
   toast: {
     marginHorizontal: space.lg,
