@@ -375,17 +375,33 @@ export class ProductsService {
     locationId: number,
     delta: number,
   ): Promise<Inventory> {
+    if (!Number.isFinite(delta) || delta === 0) {
+      throw new BadRequestException('El delta debe ser un número distinto de cero');
+    }
+
     const inv = await this.invRepo().findOne({
       where: { productId, locationId },
     });
+
     if (inv) {
-      inv.cantidad = Math.max(0, inv.cantidad + delta);
+      const newCantidad = inv.cantidad + delta;
+      if (newCantidad < 0) {
+        throw new BadRequestException(
+          `Stock insuficiente. Stock actual: ${inv.cantidad}, intentando reducir: ${Math.abs(delta)}`,
+        );
+      }
+      inv.cantidad = newCantidad;
       return this.invRepo().save(inv);
     }
+
+    if (delta < 0) {
+      throw new BadRequestException('No existe registro de inventario para este producto en esta ubicación');
+    }
+
     const created = this.invRepo().create({
       productId,
       locationId,
-      cantidad: Math.max(0, delta),
+      cantidad: delta,
     });
     return this.invRepo().save(created);
   }

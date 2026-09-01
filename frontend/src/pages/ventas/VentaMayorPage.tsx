@@ -97,7 +97,9 @@ export function VentaMayorPage() {
     const p = products.find((pr) => pr.id === item.productId);
     return p && item.cantidad > getProductStock(p);
   });
-  const canSubmitManual = cart.length > 0 && !hasStockViolation && Math.abs(paymentsTotal - cartTotal) < 0.01;
+  const canSubmitManual = cart.length > 0 && !hasStockViolation && Math.abs(paymentsTotal - cartTotal) < 0.01
+    && Object.keys(clientErrors).length === 0
+    && !(requiereFactura && (!cliente.nombre || !cliente.ciNit));
 
   const previewTotal = previewResult?.total ?? 0;
   const activeTotal = mode === 'manual' ? cartTotal : previewTotal;

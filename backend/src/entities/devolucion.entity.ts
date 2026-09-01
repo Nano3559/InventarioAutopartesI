@@ -8,6 +8,7 @@ import {
 import { Product } from './product.entity';
 import { Location } from './location.entity';
 import { User } from './user.entity';
+import { Sale } from './sale.entity';
 
 @Entity('devoluciones')
 export class Devolucion {
@@ -23,6 +24,16 @@ export class Devolucion {
   @ManyToOne(() => Product)
   @JoinColumn({ name: 'productId' })
   product: Product;
+
+  @Column({ type: 'int', nullable: true })
+  ventaId: number | null;
+
+  @ManyToOne(() => Sale, { nullable: true })
+  @JoinColumn({ name: 'ventaId' })
+  venta: Sale | null;
+
+  @Column({ type: 'int', nullable: true })
+  saleItemId: number | null;
 
   @Column()
   motivo: string;

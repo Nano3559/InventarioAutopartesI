@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Camera,
+  History,
 } from 'lucide-react';
 import type { UserRole } from '../types/auth.types';
 
@@ -97,6 +98,12 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
           to: '/ventas-mayor',
           label: 'Ventas por Mayor',
           icon: <ShoppingBag size={18} />,
+          roles: ['admin', 'tienda'],
+        },
+        {
+          to: '/ventas-historial',
+          label: 'Historial de Ventas',
+          icon: <History size={18} />,
           roles: ['admin', 'tienda'],
         },
         {

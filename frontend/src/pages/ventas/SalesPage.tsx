@@ -151,7 +151,9 @@ export function SalesPage() {
     const p = products.find((pr) => pr.id === item.productId);
     return p && item.cantidad > getProductStock(p);
   });
-  const canSubmit = cart.length > 0 && !hasStockViolation && Math.abs(paymentsTotal - cartTotal) < 0.01;
+  const canSubmit = cart.length > 0 && !hasStockViolation && Math.abs(paymentsTotal - cartTotal) < 0.01
+    && Object.keys(clientErrors).length === 0
+    && !(requiereFactura && (!cliente.nombre || !cliente.ciNit));
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     if (type === 'success') {
