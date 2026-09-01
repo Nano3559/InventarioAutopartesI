@@ -17,7 +17,7 @@ import { Header, StatCard, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function InventarioDashboardScreen() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigation = useNavigation();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,19 +26,22 @@ export default function InventarioDashboardScreen() {
   const openMenu = () => navigation.dispatch(DrawerActions.openDrawer());
   const goTo = (route: string) => navigation.navigate(route as never);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await getDashboard();
-        setDashboard(data);
-      } catch {
-        setError('No se pudieron cargar los datos');
-      } finally {
-        setLoading(false);
-      }
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getDashboard(token ?? undefined);
+      setDashboard(data);
+    } catch {
+      setError('No se pudieron cargar los datos');
+    } finally {
+      setLoading(false);
     }
-    load();
-  }, []);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [token]);
 
   if (loading) {
     return (
@@ -59,6 +62,13 @@ export default function InventarioDashboardScreen() {
         <View style={s.center}>
           <Ionicons name="cloud-offline" size={48} color={colors.danger} />
           <Text style={[s.centerText, { color: colors.danger }]}>{error}</Text>
+          <Pressable
+            style={({ pressed }) => [s.retryBtn, pressed && { opacity: 0.8 }]}
+            onPress={loadData}
+          >
+            <Ionicons name="refresh" size={20} color={colors.primary} />
+            <Text style={s.retryBtnText}>Reintentar</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -223,6 +233,8 @@ const s = StyleSheet.create({
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: space.md, padding: space.xl },
   centerText: { color: colors.textMuted, fontSize: fontSize.body, fontFamily: fontFamily.sans },
+  retryBtn: { flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: space.lg },
+  retryBtnText: { color: colors.primary, fontFamily: fontFamily.sansSemiBold, fontSize: fontSize.body },
 
   // Banner
   banner: { backgroundColor: colors.primary, borderRadius: radius.lg, overflow: 'hidden', ...shadows.level3 },

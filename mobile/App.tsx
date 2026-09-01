@@ -20,6 +20,7 @@ import SalesEditScreen from './src/screens/SalesEditScreen';
 import DevolucionesScreen from './src/screens/DevolucionesScreen';
 import SolicitudesScreen from './src/screens/SolicitudesScreen';
 import VentaMayorScreen from './src/screens/VentaMayorScreen';
+import SalesHistoryScreen from './src/screens/SalesHistoryScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import SearchByImageScreen from './src/screens/SearchByImageScreen';
 import ProductDetailScreen from './src/screens/ProductDetailScreen';
@@ -50,6 +51,7 @@ function AdminDrawer() {
       <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <Drawer.Screen name="Sales" component={SalesScreen} />
       <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
+      <Drawer.Screen name="SalesHistory" component={SalesHistoryScreen} />
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
@@ -67,6 +69,7 @@ function TiendaDrawer() {
       <Drawer.Screen name="TiendaDashboard" component={TiendaDashboardScreen} />
       <Drawer.Screen name="Sales" component={SalesScreen} />
       <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
+      <Drawer.Screen name="SalesHistory" component={SalesHistoryScreen} />
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />

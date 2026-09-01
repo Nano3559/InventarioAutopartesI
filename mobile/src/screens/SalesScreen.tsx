@@ -96,7 +96,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const editingSaleId = initialSaleId ?? null;
   const isEditing = editingSaleId !== null;
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (searchTerm?: string) => {
     try {
       const token = await getToken();
       if (!token) {
@@ -104,7 +104,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         return;
       }
       const tiendaId = user?.tiendaId ?? undefined;
-      const data = await getProducts({ search: search || undefined, locationId: tiendaId }, token);
+      const data = await getProducts({ search: searchTerm || undefined, locationId: tiendaId }, token);
       setProducts(data.map(p => ({
         product: p,
         stock: (tiendaId && p.stockByLocation) ? (p.stockByLocation[tiendaId] ?? 0) : p.stockTotal,
@@ -114,13 +114,13 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     } finally {
       setLoadingProducts(false);
     }
-  }, [search, user?.tiendaId, user]);
+  }, [user?.tiendaId]);
 
   useEffect(() => {
     if (!authLoading) {
-      loadProducts();
+      loadProducts(search);
     }
-  }, [loadProducts, authLoading]);
+  }, [authLoading, loadProducts, search]);
 
   // Cargar venta existente si estamos en modo edición
   useEffect(() => {
@@ -197,7 +197,9 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   );
 
   const change = totalPagado - total;
-  const canSubmit = cart.length > 0 && payments.length > 0 && Math.abs(totalPagado - total) < 0.01;
+  const canSubmit = cart.length > 0 && payments.length > 0 && Math.abs(totalPagado - total) < 0.01
+    && Object.keys(clientErrors).length === 0
+    && !(requiereFactura && (!cliente.nombre || !cliente.ciNit));
   const hasStockViolation = cart.some((item) => {
     const p = products.find(pr => pr.product.id === item.productId);
     return p && item.cantidad > (p.stock ?? 0);
@@ -242,34 +244,19 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     validateClientField(field, value);
   };
 
-  const addToCart = (product: any) => {
-    if (loadingProducts) {
-      showToast('Cargando productos...', 'error');
-      return;
-    }
-
-    const productData = products.find(p => p.product.id === product.id);
-    if (!productData) {
-      showToast('Producto no encontrado en la lista', 'error');
-      return;
-    }
-
-    const available = productData.stock ?? 0;
+  const addToCart = (product: any, availableStock: number) => {
     const inCart = cart.find(i => i.productId === product.id)?.cantidad ?? 0;
 
-    if (inCart >= available) {
-      showToast(`Sin stock: ${product.producto} (disponible: ${available})`, 'error');
+    if (inCart >= availableStock) {
+      showToast(`Sin stock: ${product.producto} (disponible: ${availableStock})`, 'error');
       return;
     }
-
-    setStockError(null);
-    setStockErrorProductId(null);
 
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id);
       if (existing) {
-        if (existing.cantidad >= available) {
-          showToast(`Sin stock: "${product.producto}". Disponible: ${available}`, 'error');
+        if (existing.cantidad >= availableStock) {
+          showToast(`Sin stock: "${product.producto}". Disponible: ${availableStock}`, 'error');
           return prev;
         }
         return prev.map(i => i.productId === product.id
@@ -283,18 +270,10 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   };
 
   const updateCartQty = (productId: number, cantidad: number) => {
-    const product = products.find(p => p.product.id === productId);
-    const available = product?.stock ?? 0;
-    const nextQuantity = Math.min(Math.max(0, cantidad), available);
     if (cantidad <= 0) {
       setCart(prev => prev.filter(i => i.productId !== productId));
-    } else if (available <= 0) {
-      setCart(prev => prev.filter(i => i.productId !== productId));
     } else {
-      if (cantidad > available) {
-        showToast(`Stock máximo disponible: ${available} unidades`, 'error');
-      }
-      setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad: nextQuantity } : i));
+      setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad } : i));
     }
     setStockError(null);
     setStockErrorProductId(null);
@@ -422,7 +401,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     const inCartQty = cart.find(i => i.productId === item.product.id)?.cantidad ?? 0;
     return (
     <TableRow
-      onPress={() => !outOfStock && addToCart(item.product)}
+      onPress={() => !outOfStock && addToCart(item.product, item.stock)}
       accessibilityLabel={`${item.product.producto}, ${item.product.marca} ${item.product.modelo}, ${item.stock === 0 ? 'Sin stock' : item.stock <= (item.product.stockMinimo || 1) ? `Stock bajo: ${item.stock}` : `Disponible: ${item.stock}`}, Bs ${item.product.precio1?.toFixed(2) || '—'}`}
       accessibilityHint={outOfStock ? 'Sin stock disponible' : "Tocar para agregar al carrito"}
     >
