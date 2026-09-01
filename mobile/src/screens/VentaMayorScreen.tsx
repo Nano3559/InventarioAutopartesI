@@ -144,6 +144,11 @@ export default function VentaMayorScreen() {
   const paid = payments.reduce((sum, payment) => sum + payment.monto, 0);
   const hasPaymentMismatch = Math.abs(paid - activeTotal) > 0.01;
   const hasStockError = cart.some((item) => item.cantidad > (products.find((product) => product.id === item.productId)?.stockTotal ?? 0));
+  const hasClientErrors = Object.keys(clientErrors).length > 0;
+  const requiresFacturaFields = requiresInvoice && (!clientName || !clientCiNit);
+  const canSubmitManual = mode === 'manual' && cart.length > 0 && !hasStockError && !hasPaymentMismatch && !hasClientErrors && !requiresFacturaFields;
+  const canSubmitExcel = mode === 'excel' && !!file && preview?.ok === true && preview.items.length > 0 && !hasPaymentMismatch;
+  const canSubmit = canSubmitManual || canSubmitExcel;
 
   function addProduct(product: Product) {
     const available = product.stockTotal ?? 0;
@@ -207,6 +212,10 @@ export default function VentaMayorScreen() {
     }
     if (hasPaymentMismatch) {
       showToast(`El total pagado debe coincidir con Bs ${activeTotal.toFixed(2)}.`, 'error');
+      return;
+    }
+    if (requiresInvoice && (!clientName || !clientCiNit)) {
+      showToast('Para factura requiere: Nombre y CI/NIT', 'error');
       return;
     }
     if (clientName && !validateName(clientName)) {
@@ -290,7 +299,7 @@ export default function VentaMayorScreen() {
 
         <View style={styles.panel}><Text style={styles.sectionTitle}>Pagos</Text><View style={styles.quickPayments}>{paymentMethods.map((method) => <Pressable key={method} style={styles.quickPayment} onPress={() => setQuickPayment(method)}><Text style={styles.muted}>{method}</Text></Pressable>)}</View>{payments.map((payment, index) => <View key={index} style={styles.paymentRow}><TextInput style={[componentStyles.inputBase, styles.paymentMethod]} value={payment.metodo} onChangeText={(value) => setPayments((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, metodo: value } : entry))} /><TextInput style={[componentStyles.inputBase, styles.paymentAmount]} value={String(payment.monto || '')} onChangeText={(value) => setPayments((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, monto: Number(value) || 0 } : entry))} keyboardType="decimal-pad" placeholder="Monto" placeholderTextColor={colors.textPlaceholder} /></View>)}<Text style={[styles.muted, hasPaymentMismatch && styles.errorText]}>Pagado: Bs {paid.toFixed(2)} · Falta: Bs {Math.max(0, activeTotal - paid).toFixed(2)}</Text></View>
 
-        {working ? <ActivityIndicator color={colors.primary} size="large" /> : <PrimaryCTA label="Confirmar venta por mayor" iconName="checkmark-circle" color={colors.success} onPress={submitSale} accessibilityLabel="Confirmar venta por mayor" />}
+        {working ? <ActivityIndicator color={colors.primary} size="large" /> : <PrimaryCTA label="Confirmar venta por mayor" iconName="checkmark-circle" color={canSubmit ? colors.success : colors.textMuted} onPress={submitSale} disabled={!canSubmit} accessibilityLabel="Confirmar venta por mayor" />}
         {lastSaleId && <Text style={styles.successText}>Venta #{lastSaleId} confirmada. Puedes generar su nota desde ventas.</Text>}
       </ScrollView>
     </SafeAreaView>

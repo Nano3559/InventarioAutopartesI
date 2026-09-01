@@ -296,7 +296,7 @@ export default function SolicitudesScreen() {
                         onPress={() => { setPickerVisible('tienda'); setPickerSearch(''); }}
                       >
                         <Text style={formData.tiendaId ? styles.pickerValue : styles.pickerPlaceholder}>
-                          {formData.tiendaId ? `Tienda ${formData.tiendaId}` : 'Seleccionar tienda...'}
+                          {formData.tiendaId ? (tiendas.find(t => t.id === formData.tiendaId)?.nombre || `Tienda #${formData.tiendaId}`) : 'Seleccionar tienda...'}
                         </Text>
                       </Pressable>
                     </View>
@@ -393,7 +393,7 @@ export default function SolicitudesScreen() {
       {/* Estado Modal */}
       {estadoModal && (
         <Pressable style={styles.modalOverlay} onPress={() => setEstadoModal(null)} accessibilityRole={a11y.button}>
-          <View style={styles.modal}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={styles.modal}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Cambiar Estado</Text>
               <Pressable onPress={() => setEstadoModal(null)} accessibilityRole={a11y.button} hitSlop={16}>
@@ -488,7 +488,7 @@ export default function SolicitudesScreen() {
                 </Pressable>
               )}
             </View>
-          </View>
+          </Pressable>
         </Pressable>
       )}
 

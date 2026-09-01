@@ -30,26 +30,11 @@ import {
 } from '../theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-interface Credential {
-  role: string;
-  email: string;
-  password: string;
-}
-
-const CREDENTIALS: readonly Credential[] = [
-  { role: 'Administrador', email: 'admin@importadoras.com', password: 'admin123' },
-  { role: 'Encargado Inventario', email: 'inventario@importadoras.com', password: 'inventario123' },
-  { role: 'Vendedor Tienda 1', email: 'tienda1@importadoras.com', password: 'venta123' },
-  { role: 'Vendedor Tienda 2', email: 'tienda2@importadoras.com', password: 'venta123' },
-  { role: 'Vendedor Tienda 3', email: 'tienda3@importadoras.com', password: 'venta123' },
-] as const;
-
 const compStyles = createComponentStyles('light');
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
-  const { width, height } = useWindowDimensions();
-  const isSmallScreen = width < 360;
+  const { height } = useWindowDimensions();
   const isCompactHeight = height < 720;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,12 +57,6 @@ export default function LoginScreen() {
       setSubmitting(false);
     }
   }
-
-  const fillCredentials = (c: Credential) => {
-    setEmail(c.email);
-    setPassword(c.password);
-    setError(null);
-  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -109,26 +88,6 @@ export default function LoginScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Iniciar Sesión</Text>
             <Text style={styles.cardSubtitle}>Ingresa tus credenciales para acceder</Text>
-
-            {/* Quick Role Fillers (matching web) */}
-            <View style={styles.quickRolesSection}>
-              <Text style={styles.quickRolesTitle}>⚡ Acceso Rápido de Prueba (Demo)</Text>
-              <View style={[styles.quickRolesGrid, { flexDirection: isSmallScreen ? 'column' : 'row' }]}>
-                {CREDENTIALS.map((c, i) => (
-                  <Pressable
-                    key={i}
-                    style={[styles.quickRoleBtn, { flexBasis: isSmallScreen ? '100%' : '48%' }]}
-                    onPress={() => fillCredentials(c)}
-                    accessibilityRole={a11y.button}
-                    accessibilityLabel={`Ingresar como ${c.role}`}
-                    android_ripple={{ color: colors.primarySoft }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={styles.quickRoleBtnText} numberOfLines={2}>{c.role}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
 
             {/* Error */}
             {error ? (
@@ -167,7 +126,7 @@ export default function LoginScreen() {
                     onChangeText={setEmail}
                     onFocus={() => setFocusedField('email')}
                     onBlur={() => setFocusedField(null)}
-                    placeholder={isSmallScreen ? 'correo@ejemplo.com' : 'ejemplo@autorepuestos.com'}
+                    placeholder="ejemplo@autorepuestos.com"
                     placeholderTextColor={colors.textPlaceholder}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -342,43 +301,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
     marginBottom: space.lg,
-    textAlign: 'center',
-  },
-  quickRolesSection: {
-    backgroundColor: colors.systemSurfaceVariant,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    padding: space.md,
-    marginBottom: space.lg,
-  },
-  quickRolesTitle: {
-    fontSize: 10,
-    fontFamily: fontFamily.sansSemiBold,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: space.sm,
-    textAlign: 'center',
-  },
-  quickRolesGrid: {
-    flexWrap: 'wrap',
-    gap: space.xs,
-  },
-  quickRoleBtn: {
-    flexGrow: 1,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingVertical: space.xs,
-    paddingHorizontal: space.sm,
-    minHeight: 40,
-  },
-  quickRoleBtnText: {
-    fontSize: 11,
-    fontFamily: fontFamily.sansMedium,
-    color: colors.text,
     textAlign: 'center',
   },
   inputGroup: {

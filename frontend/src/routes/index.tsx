@@ -10,6 +10,7 @@ import { SalesPage } from '../pages/ventas/SalesPage';
 import { DevolucionesPage } from '../pages/ventas/DevolucionesPage';
 import { SolicitudesPage } from '../pages/ventas/SolicitudesPage';
 import { VentaMayorPage } from '../pages/ventas/VentaMayorPage';
+import { HistorialVentasPage } from '../pages/ventas/HistorialVentasPage';
 import { MovimientosPage } from '../pages/movimientos/MovimientosPage';
 import { CostosPage } from '../pages/costos/CostosPage';
 import { PreciosPage } from '../pages/precios/PreciosPage';
@@ -116,6 +117,15 @@ export function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'tienda']}>
               <VentaMayorPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="ventas-historial"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'tienda']}>
+              <HistorialVentasPage />
             </ProtectedRoute>
           }
         />

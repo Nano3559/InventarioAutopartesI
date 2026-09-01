@@ -24,6 +24,7 @@ export function Navbar({ onToggleMobileSidebar }: NavbarProps) {
       inventario: 'Gestión de Inventario',
       ventas: 'Punto de Venta',
       'ventas-mayor': 'Ventas por Mayor',
+      'ventas-historial': 'Historial de Ventas',
       movimientos: 'Movimientos y Traslados',
       solicitudes: 'Solicitudes a Almacén',
       precios: 'Gestión de Precios',
