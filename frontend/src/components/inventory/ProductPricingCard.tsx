@@ -81,7 +81,7 @@ export function ProductPricingCard({ product }: ProductPricingCardProps) {
         <div className="pricing-row-item">
           <div className="pricing-label-group">
             <span className="pricing-name">Precio Mayorista</span>
-            <span className="pricing-hint">Venta por volumen / B6</span>
+            <span className="pricing-hint">Venta por volumen</span>
           </div>
           <div className="pricing-value-group">
             <span className="pricing-number" style={{ color: '#a78bfa' }}>

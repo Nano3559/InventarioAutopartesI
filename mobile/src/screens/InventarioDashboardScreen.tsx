@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { getDashboard, type DashboardData } from '../api/reportes';
 import {
@@ -9,33 +10,28 @@ import {
   radius,
   fontFamily,
   fontSize,
-  lineHeight,
-  componentStyles,
   shadows,
-  opacity,
-  iconSize,
   a11y,
 } from '../theme';
-import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
+import { Header, StatCard, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function InventarioDashboardScreen() {
-  const { user, signOut } = useAuth();
-  const { width } = useWindowDimensions();
-  const isSmallScreen = width < 380;
-  const statCardMinWidth = isSmallScreen ? '100%' : '46%';
-  const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
+  const { user } = useAuth();
+  const navigation = useNavigation();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const openMenu = () => navigation.dispatch(DrawerActions.openDrawer());
+  const goTo = (route: string) => navigation.navigate(route as never);
 
   useEffect(() => {
     async function load() {
       try {
         const data = await getDashboard();
         setDashboard(data);
-      } catch (e) {
-        console.error('Error cargando dashboard:', e);
+      } catch {
         setError('No se pudieron cargar los datos');
       } finally {
         setLoading(false);
@@ -44,205 +40,217 @@ export default function InventarioDashboardScreen() {
     load();
   }, []);
 
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <Header title="AutoPartes Pro" onMenuPress={openMenu} />
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={s.centerText}>Cargando datos...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <Header title="AutoPartes Pro" onMenuPress={openMenu} />
+        <View style={s.center}>
+          <Ionicons name="cloud-offline" size={48} color={colors.danger} />
+          <Text style={[s.centerText, { color: colors.danger }]}>{error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const inv = dashboard?.inventario;
 
-  const almacenStats = inv ? [
-    { label: 'Total Productos', value: `${inv.totalProductos}`, iconName: 'cube' as const, color: colors.primary },
-    { label: 'Sin Stock', value: `${inv.sinStock}`, iconName: 'alert-circle' as const, color: colors.danger },
-    { label: 'Stock Bajo', value: `${inv.stockBajo}`, iconName: 'warning' as const, color: colors.warning },
-    { label: 'Valor Inventario', value: `Bs. ${inv.valorInventario.toLocaleString()}`, iconName: 'cash' as const, color: colors.emerald },
-  ] : [];
-
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={s.safe}>
       <Header
         title="AutoPartes Pro"
-        subtitle={`Encargado de Inventario — ${user?.nombre}`}
-        rightAction={{
-          label: 'Salir',
-          onPress: signOut,
-          variant: 'danger',
-          icon: 'log-out',
-        }}
+        subtitle={`Inventario — ${user?.nombre}`}
+        onMenuPress={openMenu}
       />
 
-      <ScrollView contentContainerStyle={[styles.content, isSmallScreen && styles.contentSmall]} showsVerticalScrollIndicator={false}>
-        {/* Welcome */}
-        <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeTitle}>Panel de Inventario</Text>
-          <Text style={styles.welcomeSubtitle}>Gestión de stock, solicitudes y movimientos</Text>
+      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+
+        {/* ── Banner ── */}
+        <View style={s.banner}>
+          <View style={s.bannerOverlay}>
+            <View style={s.bannerTextWrap}>
+              <Text style={s.bannerGreeting}>Hola, {user?.nombre?.split(' ')[0] || 'Inventario'}</Text>
+              <Text style={s.bannerTitle}>Panel de Inventario</Text>
+              <Text style={s.bannerSubtitle}>Gestión de stock, solicitudes y movimientos</Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [s.ctaBtn, pressed && { opacity: 0.85 }]}
+              onPress={() => goTo('Solicitudes')}
+              accessibilityRole={a11y.button}
+            >
+              <Ionicons name="document-text" size={22} color={colors.white} />
+              <Text style={s.ctaBtnText}>Ver Solicitudes</Text>
+            </Pressable>
+          </View>
         </View>
 
-        {loading ? (
-          <View style={{ padding: space.xl, alignItems: 'center', gap: space.md }}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={{ fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted }}>Cargando datos...</Text>
-          </View>
-        ) : error ? (
-          <View style={{ padding: space.xl, alignItems: 'center', gap: space.md }}>
-            <Ionicons name="alert-circle" size={iconSize['2xl']} color={colors.danger} />
-            <Text style={{ fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.danger }}>{error}</Text>
-          </View>
-        ) : (
+        {/* ── Stats ── */}
+        <View style={s.statsRow}>
+          <StatCard label="Productos" value={`${inv?.totalProductos || 0}`} iconName="cube" color={colors.primary} minWidth="48%" />
+          <StatCard label="Valor Inventario" value={`Bs ${inv?.valorInventario?.toLocaleString() || '0'}`} iconName="cash" color={colors.emerald} minWidth="48%" />
+          <StatCard label="Stock Bajo" value={`${inv?.stockBajo || 0}`} iconName="alert-circle" color={colors.warning} minWidth="48%" />
+          <StatCard label="Sin Stock" value={`${inv?.sinStock || 0}`} iconName="close-circle" color={colors.danger} minWidth="48%" />
+        </View>
+
+        {/* ── Stock por Almacén ── */}
+        {inv && inv.stockPorAlmacen.length > 0 && (
           <>
-            {/* Stats Grid */}
-            <Text style={styles.sectionTitle}>Resumen de Almacenes</Text>
-            <View style={styles.statsGrid}>
-              {almacenStats.map((stat, i) => (
-                <StatCard
-                  key={i}
-                  label={stat.label}
-                  value={stat.value}
-                  iconName={stat.iconName}
-                  color={stat.color}
-                  minWidth={statCardMinWidth}
-                  accessibilityLabel={`${stat.label}: ${stat.value}`}
-                />
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>Stock por Almacén</Text>
+            </View>
+            <TableCard>
+              {inv.stockPorAlmacen.map((alm, i) => (
+                <TableRow key={alm.locationId} borderTop={i > 0}>
+                  <View style={s.dataRow}>
+                    <View style={[s.rowIcon, { backgroundColor: `${colors.emerald}15` }]}>
+                      <Ionicons name="business" size={18} color={colors.emerald} />
+                    </View>
+                    <View style={s.rowInfo}>
+                      <Text style={s.rowName}>{alm.nombre}</Text>
+                      <Text style={s.rowMeta}>{alm.productos} productos · {alm.totalStock} uds.</Text>
+                    </View>
+                    <Badge variant={alm.totalStock === 0 ? 'danger' : alm.totalStock < 20 ? 'warning' : 'success'} size="sm">
+                      {alm.totalStock}
+                    </Badge>
+                  </View>
+                </TableRow>
               ))}
-            </View>
-
-            {/* Stock por Almacen */}
-            {inv && inv.stockPorAlmacen.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Stock por Almacén</Text>
-                <TableCard>
-                  {inv.stockPorAlmacen.map((alm, i) => (
-                    <TableRow key={alm.locationId} borderTop={i > 0} accessibilityLabel={`${alm.nombre}, ${alm.productos} productos, ${alm.totalStock} unidades`}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.requestProduct}>{alm.nombre}</Text>
-                        <Text style={styles.requestMeta}>{alm.productos} productos · {alm.totalStock} unidades totales</Text>
-                      </View>
-                      <Badge variant={alm.totalStock === 0 ? 'danger' : alm.totalStock < 50 ? 'warning' : 'success'} size="sm">
-                        {alm.totalStock} uds
-                      </Badge>
-                    </TableRow>
-                  ))}
-                </TableCard>
-              </>
-            )}
-
-            {/* Stock por Tienda */}
-            {inv && inv.stockPorTienda.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Stock por Tienda</Text>
-                <TableCard>
-                  {inv.stockPorTienda.map((tienda, i) => (
-                    <TableRow key={tienda.locationId} borderTop={i > 0} accessibilityLabel={`${tienda.nombre}, ${tienda.productos} productos, ${tienda.totalStock} unidades`}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.requestProduct}>{tienda.nombre}</Text>
-                        <Text style={styles.requestMeta}>{tienda.productos} productos · {tienda.totalStock} unidades totales</Text>
-                      </View>
-                      <Badge variant={tienda.totalStock === 0 ? 'danger' : tienda.totalStock < 30 ? 'warning' : 'success'} size="sm">
-                        {tienda.totalStock} uds
-                      </Badge>
-                    </TableRow>
-                  ))}
-                </TableCard>
-              </>
-            )}
-
-            {/* Quick Actions */}
-            <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-            <View style={styles.actionsGrid}>
-              <ActionCard
-                label="Gestionar Solicitudes"
-                iconName="document-text"
-                onPress={() => {}}
-                minWidth={actionCardMinWidth}
-                accessibilityLabel="Gestionar solicitudes"
-              />
-              <ActionCard
-                label="Ver Inventario"
-                iconName="analytics"
-                onPress={() => {}}
-                minWidth={actionCardMinWidth}
-                accessibilityLabel="Ver inventario completo"
-              />
-            </View>
+            </TableCard>
           </>
         )}
+
+        {/* ── Stock por Tienda ── */}
+        {inv && inv.stockPorTienda.length > 0 && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>Stock por Tienda</Text>
+            </View>
+            <TableCard>
+              {inv.stockPorTienda.map((tienda, i) => (
+                <TableRow key={tienda.locationId} borderTop={i > 0}>
+                  <View style={s.dataRow}>
+                    <View style={[s.rowIcon, { backgroundColor: `${colors.primary}15` }]}>
+                      <Ionicons name="storefront" size={18} color={colors.primary} />
+                    </View>
+                    <View style={s.rowInfo}>
+                      <Text style={s.rowName}>{tienda.nombre}</Text>
+                      <Text style={s.rowMeta}>{tienda.productos} productos · {tienda.totalStock} uds.</Text>
+                    </View>
+                    <Badge variant={tienda.totalStock === 0 ? 'danger' : tienda.totalStock < 10 ? 'warning' : 'success'} size="sm">
+                      {tienda.totalStock}
+                    </Badge>
+                  </View>
+                </TableRow>
+              ))}
+            </TableCard>
+          </>
+        )}
+
+        {/* ── Stock Crítico ── */}
+        {inv && (inv.sinStock > 0 || inv.stockBajo > 0) && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>Alertas de Stock</Text>
+            </View>
+            <TableCard>
+              {[
+                { label: 'Sin Stock', count: inv.sinStock, color: colors.danger, icon: 'close-circle' as const },
+                { label: 'Stock Bajo', count: inv.stockBajo, color: colors.warning, icon: 'alert-circle' as const },
+              ].filter(x => x.count > 0).map((item, i) => (
+                <TableRow key={i} borderTop={i > 0}>
+                  <View style={s.dataRow}>
+                    <View style={[s.rowIcon, { backgroundColor: `${item.color}15` }]}>
+                      <Ionicons name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <View style={s.rowInfo}>
+                      <Text style={s.rowName}>{item.label}</Text>
+                      <Text style={s.rowMeta}>{item.count} productos afectados</Text>
+                    </View>
+                    <Badge variant={item.count > 5 ? 'danger' : 'warning'} size="sm">
+                      {item.count}
+                    </Badge>
+                  </View>
+                </TableRow>
+              ))}
+            </TableCard>
+          </>
+        )}
+
+        {/* ── Acciones Rápidas ── */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Acciones Rápidas</Text>
+        </View>
+        <View style={s.actionsGrid}>
+          {([
+            { label: 'Solicitudes', icon: 'document-text-outline' as const, route: 'Solicitudes', color: '#a855f7' },
+            { label: 'Reportes', icon: 'stats-chart-outline' as const, route: 'Reportes', color: colors.emerald },
+            { label: 'Búsqueda Imagen', icon: 'camera-outline' as const, route: 'SearchByImage', color: '#38bdf8' },
+          ]).map((a) => (
+            <Pressable
+              key={a.route}
+              style={({ pressed }) => [s.actionCard, pressed && { opacity: 0.8 }]}
+              onPress={() => goTo(a.route)}
+            >
+              <View style={[s.actionIcon, { backgroundColor: `${a.color}15` }]}>
+                <Ionicons name={a.icon} size={24} color={a.color} />
+              </View>
+              <Text style={s.actionLabel}>{a.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space.lg, gap: space['2xl'] },
-  welcomeCard: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    padding: space['2xl'],
-    ...shadows.level2,
-  },
-  welcomeTitle: { color: colors.white, fontSize: fontSize.title, fontFamily: fontFamily.sansBold },
-  welcomeSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: fontSize.body, fontFamily: fontFamily.sans, marginTop: 4 },
+  scroll: { flex: 1 },
+  content: { padding: space.lg, gap: space.xl },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: space.md, padding: space.xl },
+  centerText: { color: colors.textMuted, fontSize: fontSize.body, fontFamily: fontFamily.sans },
+
+  // Banner
+  banner: { backgroundColor: colors.primary, borderRadius: radius.lg, overflow: 'hidden', ...shadows.level3 },
+  bannerOverlay: { padding: space.xl, gap: space.lg },
+  bannerTextWrap: { gap: 4 },
+  bannerGreeting: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: 'rgba(255,255,255,0.7)' },
+  bannerTitle: { fontSize: fontSize.display, fontFamily: fontFamily.sansBold, color: colors.white },
+  bannerSubtitle: { fontSize: fontSize.body, fontFamily: fontFamily.sansMedium, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  ctaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, backgroundColor: colors.white, paddingVertical: 14, borderRadius: radius.md },
+  ctaBtnText: { color: colors.primary, fontSize: fontSize.bodyStrong, fontFamily: fontFamily.sansBold },
+
+  // Stats
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
+
+  // Section
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: fontSize.headline, fontFamily: fontFamily.sansSemiBold, color: colors.text },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  seeAll: { flexDirection: 'row', alignItems: 'center', gap: space.xs, padding: space.xs },
-  seeAllText: { color: colors.primary, fontFamily: fontFamily.sansSemiBold, fontSize: fontSize.captionStrong },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.md,
-    marginTop: space.sm,
-  },
-  requestMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.md },
-  requestInfo: { flex: 1, minWidth: 0, gap: 2 },
-  requestHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
-  requestProduct: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
-  requestMeta: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
-  actionBtn: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.sm,
-  },
-  actionBtnText: { color: colors.primary, fontFamily: fontFamily.sansSemiBold, fontSize: fontSize.captionStrong },
-  alertInfo: { flex: 1, minWidth: 0, gap: 2 },
-  alertProduct: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
-  alertLocation: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
-  alertDistribution: { fontSize: fontSize.caption, fontFamily: fontFamily.monoMedium, color: colors.textMuted },
-  contentSmall: { paddingHorizontal: space.md },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.md,
-    marginTop: space.sm,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: space.md,
-  },
-  loadingText: {
-    color: colors.textMuted,
-    fontSize: fontSize.body,
-    fontFamily: fontFamily.sans,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: space.lg,
-    gap: space.md,
-  },
-  errorText: {
-    color: colors.danger,
-    fontSize: fontSize.body,
-    fontFamily: fontFamily.sans,
-    textAlign: 'center',
-  },
-  retryBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: space.md,
-    paddingHorizontal: space.xl,
-    borderRadius: radius.md,
-  },
-  retryBtnText: {
-    color: colors.white,
-    fontSize: fontSize.body,
-    fontFamily: fontFamily.sansSemiBold,
-  },
+
+  // Data row
+  dataRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  rowIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  rowInfo: { flex: 1, minWidth: 0, gap: 2 },
+  rowName: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
+  rowMeta: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
+
+  // Actions
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
+  actionCard: { width: '30%', minWidth: 100, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: space.lg, alignItems: 'center', justifyContent: 'center', gap: space.sm, ...shadows.level1 },
+  actionIcon: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: fontSize.caption, fontFamily: fontFamily.sansSemiBold, color: colors.text, textAlign: 'center' },
 });

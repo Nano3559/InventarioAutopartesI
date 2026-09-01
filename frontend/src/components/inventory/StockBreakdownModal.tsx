@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { X, Warehouse, Store, Boxes, Loader2 } from 'lucide-react';
 import type { Product, LocationStock } from '../../types/product.types';
 import { productsService } from '../../services/products.service';
@@ -36,9 +36,20 @@ export function StockBreakdownModal({ product, onClose }: StockBreakdownModalPro
     };
   }, [product]);
 
-  if (!product) return null;
+  const almacenes = useMemo(
+    () => stockList.filter((l) => l.tipo === 'almacen'),
+    [stockList]
+  );
+  const tiendas = useMemo(
+    () => stockList.filter((l) => l.tipo === 'tienda'),
+    [stockList]
+  );
 
-  const totalCalculated = stockList.reduce((acc, curr) => acc + (curr.cantidad || 0), 0);
+  const totalAlmacenes = almacenes.reduce((acc, c) => acc + (c.cantidad || 0), 0);
+  const totalTiendas = tiendas.reduce((acc, c) => acc + (c.cantidad || 0), 0);
+  const totalCalculated = totalAlmacenes + totalTiendas;
+
+  if (!product) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose} aria-modal="true" role="dialog">
@@ -46,7 +57,7 @@ export function StockBreakdownModal({ product, onClose }: StockBreakdownModalPro
         <div className="modal-header">
           <h3 className="modal-title">
             <Boxes size={22} color="#38bdf8" />
-            <span>Stock por Ubicación (7 Importadoras)</span>
+            <span>Stock por Ubicación</span>
           </h3>
           <button
             type="button"
@@ -60,7 +71,7 @@ export function StockBreakdownModal({ product, onClose }: StockBreakdownModalPro
 
         <div className="modal-body">
           {/* Ficha Resumen del Producto */}
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem', background: 'var(--bg-alt)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+          <div className="stock-product-summary">
             <div className="product-thumb-box" style={{ width: '54px', height: '54px' }}>
               {product.imagen ? (
                 <img src={product.imagen} alt={product.producto} className="product-thumb-img" />
@@ -78,57 +89,85 @@ export function StockBreakdownModal({ product, onClose }: StockBreakdownModalPro
             </div>
           </div>
 
-          {/* Desglose de Stock */}
           {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2.5rem', gap: '0.75rem', color: 'var(--text-muted)' }}>
+            <div className="stock-loading-state">
               <Loader2 size={24} className="animate-spin" color="#38bdf8" />
-              <span>Consultando existencias en almacenes y tiendas...</span>
+              <span>Consultando existencias...</span>
             </div>
           ) : (
             <>
-              <div className="stock-locations-list">
-                {stockList.map((loc) => {
-                  const isStore = loc.tipo === 'tienda';
-                  const isLow = loc.cantidad === 0;
-
-                  return (
-                    <div key={loc.locationId} className="stock-location-row">
-                      <div className="stock-loc-name">
-                        {isStore ? (
-                          <Store size={18} color="#60a5fa" />
-                        ) : (
-                          <Warehouse size={18} color="#a78bfa" />
-                        )}
-                        <div>
-                          <span style={{ color: 'var(--text-strong)', display: 'block' }}>
-                            {loc.ubicacion}
+              {/* Almacenes */}
+              {almacenes.length > 0 && (
+                <div className="stock-section">
+                  <div className="stock-section-header stock-section-header--almacen">
+                    <Warehouse size={16} color="#a78bfa" />
+                    <span>Almacenes</span>
+                    <span className="stock-section-total">{totalAlmacenes} uds.</span>
+                  </div>
+                  <div className="stock-section-list">
+                    {almacenes.map((loc) => (
+                      <div key={loc.locationId} className="stock-location-row">
+                        <div className="stock-loc-name">
+                          <span className="stock-loc-name-text">{loc.ubicacion}</span>
+                        </div>
+                        <div className="stock-loc-qty">
+                          <span
+                            className={`stock-qty ${
+                              loc.cantidad === 0 ? 'stock-qty--zero' :
+                              loc.cantidad <= 2 ? 'stock-qty--low' :
+                              'stock-qty--ok'
+                            }`}
+                          >
+                            {loc.cantidad}
                           </span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                            {isStore ? 'Punto de Venta / Tienda' : 'Centro de Distribución / Almacén'}
+                          <span className="stock-qty-label">
+                            {loc.cantidad === 1 ? 'ud.' : 'uds.'}
                           </span>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                      <div className="stock-loc-qty">
-                        <span
-                          style={{
-                            color: isLow ? '#f87171' : loc.cantidad <= 2 ? '#fbbf24' : '#34d399',
-                            fontFamily: 'monospace',
-                            fontSize: '1.1rem',
-                          }}
-                        >
-                          {loc.cantidad} {loc.cantidad === 1 ? 'unidad' : 'unidades'}
-                        </span>
+              {/* Tiendas */}
+              {tiendas.length > 0 && (
+                <div className="stock-section">
+                  <div className="stock-section-header stock-section-header--tienda">
+                    <Store size={16} color="#60a5fa" />
+                    <span>Tiendas</span>
+                    <span className="stock-section-total">{totalTiendas} uds.</span>
+                  </div>
+                  <div className="stock-section-list">
+                    {tiendas.map((loc) => (
+                      <div key={loc.locationId} className="stock-location-row">
+                        <div className="stock-loc-name">
+                          <span className="stock-loc-name-text">{loc.ubicacion}</span>
+                        </div>
+                        <div className="stock-loc-qty">
+                          <span
+                            className={`stock-qty ${
+                              loc.cantidad === 0 ? 'stock-qty--zero' :
+                              loc.cantidad <= 2 ? 'stock-qty--low' :
+                              'stock-qty--ok'
+                            }`}
+                          >
+                            {loc.cantidad}
+                          </span>
+                          <span className="stock-qty-label">
+                            {loc.cantidad === 1 ? 'ud.' : 'uds.'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {/* Totalizador */}
+              {/* Total Consolidado */}
               <div className="stock-total-recap-box">
                 <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>
-                  Inventario Total Consolidado:
+                  Total Consolidado
                 </span>
                 <span
                   style={{

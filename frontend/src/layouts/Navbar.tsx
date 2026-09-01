@@ -21,15 +21,15 @@ export function Navbar({ onToggleMobileSidebar }: NavbarProps) {
     if (segments.length === 0 || segments[0] === 'dashboard') return 'Dashboard General';
     
     const titles: Record<string, string> = {
-      inventario: 'Gestión de Inventario (M2)',
-      ventas: 'Punto de Venta (R3)',
-      'ventas-mayor': 'Ventas por Mayor (R7)',
-      movimientos: 'Movimientos y Traslados (M5)',
-      solicitudes: 'Solicitudes a Almacén (M6/R4)',
-      precios: 'Gestión de Precios (M8)',
-      costos: 'Costos y Proveedores (M7)',
-      reportes: 'Reportes y Métricas (M9)',
-      devoluciones: 'Devoluciones de Clientes (R4)',
+      inventario: 'Gestión de Inventario',
+      ventas: 'Punto de Venta',
+      'ventas-mayor': 'Ventas por Mayor',
+      movimientos: 'Movimientos y Traslados',
+      solicitudes: 'Solicitudes a Almacén',
+      precios: 'Gestión de Precios',
+      costos: 'Costos y Proveedores',
+      reportes: 'Reportes y Métricas',
+      devoluciones: 'Devoluciones de Clientes',
     };
 
     return titles[segments[0]] || segments[0].charAt(0).toUpperCase() + segments[0].slice(1);

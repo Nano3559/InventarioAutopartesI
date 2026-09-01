@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/products';
 import { getLocations } from '../api/locations';
@@ -40,6 +41,7 @@ const MOTIVOS_DEVOLUCION = ['Defectuoso', 'Error de pedido', 'Cliente insatisfec
 const METODOS_REEMBOLSO = ['Efectivo', 'Transferencia', 'Nota de crédito', 'Tarjeta'] as const;
 
 export default function DevolucionesScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [devoluciones, setDevoluciones] = useState<Devolucion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +60,9 @@ export default function DevolucionesScreen() {
     metodo: 'Efectivo',
     locationId: undefined,
   });
+
+  const [pickerVisible, setPickerVisible] = useState<'producto' | 'motivo' | 'metodo' | 'ubicacion' | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -127,7 +132,7 @@ export default function DevolucionesScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
-        <Header title="Devoluciones" subtitle="Gestión de devoluciones de mercadería" />
+        <Header title="Devoluciones" subtitle="Gestión de devoluciones de mercadería" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
 
         <ScrollView
           contentContainerStyle={styles.content}
@@ -177,25 +182,26 @@ export default function DevolucionesScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Producto *</Text>
-                <TextInput
-                  style={[styles.input, componentStyles.inputBase]}
-                  placeholder="Seleccionar producto..."
-                  editable={false}
-                  value={products.find((p) => p.id === formData.productId)?.producto || ''}
-                  onFocus={() => {}}
-                />
-                <Text style={styles.pickerHint}>Toca para seleccionar</Text>
+                <Pressable
+                  style={[styles.pickerBtn, componentStyles.inputBase]}
+                  onPress={() => { setPickerVisible('producto'); setPickerSearch(''); }}
+                >
+                  <Text style={formData.productId ? styles.pickerValue : styles.pickerPlaceholder}>
+                    {products.find((p) => p.id === formData.productId)?.producto || 'Seleccionar producto...'}
+                  </Text>
+                </Pressable>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Motivo *</Text>
-                <TextInput
-                  style={[styles.input, componentStyles.inputBase]}
-                  placeholder="Seleccionar motivo..."
-                  editable={false}
-                  value={formData.motivo}
-                />
-                <Text style={styles.pickerHint}>Toca para seleccionar</Text>
+                <Pressable
+                  style={[styles.pickerBtn, componentStyles.inputBase]}
+                  onPress={() => setPickerVisible('motivo')}
+                >
+                  <Text style={formData.motivo ? styles.pickerValue : styles.pickerPlaceholder}>
+                    {formData.motivo || 'Seleccionar motivo...'}
+                  </Text>
+                </Pressable>
               </View>
 
               <View style={styles.formRow}>
@@ -222,23 +228,25 @@ export default function DevolucionesScreen() {
               </View>
 
               <View style={styles.formRow}>
-                <View style={styles.inputGroup}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
                   <Text style={styles.label}>Método Reembolso *</Text>
-                  <TextInput
-                    style={[styles.input, componentStyles.inputBase]}
-                    placeholder="Seleccionar método..."
-                    editable={false}
-                    value={formData.metodo}
-                  />
+                  <Pressable
+                    style={[styles.pickerBtn, componentStyles.inputBase]}
+                    onPress={() => setPickerVisible('metodo')}
+                  >
+                    <Text style={styles.pickerValue}>{formData.metodo}</Text>
+                  </Pressable>
                 </View>
-                <View style={styles.inputGroup}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
                   <Text style={styles.label}>Ubicación *</Text>
-                  <TextInput
-                    style={[styles.input, componentStyles.inputBase]}
-                    placeholder="Seleccionar ubicación..."
-                    editable={false}
-                    value={locations.find((l) => l.id === formData.locationId)?.nombre || ''}
-                  />
+                  <Pressable
+                    style={[styles.pickerBtn, componentStyles.inputBase]}
+                    onPress={() => { setPickerVisible('ubicacion'); setPickerSearch(''); }}
+                  >
+                    <Text style={formData.locationId ? styles.pickerValue : styles.pickerPlaceholder}>
+                      {locations.find((l) => l.id === formData.locationId)?.nombre || 'Seleccionar...'}
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
 
@@ -326,6 +334,113 @@ export default function DevolucionesScreen() {
           <Text style={styles.toastText}>{toast.message}</Text>
         </View>
       )}
+
+      {/* Picker Modals */}
+      <Modal visible={pickerVisible !== null} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {pickerVisible === 'producto' ? 'Seleccionar Producto' :
+                 pickerVisible === 'motivo' ? 'Motivo de Devolución' :
+                 pickerVisible === 'metodo' ? 'Método de Reembolso' :
+                 'Ubicación'}
+              </Text>
+              <Pressable onPress={() => setPickerVisible(null)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </Pressable>
+            </View>
+
+            {pickerVisible === 'producto' && (
+              <>
+                <TextInput
+                  style={[styles.modalSearch, componentStyles.inputBase]}
+                  placeholder="Buscar producto..."
+                  value={pickerSearch}
+                  onChangeText={setPickerSearch}
+                  placeholderTextColor={colors.textPlaceholder}
+                  autoFocus
+                />
+                <FlatList
+                  data={products.filter(p =>
+                    !pickerSearch || p.producto.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                    p.marca.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                    p.codigoFabrica.toLowerCase().includes(pickerSearch.toLowerCase())
+                  )}
+                  keyExtractor={(item) => String(item.id)}
+                  style={styles.modalList}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={[styles.modalItem, formData.productId === item.id && styles.modalItemActive]}
+                      onPress={() => { setFormData({ ...formData, productId: item.id }); setPickerVisible(null); }}
+                    >
+                      <Text style={styles.modalItemText}>{item.producto}</Text>
+                      <Text style={styles.modalItemSub}>{item.marca} · {item.codigoFabrica}</Text>
+                    </Pressable>
+                  )}
+                />
+              </>
+            )}
+
+            {pickerVisible === 'motivo' && (
+              <View style={styles.modalOptions}>
+                {MOTIVOS_DEVOLUCION.map((m) => (
+                  <Pressable
+                    key={m}
+                    style={[styles.modalOption, formData.motivo === m && styles.modalOptionActive]}
+                    onPress={() => { setFormData({ ...formData, motivo: m }); setPickerVisible(null); }}
+                  >
+                    <Text style={[styles.modalOptionText, formData.motivo === m && styles.modalOptionTextActive]}>{m}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {pickerVisible === 'metodo' && (
+              <View style={styles.modalOptions}>
+                {METODOS_REEMBOLSO.map((m) => (
+                  <Pressable
+                    key={m}
+                    style={[styles.modalOption, formData.metodo === m && styles.modalOptionActive]}
+                    onPress={() => { setFormData({ ...formData, metodo: m }); setPickerVisible(null); }}
+                  >
+                    <Text style={[styles.modalOptionText, formData.metodo === m && styles.modalOptionTextActive]}>{m}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {pickerVisible === 'ubicacion' && (
+              <>
+                <TextInput
+                  style={[styles.modalSearch, componentStyles.inputBase]}
+                  placeholder="Buscar ubicación..."
+                  value={pickerSearch}
+                  onChangeText={setPickerSearch}
+                  placeholderTextColor={colors.textPlaceholder}
+                  autoFocus
+                />
+                <FlatList
+                  data={locations.filter(l =>
+                    !pickerSearch || l.nombre.toLowerCase().includes(pickerSearch.toLowerCase())
+                  )}
+                  keyExtractor={(item) => String(item.id)}
+                  style={styles.modalList}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={[styles.modalItem, formData.locationId === item.id && styles.modalItemActive]}
+                      onPress={() => { setFormData({ ...formData, locationId: item.id }); setPickerVisible(null); }}
+                    >
+                      <Text style={styles.modalItemText}>{item.nombre}</Text>
+                      <Text style={styles.modalItemSub}>{item.tipo}</Text>
+                    </Pressable>
+                  )}
+                />
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -422,4 +537,57 @@ const styles = StyleSheet.create({
   toastSuccess: { backgroundColor: colors.success, borderWidth: 1, borderColor: colors.success },
   toastError: { backgroundColor: colors.danger, borderWidth: 1, borderColor: colors.danger },
   toastText: { color: colors.white, fontSize: fontSize.body, fontFamily: fontFamily.sans, textAlign: 'center' },
+  pickerBtn: {
+    height: 44,
+    justifyContent: 'center',
+  },
+  pickerValue: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.text },
+  pickerPlaceholder: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.textPlaceholder },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.xl,
+  },
+  modalCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '70%',
+    gap: space.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: { fontSize: fontSize.headline, fontFamily: fontFamily.sansSemiBold, color: colors.text },
+  modalClose: { fontSize: 20, color: colors.textMuted, padding: space.xs },
+  modalSearch: { height: 44 },
+  modalList: { maxHeight: 300 },
+  modalItem: {
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalItemActive: { backgroundColor: colors.primarySoft },
+  modalItemText: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
+  modalItemSub: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted, marginTop: 2 },
+  modalOptions: { gap: space.xs },
+  modalOption: {
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  modalOptionText: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.text },
+  modalOptionTextActive: { color: colors.white },
 });

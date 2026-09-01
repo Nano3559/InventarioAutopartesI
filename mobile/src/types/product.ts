@@ -15,6 +15,7 @@ export interface Product {
   precio2?: number;
   precioMayor?: number;
   stockTotal: number;
+  stockByLocation?: Record<number, number>;
   stockMinimo: number;
   activo: boolean;
   createdAt: string;

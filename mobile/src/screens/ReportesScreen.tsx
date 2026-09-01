@@ -11,6 +11,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../context/AuthContext';
 import { getDashboard, getReporteMensual, type DashboardData, type ReporteMensualItem } from '../api/reportes';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 import { colors, space, radius, fontFamily, fontSize, shadows } from '../theme';
@@ -18,6 +19,7 @@ import { colors, space, radius, fontFamily, fontSize, shadows } from '../theme';
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 export default function ReportesScreen() {
+  const navigation = useNavigation();
   const { token, user } = useAuth();
   const isAdmin = user?.rol === 'admin';
 
@@ -90,8 +92,10 @@ export default function ReportesScreen() {
           <div class="footer">AutoRepuestos Pro — Reporte generado automáticamente</div>
         </body></html>`;
 
-      const fileUri = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(fileUri.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      const result = await Print.printToFileAsync({ html });
+      if (result?.uri) {
+        await Sharing.shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      }
     } catch (err) {
       console.error('Error al imprimir:', err);
     } finally {
@@ -110,13 +114,15 @@ export default function ReportesScreen() {
 
   const ven = dashboard?.ventas;
   const inv = dashboard?.inventario;
-  const maxMensual = Math.max(...mensual.map(m => m.total), 1);
+  const safeMensual = mensual.filter((m): m is ReporteMensualItem => m != null && m.mes != null);
+  const maxMensual = Math.max(...safeMensual.map(m => m.total), 1);
 
   return (
     <View style={styles.container}>
       <Header
         title="Reportes"
         subtitle={isAdmin ? 'Métricas del sistema' : 'Resumen de mi tienda'}
+        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
         rightAction={{
           label: printLoading ? 'Imprimiendo...' : 'Imprimir',
           onPress: handlePrint,
@@ -163,7 +169,7 @@ export default function ReportesScreen() {
           <Text style={styles.sectionTitle}>Evolución Mensual ({selectedYear})</Text>
           <View style={styles.chartCard}>
             <View style={styles.barChart}>
-              {mensual.map((item) => {
+              {safeMensual.map((item) => {
                 const heightPercent = maxMensual > 0 ? (item.total / maxMensual) * 100 : 0;
                 const isZero = item.total === 0;
                 return (
@@ -195,7 +201,7 @@ export default function ReportesScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Detalle Mensual</Text>
           <View style={styles.monthlyGrid}>
-            {mensual.filter(m => m.total > 0).map((item) => (
+            {safeMensual.filter(m => m.total > 0).map((item) => (
               <View key={item.mes} style={styles.monthCard}>
                 <Text style={styles.monthName}>{MESES[item.mes - 1]}</Text>
                 <Text style={styles.monthTotal}>Bs. {item.total.toLocaleString()}</Text>
@@ -334,7 +340,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    height: '100%',
+    height: 160,
   },
   barAmount: {
     fontSize: 9,

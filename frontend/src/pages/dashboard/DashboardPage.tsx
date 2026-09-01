@@ -262,7 +262,6 @@ export function DashboardPage() {
                   <NavLink to="/inventario" className="quick-action-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Boxes size={20} color="#38bdf8" />
-                      <span className="nav-link-badge">M2</span>
                     </div>
                     <span className="quick-action-title">Inventario Global</span>
                     <span className="quick-action-desc">
@@ -273,7 +272,6 @@ export function DashboardPage() {
                   <NavLink to="/precios" className="quick-action-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <DollarSign size={20} color="#38bdf8" />
-                      <span className="nav-link-badge">M8</span>
                     </div>
                     <span className="quick-action-title">Precios y Margenes</span>
                     <span className="quick-action-desc">
@@ -287,7 +285,6 @@ export function DashboardPage() {
                 <NavLink to="/ventas" className="quick-action-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <ShoppingCart size={20} color="#60a5fa" />
-                    <span className="nav-link-badge">R3</span>
                   </div>
                   <span className="quick-action-title">Punto de Venta</span>
                   <span className="quick-action-desc">
@@ -300,7 +297,6 @@ export function DashboardPage() {
                 <NavLink to="/solicitudes" className="quick-action-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <ClipboardList size={20} color="#a78bfa" />
-                    <span className="nav-link-badge">M6</span>
                   </div>
                   <span className="quick-action-title">Solicitudes a Almacen</span>
                   <span className="quick-action-desc">
