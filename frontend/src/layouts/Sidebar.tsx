@@ -112,6 +112,13 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
           roles: ['admin', 'tienda'],
           badge: 'R4',
         },
+        {
+          to: '/reportes',
+          label: 'Reportes de Tienda',
+          icon: <BarChart3 size={18} />,
+          roles: ['tienda'],
+          badge: 'R8',
+        },
       ],
     },
     {

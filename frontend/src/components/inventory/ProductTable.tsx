@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Boxes,
   MapPin,
@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Car,
   Eye,
+  ClipboardList,
 } from 'lucide-react';
 import type { Product } from '../../types/product.types';
 
@@ -27,6 +28,7 @@ export function ProductTable({
   onOpenDeleteModal,
 }: ProductTableProps) {
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -212,6 +214,18 @@ export function ProductTable({
                       >
                         <Trash2 size={16} />
                       </button>
+
+                      {isOut && (
+                        <button
+                          type="button"
+                          className="btn-table-action"
+                          onClick={() => navigate(`/solicitudes?productId=${p.id}`)}
+                          title="Solicitar a almacén"
+                          style={{ color: '#f59e0b' }}
+                        >
+                          <ClipboardList size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

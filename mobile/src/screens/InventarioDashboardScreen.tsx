@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +45,13 @@ export default function InventarioDashboardScreen() {
   }, []);
 
   const inv = dashboard?.inventario;
+
+  const almacenStats = inv ? [
+    { label: 'Total Productos', value: `${inv.totalProductos}`, iconName: 'cube' as const, color: colors.primary },
+    { label: 'Sin Stock', value: `${inv.sinStock}`, iconName: 'alert-circle' as const, color: colors.danger },
+    { label: 'Stock Bajo', value: `${inv.stockBajo}`, iconName: 'warning' as const, color: colors.warning },
+    { label: 'Valor Inventario', value: `Bs. ${inv.valorInventario.toLocaleString()}`, iconName: 'cash' as const, color: colors.emerald },
+  ] : [];
 
   return (
     <SafeAreaView style={styles.safe}>

@@ -9,4 +9,5 @@ export type RootStackParamList = {
   Devoluciones: undefined;
   Solicitudes: undefined;
   VentaMayor: undefined;
+  Reportes: undefined;
 };
