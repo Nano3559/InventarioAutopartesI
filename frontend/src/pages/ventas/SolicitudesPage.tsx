@@ -64,6 +64,11 @@ export function SolicitudesPage() {
   const getAvailableStock = (productId: number): number => {
     const product = products.find((p) => p.id === productId);
     if (!product) return 0;
+    if (product.stockLocationDetails && product.stockLocationDetails.length > 0) {
+      return product.stockLocationDetails
+        .filter((sl) => sl.tipo === 'almacen')
+        .reduce((sum, sl) => sum + sl.cantidad, 0);
+    }
     return product.stockTotal ?? 0;
   };
 

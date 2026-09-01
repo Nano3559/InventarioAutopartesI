@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/products';
 import { createSale, getNotaVenta, updateSale, getSale, type SaleItem, type SaleInput, type Sale } from '../api/sales';
@@ -52,6 +53,7 @@ interface SalesScreenProps {
 }
 
 export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
+  const navigation = useNavigation();
   const { user, loading: authLoading } = useAuth();
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Array<{ product: any; stock: number }>>([]);
@@ -78,7 +80,10 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       const token = await getToken();
       const tiendaId = user?.tiendaId ?? undefined;
       const data = await getProducts({ search: search || undefined, locationId: tiendaId }, token ?? undefined);
-      setProducts(data.map(p => ({ product: p, stock: p.stockTotal })));
+      setProducts(data.map(p => ({
+        product: p,
+        stock: (tiendaId && p.stockByLocation) ? (p.stockByLocation[tiendaId] ?? 0) : p.stockTotal,
+      })));
     } catch (e) {
       console.error('Error cargando productos:', e);
     } finally {
@@ -133,7 +138,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         setLastSaleId(sale.id);
       } catch (e) {
         console.error('Error loading sale:', e);
-        Alert.alert('Error', 'Error al cargar la venta para editar');
+        showToast('Error al cargar la venta para editar', 'error');
       } finally {
         setLoadingSale(false);
       }
@@ -197,12 +202,11 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       return;
     }
 
-    const productStock = productData.stock ?? 0;
+    const available = productData.stock ?? 0;
     const inCart = cart.find(i => i.productId === product.id)?.cantidad ?? 0;
-    const available = productStock - inCart;
 
-    if (available <= 0) {
-      showToast(`Sin stock: ${product.producto} (disponible: ${productStock})`, 'error');
+    if (inCart >= available) {
+      showToast(`Sin stock: ${product.producto} (disponible: ${available})`, 'error');
       return;
     }
 
@@ -211,20 +215,15 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
 
     setCart(prev => {
       const existing = prev.find(i => i.productId === product.id);
-      const available = product.stockTotal ?? 0;
       if (existing) {
         if (existing.cantidad >= available) {
-          Alert.alert('Sin stock', `No hay mas stock disponible de "${product.producto}". Disponible: ${available}`);
+          showToast(`Sin stock: "${product.producto}". Disponible: ${available}`, 'error');
           return prev;
         }
         return prev.map(i => i.productId === product.id
           ? { ...i, cantidad: i.cantidad + 1 }
           : i
         );
-      }
-      if (available <= 0) {
-        Alert.alert('Sin stock', `"${product.producto}" no tiene stock disponible`);
-        return prev;
       }
       return [...prev, { productId: product.id, cantidad: 1, precio: product.precio1 || 0 }];
     });
@@ -241,7 +240,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       setCart(prev => prev.filter(i => i.productId !== productId));
     } else {
       if (cantidad > available) {
-        Alert.alert('Stock maximo', `Stock maximo disponible: ${available} unidades`);
+        showToast(`Stock máximo disponible: ${available} unidades`, 'error');
       }
       setCart(prev => prev.map(i => i.productId === productId ? { ...i, cantidad: nextQuantity } : i));
     }
@@ -253,44 +252,25 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     setCart(prev => prev.map(i => i.productId === productId ? { ...i, precio } : i));
   };
 
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Efectivo');
+
   const addPayment = () => {
-    Alert.prompt(
-      'Agregar pago',
-      'Ingrese monto y seleccione método',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'OK',
-          onPress: (montoStr?: string) => {
-            if (!montoStr) return;
-            const monto = parseFloat(montoStr);
-            if (isNaN(monto) || monto <= 0) return Alert.alert('Error', 'Monto inválido');
-            selectPaymentMethod().then(metodo => {
-              if (metodo) setPayments(prev => [...prev, { metodo, monto }]);
-            });
-          },
-        },
-      ],
-      'plain-text',
-      '',
-      'numeric'
-    );
+    setPaymentAmount('');
+    setPaymentMethod('Efectivo');
+    setPaymentModalVisible(true);
   };
 
-  const selectPaymentMethod = (): Promise<string | null> =>
-    new Promise(resolve => {
-      Alert.alert(
-        'Método de pago',
-        'Seleccione',
-        [
-          ...PAYMENT_METHODS.map(m => ({
-            text: m,
-            onPress: () => resolve(m),
-          })),
-          { text: 'Cancelar', style: 'cancel' as const, onPress: () => resolve(null) },
-        ]
-      );
-    });
+  const confirmAddPayment = () => {
+    const monto = parseFloat(paymentAmount);
+    if (isNaN(monto) || monto <= 0) {
+      showToast('Monto inválido', 'error');
+      return;
+    }
+    setPayments(prev => [...prev, { metodo: paymentMethod, monto }]);
+    setPaymentModalVisible(false);
+  };
 
   const removePayment = (index: number) => {
     setPayments(prev => prev.filter((_, i) => i !== index));
@@ -310,7 +290,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Guardar/Imprimir Nota de Venta' });
     } catch (e) {
-      Alert.alert('Error', 'No se pudo generar la nota de venta');
+      showToast('No se pudo generar la nota de venta', 'error');
     } finally {
       setPrinting(false);
     }
@@ -395,7 +375,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
           >
             {item.stock === 0 ? 'Sin stock' :
              item.stock <= (item.product.stockMinimo || 1) ? `Stock bajo: ${item.stock}` :
-             `Disponible: ${item.stock}`}
+             `${item.stock} disp.`}
           </Badge>
           <Text style={styles.priceText}>Bs {item.product.precio1?.toFixed(2) || '—'}</Text>
         </View>
@@ -471,8 +451,11 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
             </View>
           </View>
           <View style={styles.stockInfo}>
-            <Text style={styles.stockInfoText}>
-              Stock: {productStock} · {atMaxStock ? 'Máximo alcanzado' : `${productStock - item.cantidad} disponibles`}
+            <Text style={[
+              styles.stockInfoText,
+              atMaxStock && styles.stockInfoTextMax,
+            ]}>
+              {atMaxStock ? `Máximo: ${productStock} uds.` : `Stock: ${productStock} · ${productStock - item.cantidad} restantes`}
             </Text>
             {hasError && (
               <Text style={styles.stockErrorText}>{stockError}</Text>
@@ -522,7 +505,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
-        <Header title="Nueva Venta" />
+        <Header title="Nueva Venta" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
 
         {toast && (
           <View style={[
@@ -822,6 +805,45 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Payment Modal */}
+      <Modal visible={paymentModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Agregar Pago</Text>
+            <Text style={styles.modalLabel}>Monto (Bs)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={paymentAmount}
+              onChangeText={setPaymentAmount}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+              placeholderTextColor={colors.textPlaceholder}
+              autoFocus
+            />
+            <Text style={styles.modalLabel}>Método de pago</Text>
+            <View style={styles.modalMethods}>
+              {PAYMENT_METHODS.map((m) => (
+                <Pressable
+                  key={m}
+                  style={[styles.modalMethod, paymentMethod === m && styles.modalMethodActive]}
+                  onPress={() => setPaymentMethod(m)}
+                >
+                  <Text style={[styles.modalMethodText, paymentMethod === m && styles.modalMethodTextActive]}>{m}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setPaymentModalVisible(false)}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.modalConfirmBtn} onPress={confirmAddPayment}>
+                <Text style={styles.modalConfirmText}>Agregar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -972,6 +994,10 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
   },
+  stockInfoTextMax: {
+    color: colors.danger,
+    fontWeight: '600' as const,
+  },
   qtyBtnDisabled: {
     opacity: 0.4,
   },
@@ -998,5 +1024,102 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     fontFamily: fontFamily.sans,
     color: colors.text,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.xl,
+  },
+  modalCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: space.xl,
+    width: '100%',
+    maxWidth: 360,
+    gap: space.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: fontSize.headline,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontSize: fontSize.captionStrong,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.text,
+  },
+  modalInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.md,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.monoMedium,
+    color: colors.text,
+    backgroundColor: colors.white,
+  },
+  modalMethods: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space.xs,
+  },
+  modalMethod: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  modalMethodActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modalMethodText: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansMedium,
+    color: colors.text,
+  },
+  modalMethodTextActive: {
+    color: colors.white,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: space.sm,
+    marginTop: space.sm,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    color: colors.text,
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: fontSize.body,
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmText: {
+    color: colors.white,
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: fontSize.body,
   },
 });

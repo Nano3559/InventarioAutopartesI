@@ -126,6 +126,10 @@ export function DevolucionesPage() {
       showToast(`La cantidad no puede superar el stock disponible (${selectedAvailable})`, 'error');
       return;
     }
+    if (!formData.locationId) {
+      showToast('Seleccione una ubicación', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       await createDevolucion(formData);

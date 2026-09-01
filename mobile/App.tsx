@@ -1,6 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ const Inter_500Medium = require('@expo-google-fonts/inter/500Medium/Inter_500Med
 const Inter_600SemiBold = require('@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf');
 const Inter_700Bold = require('@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf');
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import AppDrawer from './src/components/AppDrawer';
 import LoginScreen from './src/screens/LoginScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import TiendaDashboardScreen from './src/screens/TiendaDashboardScreen';
@@ -21,134 +22,72 @@ import SolicitudesScreen from './src/screens/SolicitudesScreen';
 import VentaMayorScreen from './src/screens/VentaMayorScreen';
 import InventarioScreen from './src/screens/InventarioScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
+import SearchByImageScreen from './src/screens/SearchByImageScreen';
 import {
   colors,
-  space,
-  radius,
-  tabBar,
-  shadows,
-  componentStyles,
 } from './src/theme';
 import type { RootStackParamList } from './src/types/navigation';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator();
+const Drawer = createDrawerNavigator();
 
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-  },
-  tabBar: {
-    height: tabBar.height,
-    backgroundColor: colors.white,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingBottom: 0,
-    paddingHorizontal: space.md,
-    ...shadows.level3,
-  },
-});
-
-const tabBarOptions = {
-  tabBarActiveTintColor: colors.primary,
-  tabBarInactiveTintColor: colors.textMuted,
-  tabBarStyle: styles.tabBar,
+const drawerScreenOptions = {
   headerShown: false,
-  tabBarLabelStyle: {
-    fontSize: tabBar.labelFontSize,
-    fontFamily: 'Inter_500Medium',
-    marginBottom: 2,
-  },
-  tabBarIconStyle: {
-    marginBottom: 0,
+  drawerType: 'front' as const,
+  drawerStyle: {
+    backgroundColor: colors.bg,
+    width: 280,
   },
 };
 
-function getTabIcon(routeName: string, focused: boolean) {
-  if (routeName === 'AdminDashboard' || routeName === 'TiendaDashboard' || routeName === 'InventarioDashboard') {
-    return focused ? 'home' : 'home-outline';
-  }
-  if (routeName === 'Inventario') {
-    return focused ? 'cube' : 'cube-outline';
-  }
-  if (routeName === 'Sales') {
-    return focused ? 'cash' : 'cash-outline';
-  }
-  if (routeName === 'Devoluciones') {
-    return focused ? 'refresh' : 'refresh-outline';
-  }
-  if (routeName === 'Solicitudes') {
-    return focused ? 'document-text' : 'document-text-outline';
-  }
-  if (routeName === 'VentaMayor') {
-    return focused ? 'briefcase' : 'briefcase-outline';
-  }
-  if (routeName === 'Reportes') {
-    return focused ? 'stats-chart' : 'stats-chart-outline';
-  }
-  return focused ? 'cash' : 'cash-outline';
-}
-
-function AdminTabs() {
+function AdminDrawer() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        ...tabBarOptions,
-        tabBarIcon: ({ focused, color, size }) => (
-          <Ionicons name={getTabIcon(route.name, focused)} size={size} color={color} />
-        ),
-      })}
+    <Drawer.Navigator
+      drawerContent={AppDrawer}
+      screenOptions={drawerScreenOptions}
     >
-      <Tab.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Inicio' }} />
-      <Tab.Screen name="Inventario" component={InventarioScreen} options={{ title: 'Inventario' }} />
-      <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
-      <Tab.Screen name="VentaMayor" component={VentaMayorScreen} options={{ title: 'Mayorista' }} />
-      <Tab.Screen name="Reportes" component={ReportesScreen} options={{ title: 'Reportes' }} />
-      <Tab.Screen name="Devoluciones" component={DevolucionesScreen} options={{ title: 'Devoluciones' }} />
-      <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
-    </Tab.Navigator>
+      <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Drawer.Screen name="Inventario" component={InventarioScreen} />
+      <Drawer.Screen name="Sales" component={SalesScreen} />
+      <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
+      <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
+      <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
+      <Drawer.Screen name="Reportes" component={ReportesScreen} />
+      <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
+    </Drawer.Navigator>
   );
 }
 
-function TiendaTabs() {
+function TiendaDrawer() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        ...tabBarOptions,
-        tabBarIcon: ({ focused, color, size }) => (
-          <Ionicons name={getTabIcon(route.name, focused)} size={size} color={color} />
-        ),
-      })}
+    <Drawer.Navigator
+      drawerContent={AppDrawer}
+      screenOptions={drawerScreenOptions}
     >
-      <Tab.Screen name="TiendaDashboard" component={TiendaDashboardScreen} options={{ title: 'Inicio' }} />
-      <Tab.Screen name="Inventario" component={InventarioScreen} options={{ title: 'Catálogo' }} />
-      <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
-      <Tab.Screen name="VentaMayor" component={VentaMayorScreen} options={{ title: 'Mayorista' }} />
-      <Tab.Screen name="Reportes" component={ReportesScreen} options={{ title: 'Reportes' }} />
-      <Tab.Screen name="Devoluciones" component={DevolucionesScreen} options={{ title: 'Devoluciones' }} />
-      <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
-    </Tab.Navigator>
+      <Drawer.Screen name="TiendaDashboard" component={TiendaDashboardScreen} />
+      <Drawer.Screen name="Inventario" component={InventarioScreen} />
+      <Drawer.Screen name="Sales" component={SalesScreen} />
+      <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
+      <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
+      <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
+      <Drawer.Screen name="Reportes" component={ReportesScreen} />
+      <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
+    </Drawer.Navigator>
   );
 }
 
-function InventarioTabs() {
+function InventarioDrawer() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        ...tabBarOptions,
-        tabBarIcon: ({ focused, color, size }) => (
-          <Ionicons name={getTabIcon(route.name, focused)} size={size} color={color} />
-        ),
-      })}
+    <Drawer.Navigator
+      drawerContent={AppDrawer}
+      screenOptions={drawerScreenOptions}
     >
-      <Tab.Screen name="InventarioDashboard" component={InventarioDashboardScreen} options={{ title: 'Inicio' }} />
-      <Tab.Screen name="Inventario" component={InventarioScreen} options={{ title: 'Inventario' }} />
-      <Tab.Screen name="Solicitudes" component={SolicitudesScreen} options={{ title: 'Solicitudes' }} />
-    </Tab.Navigator>
+      <Drawer.Screen name="InventarioDashboard" component={InventarioDashboardScreen} />
+      <Drawer.Screen name="Inventario" component={InventarioScreen} />
+      <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
+      <Drawer.Screen name="Reportes" component={ReportesScreen} />
+      <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
+    </Drawer.Navigator>
   );
 }
 
@@ -193,9 +132,9 @@ function RootNavigator() {
         }),
       }}
     >
-      {user.rol === 'admin' && <Stack.Screen name="Main" component={AdminTabs} />}
-      {user.rol === 'tienda' && <Stack.Screen name="Main" component={TiendaTabs} />}
-      {user.rol === 'inventario' && <Stack.Screen name="Main" component={InventarioTabs} />}
+      {user.rol === 'admin' && <Stack.Screen name="Main" component={AdminDrawer} />}
+      {user.rol === 'tienda' && <Stack.Screen name="Main" component={TiendaDrawer} />}
+      {user.rol === 'inventario' && <Stack.Screen name="Main" component={InventarioDrawer} />}
       <Stack.Screen name="SalesEdit" component={SalesEditScreen} />
     </Stack.Navigator>
   );
@@ -213,3 +152,12 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
+  },
+});

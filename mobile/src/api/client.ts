@@ -19,10 +19,13 @@ export async function request<T>(
   options: RequestInit = {},
   token?: string | null,
 ): Promise<T> {
+  const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> | undefined),
+    ...((options.headers as Record<string, string> | undefined) || {}),
   };
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }

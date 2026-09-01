@@ -1,5 +1,6 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import {
   colors,
@@ -7,44 +8,37 @@ import {
   radius,
   fontFamily,
   fontSize,
-  iconSize,
   shadows,
   a11y,
 } from '../theme';
-import { Header, StatCard, ActionCard, PrimaryCTA, TableRow, TableCard, Badge } from '../components';
+import { Header, StatCard, TableRow, TableCard, Badge } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAdminDashboard } from '../hooks/useDashboard';
 
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../types/navigation';
-
-const actions = [
-  { label: 'Inventario', iconName: 'cube', route: 'Inventario' },
-  { label: 'Nueva Venta', iconName: 'cash', route: 'Sales' },
-  { label: 'Solicitudes', iconName: 'document-text', route: 'Solicitudes' },
-  { label: 'Mayorista', iconName: 'briefcase', route: 'VentaMayor' },
+const quickActions = [
+  { label: 'Inventario', icon: 'cube-outline', route: 'Inventario', color: colors.primary },
+  { label: 'Ventas', icon: 'cash-outline', route: 'Sales', color: colors.emerald },
+  { label: 'Ventas por Mayor', icon: 'briefcase-outline', route: 'VentaMayor', color: colors.primary },
+  { label: 'Devoluciones', icon: 'refresh-outline', route: 'Devoluciones', color: colors.warning },
+  { label: 'Solicitudes', icon: 'document-text-outline', route: 'Solicitudes', color: '#a855f7' },
+  { label: 'Reportes', icon: 'stats-chart-outline', route: 'Reportes', color: '#f472b6' },
 ] as const;
 
 export default function AdminDashboardScreen() {
-  const { user, signOut } = useAuth();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { width } = useWindowDimensions();
-  const isSmallScreen = width < 380;
-  const statCardMinWidth = isSmallScreen ? '100%' : '46%';
-  const actionCardMinWidth = isSmallScreen ? '100%' : width < 600 ? '46%' : '30%';
+  const { user } = useAuth();
+  const navigation = useNavigation();
   const { data, loading, error, refetch } = useAdminDashboard();
 
-  const handleSignOut = () => {
-    signOut();
-  };
+  const openMenu = () => navigation.dispatch(DrawerActions.openDrawer());
+  const goTo = (route: string) => navigation.navigate(route as never);
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={s.safe}>
+        <Header title="AutoPartes Pro" onMenuPress={openMenu} />
+        <View style={s.center}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando dashboard...</Text>
+          <Text style={s.centerText}>Cargando dashboard...</Text>
         </View>
       </SafeAreaView>
     );
@@ -52,210 +46,216 @@ export default function AdminDashboardScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={refetch} accessibilityRole={a11y.button}>
-            <Text style={styles.retryBtnText}>Reintentar</Text>
+      <SafeAreaView style={s.safe}>
+        <Header title="AutoPartes Pro" onMenuPress={openMenu} />
+        <View style={s.center}>
+          <Ionicons name="cloud-offline" size={48} color={colors.danger} />
+          <Text style={[s.centerText, { color: colors.danger }]}>{error}</Text>
+          <Pressable style={s.retryBtn} onPress={refetch}>
+            <Text style={s.retryText}>Reintentar</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  const inventario = data?.inventario;
-  const ventas = data?.ventas;
-
-  const adminStats = inventario && ventas ? [
-    { label: 'Total Productos', value: inventario.totalProductos.toLocaleString(), iconName: 'cube' as const, color: colors.primary },
-    { label: 'Stock Bajo', value: inventario.stockBajo.toString(), iconName: 'alert-circle' as const, color: colors.warning },
-    { label: 'Sin Stock', value: inventario.sinStock.toString(), iconName: 'close-circle' as const, color: colors.danger },
-    { label: 'Ventas Hoy', value: `Bs ${ventas.hoy.total.toLocaleString()}`, iconName: 'cash' as const, color: colors.success },
-  ] as const : [] as const;
+  const inv = data?.inventario;
+  const ven = data?.ventas;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={s.safe}>
       <Header
         title="AutoPartes Pro"
         subtitle={`Administrador — ${user?.nombre}`}
-        rightAction={{
-          label: 'Salir',
-          onPress: handleSignOut,
-          variant: 'danger',
-          icon: 'log-out',
-        }}
+        onMenuPress={openMenu}
       />
 
-<ScrollView contentContainerStyle={[styles.content, isSmallScreen && styles.contentSmall]} showsVerticalScrollIndicator={false}>
-          {/* Welcome */}
-          <View style={styles.welcomeCard}>
-            <Text style={styles.welcomeTitle}>Panel de Administración</Text>
-            <Text style={styles.welcomeSubtitle}>Resumen general del sistema</Text>
-          </View>
-
-          {/* Primary CTA */}
-          <PrimaryCTA
-            label="Nueva Venta"
-            hint="Registrar una venta rápidamente"
-            iconName="add-circle"
-            color={colors.success}
-            onPress={() => {}}
-            accessibilityLabel="Crear nueva venta"
-          />
-
-          {/* Stats Grid */}
-          <Text style={styles.sectionTitle}>Resumen General</Text>
-          <View style={styles.statsGrid}>
-            {adminStats.map((stat, i) => (
-              <StatCard
-                key={i}
-                label={stat.label}
-                value={stat.value}
-                iconName={stat.iconName}
-                color={stat.color}
-                minWidth={statCardMinWidth}
-                accessibilityLabel={`${stat.label}: ${stat.value}`}
-              />
-            ))}
-          </View>
-
-          {/* Recent Sales */}
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Ventas Recientes</Text>
-            <Pressable style={styles.seeAll} onPress={() => {}} accessibilityRole={a11y.button} accessibilityLabel="Ver todas las ventas">
-              <Text style={styles.seeAllText}>Ver todas</Text>
-              <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
+      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        {/* ── Banner ── */}
+        <View style={s.banner}>
+          <View style={s.bannerOverlay}>
+            <View style={s.bannerTextWrap}>
+              <Text style={s.bannerGreeting}>Hola, {user?.nombre?.split(' ')[0] || 'Admin'}</Text>
+              <Text style={s.bannerTitle}>Panel de Administración</Text>
+              <Text style={s.bannerSubtitle}>Vista general del sistema</Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [s.ctaBtn, pressed && { opacity: 0.85 }]}
+              onPress={() => goTo('Sales')}
+              accessibilityRole={a11y.button}
+            >
+              <Ionicons name="add-circle" size={22} color={colors.white} />
+              <Text style={s.ctaBtnText}>Nueva Venta</Text>
             </Pressable>
           </View>
-          <TableCard>
-            {ventas?.porTienda?.slice(0, 5).map((tienda, i) => (
-              <TableRow key={i} borderTop={i > 0} accessibilityLabel={`Tienda ${tienda.nombre}, ${tienda.cantidad} ventas, Bs ${tienda.total.toFixed(2)}`}>
-                <View style={styles.saleInfo}>
-                  <Text style={styles.saleCode}>{tienda.nombre}</Text>
-                  <Text style={styles.saleMeta}>{tienda.cantidad} ventas este mes</Text>
-                </View>
-                <View style={styles.saleRight}>
-                  <Text style={styles.saleTotal}>Bs {tienda.total.toLocaleString()}</Text>
-                  <Text style={styles.saleDate}>{tienda.cantidad} transacciones</Text>
-                </View>
-              </TableRow>
-            ))}
-          </TableCard>
+        </View>
 
-          {/* Low Stock */}
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Stock Crítico</Text>
-            <Pressable style={styles.seeAll} onPress={() => navigation.navigate('Inventario')} accessibilityRole={a11y.button} accessibilityLabel="Ver inventario completo">
-              <Text style={styles.seeAllText}>Ver inventario</Text>
-              <Ionicons name="chevron-forward" size={iconSize.sm} color={colors.primary} />
-            </Pressable>
-          </View>
-          <TableCard>
-            {inventario && [
-              { producto: 'Sin Stock', count: inventario.sinStock, variant: 'danger' as const },
-              { producto: 'Stock Bajo', count: inventario.stockBajo, variant: 'warning' as const },
-            ].map((item, i) => (
-              <TableRow key={i} borderTop={i > 0} accessibilityLabel={`${item.producto}: ${item.count}`}>
-                <View style={styles.alertInfo}>
-                  <Text style={styles.alertName}>{item.producto}</Text>
-                  <Text style={styles.alertLocation}>{item.count} productos afectados</Text>
+        {/* ── Stats ── */}
+        <View style={s.statsRow}>
+          <StatCard label="Productos" value={inv?.totalProductos?.toLocaleString() || '0'} iconName="cube" color={colors.primary} minWidth="48%" />
+          <StatCard label="Ventas Hoy" value={`Bs ${ven?.hoy?.total?.toLocaleString() || '0'}`} iconName="cash" color={colors.emerald} minWidth="48%" />
+          <StatCard label="Stock Bajo" value={`${inv?.stockBajo || 0}`} iconName="alert-circle" color={colors.warning} minWidth="48%" />
+          <StatCard label="Sin Stock" value={`${inv?.sinStock || 0}`} iconName="close-circle" color={colors.danger} minWidth="48%" />
+        </View>
+
+        {/* ── Ventas por Tienda ── */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Ventas por Tienda</Text>
+          <Pressable style={s.linkBtn} onPress={() => goTo('Sales')}>
+            <Text style={s.linkText}>Ver ventas</Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+          </Pressable>
+        </View>
+        <TableCard>
+          {!ven?.porTienda?.length && (
+            <TableRow borderTop={false}>
+              <View style={s.emptyRow}>
+                <Ionicons name="storefront-outline" size={32} color={colors.textMuted} />
+                <Text style={s.emptyText}>Sin ventas registradas</Text>
+              </View>
+            </TableRow>
+          )}
+          {ven?.porTienda?.slice(0, 5).map((t, i) => (
+            <TableRow key={i} borderTop={i > 0}>
+              <View style={s.dataRow}>
+                <View style={[s.rowIcon, { backgroundColor: `${colors.primary}15` }]}>
+                  <Ionicons name="storefront" size={18} color={colors.primary} />
                 </View>
-                <Badge variant={item.variant} size="md">
-                  {item.count === 0 ? 'OK' : `${item.count} items`}
+                <View style={s.rowInfo}>
+                  <Text style={s.rowName}>{t.nombre}</Text>
+                  <Text style={s.rowMeta}>{t.cantidad} ventas este mes</Text>
+                </View>
+                <Text style={s.rowValue}>Bs {t.total.toLocaleString()}</Text>
+              </View>
+            </TableRow>
+          ))}
+        </TableCard>
+
+        {/* ── Stock Crítico ── */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Stock Crítico</Text>
+          <Pressable style={s.linkBtn} onPress={() => goTo('Inventario')}>
+            <Text style={s.linkText}>Ver inventario</Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+          </Pressable>
+        </View>
+        <TableCard>
+          {inv && [
+            { label: 'Sin Stock', count: inv.sinStock, color: colors.danger, icon: 'close-circle' as const },
+            { label: 'Stock Bajo', count: inv.stockBajo, color: colors.warning, icon: 'alert-circle' as const },
+          ].map((item, i) => (
+            <TableRow key={i} borderTop={i > 0}>
+              <View style={s.dataRow}>
+                <View style={[s.rowIcon, { backgroundColor: `${item.color}15` }]}>
+                  <Ionicons name={item.icon} size={18} color={item.color} />
+                </View>
+                <View style={s.rowInfo}>
+                  <Text style={s.rowName}>{item.label}</Text>
+                  <Text style={s.rowMeta}>{item.count} productos afectados</Text>
+                </View>
+                <Badge variant={item.count === 0 ? 'success' : item.count > 5 ? 'danger' : 'warning'} size="sm">
+                  {item.count}
                 </Badge>
-              </TableRow>
-            ))}
-          </TableCard>
+              </View>
+            </TableRow>
+          ))}
+        </TableCard>
 
-          {/* Quick Actions */}
-          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-          <View style={styles.actionsGrid}>
-            {actions.map((a, i) => (
-              <ActionCard
-                key={i}
-                label={a.label}
-                iconName={a.iconName}
-                onPress={() => navigation.navigate(a.route as any)}
-                minWidth={actionCardMinWidth}
-                accessibilityLabel={a.label}
-              />
-            ))}
-          </View>
-        </ScrollView>
+        {/* ── Stock Almacenes ── */}
+        {inv && inv.stockPorAlmacen.length > 0 && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>Stock por Almacén</Text>
+            </View>
+            <TableCard>
+              {inv.stockPorAlmacen.map((alm, i) => (
+                <TableRow key={alm.locationId} borderTop={i > 0}>
+                  <View style={s.dataRow}>
+                    <View style={[s.rowIcon, { backgroundColor: `${colors.emerald}15` }]}>
+                      <Ionicons name="business" size={18} color={colors.emerald} />
+                    </View>
+                    <View style={s.rowInfo}>
+                      <Text style={s.rowName}>{alm.nombre}</Text>
+                      <Text style={s.rowMeta}>{alm.productos} productos · {alm.totalStock} uds.</Text>
+                    </View>
+                    <Badge variant={alm.totalStock === 0 ? 'danger' : alm.totalStock < 20 ? 'warning' : 'success'} size="sm">
+                      {alm.totalStock}
+                    </Badge>
+                  </View>
+                </TableRow>
+              ))}
+            </TableCard>
+          </>
+        )}
+
+        {/* ── Acciones Rápidas ── */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Acciones Rápidas</Text>
+        </View>
+        <View style={s.actionsGrid}>
+          {quickActions.map((a) => (
+            <Pressable
+              key={a.route}
+              style={({ pressed }) => [s.actionCard, pressed && { opacity: 0.8 }]}
+              onPress={() => goTo(a.route)}
+            >
+              <View style={[s.actionIcon, { backgroundColor: `${a.color}15` }]}>
+                <Ionicons name={a.icon} size={24} color={a.color} />
+              </View>
+              <Text style={s.actionLabel}>{a.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space.lg, gap: space['2xl'] },
-  welcomeCard: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    padding: space['2xl'],
-    ...shadows.level2,
-  },
-  welcomeTitle: { color: colors.white, fontSize: fontSize.title, fontFamily: fontFamily.sansBold },
-  welcomeSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: fontSize.body, fontFamily: fontFamily.sans, marginTop: 4 },
+  scroll: { flex: 1 },
+  content: { padding: space.lg, gap: space.xl },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: space.md, padding: space.xl },
+  centerText: { color: colors.textMuted, fontSize: fontSize.body, fontFamily: fontFamily.sans },
+  retryBtn: { backgroundColor: colors.primary, paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.md, marginTop: space.sm },
+  retryText: { color: colors.white, fontFamily: fontFamily.sansSemiBold, fontSize: fontSize.body },
+
+  // Banner
+  banner: { backgroundColor: colors.primary, borderRadius: radius.lg, overflow: 'hidden', ...shadows.level3 },
+  bannerOverlay: { padding: space.xl, gap: space.lg },
+  bannerTextWrap: { gap: 4 },
+  bannerGreeting: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: 'rgba(255,255,255,0.7)' },
+  bannerTitle: { fontSize: fontSize.display, fontFamily: fontFamily.sansBold, color: colors.white },
+  bannerSubtitle: { fontSize: fontSize.body, fontFamily: fontFamily.sansMedium, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  ctaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, backgroundColor: colors.white, paddingVertical: 14, borderRadius: radius.md },
+  ctaBtnText: { color: colors.primary, fontSize: fontSize.bodyStrong, fontFamily: fontFamily.sansBold },
+
+  // Stats
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
+
+  // Section
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: fontSize.headline, fontFamily: fontFamily.sansSemiBold, color: colors.text },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  seeAll: { flexDirection: 'row', alignItems: 'center', gap: space.xs, padding: space.xs },
-  seeAllText: { color: colors.primary, fontFamily: fontFamily.sansSemiBold, fontSize: fontSize.captionStrong },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.md,
-    marginTop: space.sm,
-  },
-  saleInfo: { flex: 1, minWidth: 0, gap: 2 },
-  saleCode: { fontSize: fontSize.data, fontFamily: fontFamily.monoMedium, color: colors.text },
-  saleMeta: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
-  saleRight: { alignItems: 'flex-end', gap: 2, paddingLeft: space.md, minWidth: 80 },
-  saleTotal: { fontSize: fontSize.data, fontFamily: fontFamily.monoBold, color: colors.primary },
-  saleDate: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
-  alertInfo: { flex: 1, minWidth: 0, gap: 2 },
-  alertName: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
-  alertLocation: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
-  contentSmall: { paddingHorizontal: space.md },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.md,
-    marginTop: space.sm,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: space.md,
-  },
-  loadingText: {
-    color: colors.textMuted,
-    fontSize: fontSize.body,
-    fontFamily: fontFamily.sans,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: space.lg,
-    gap: space.md,
-  },
-  errorText: {
-    color: colors.danger,
-    fontSize: fontSize.body,
-    fontFamily: fontFamily.sans,
-    textAlign: 'center',
-  },
-  retryBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: space.md,
-    paddingHorizontal: space.xl,
-    borderRadius: radius.md,
-  },
-  retryBtnText: {
-    color: colors.white,
-    fontSize: fontSize.body,
-    fontFamily: fontFamily.sansSemiBold,
-  },
+  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  linkText: { fontSize: fontSize.caption, fontFamily: fontFamily.sansSemiBold, color: colors.primary },
+
+  // Data row
+  dataRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  rowIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  rowInfo: { flex: 1, minWidth: 0, gap: 2 },
+  rowName: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
+  rowMeta: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
+  rowValue: { fontSize: fontSize.bodyStrong, fontFamily: fontFamily.monoBold, color: colors.primary },
+
+  emptyRow: { flex: 1, alignItems: 'center', paddingVertical: space.lg, gap: space.sm },
+  emptyText: { color: colors.textMuted, fontSize: fontSize.caption, fontFamily: fontFamily.sans },
+
+  // Actions
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
+  actionCard: { width: '30%', minWidth: 100, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: space.lg, alignItems: 'center', justifyContent: 'center', gap: space.sm, ...shadows.level1 },
+  actionIcon: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: fontSize.caption, fontFamily: fontFamily.sansSemiBold, color: colors.text, textAlign: 'center' },
 });

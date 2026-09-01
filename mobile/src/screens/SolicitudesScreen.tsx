@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -14,9 +14,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/products';
-import { getAlmacenes } from '../api/locations';
+import { getAlmacenes, getLocations } from '../api/locations';
 import { getSolicitudes, createSolicitud, updateSolicitudEstado, type Solicitud, type CreateSolicitudInput } from '../api/solicitudes';
 import { getToken } from '../storage/token';
 import {
@@ -47,6 +48,7 @@ const ESTADO_BADGE: Record<string, 'default' | 'success' | 'warning' | 'danger' 
 };
 
 export default function SolicitudesScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,7 @@ export default function SolicitudesScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [products, setProducts] = useState<Array<{ id: number; producto: string; marca: string; modelo: string; codigoFabrica: string }>>([]);
   const [almacenes, setAlmacenes] = useState<Array<{ id: number; nombre: string }>>([]);
+  const [tiendas, setTiendas] = useState<Array<{ id: number; nombre: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [estadoModal, setEstadoModal] = useState<{ solicitud: Solicitud; origenId?: number } | null>(null);
@@ -65,6 +68,9 @@ export default function SolicitudesScreen() {
     tiendaId: undefined,
   });
 
+  const [pickerVisible, setPickerVisible] = useState<'producto' | 'tienda' | 'almacen' | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
+
   const isTienda = user?.rol === 'tienda';
   const isAdminOrInventario = ['admin', 'inventario'].includes(user?.rol || '');
 
@@ -72,14 +78,16 @@ export default function SolicitudesScreen() {
     try {
       const token = await getToken();
       if (!token) throw new Error('No hay sesión activa');
-      const [sols, prods, alms] = await Promise.all([
+      const [sols, prods, alms, allLocs] = await Promise.all([
         getSolicitudes(token),
         getProducts({}, token),
         getAlmacenes(token),
+        getLocations(token),
       ]);
       setSolicitudes(sols);
       setProducts(prods);
       setAlmacenes(alms);
+      setTiendas(allLocs.filter(l => l.tipo === 'tienda'));
     } catch (e) {
       console.error('Error loading data:', e);
     } finally {
@@ -161,6 +169,7 @@ export default function SolicitudesScreen() {
         <Header
           title="Solicitudes a Almacén"
           subtitle={isTienda ? 'Mis solicitudes' : 'Gestión de solicitudes'}
+          onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
         />
 
         <ScrollView
@@ -258,13 +267,14 @@ export default function SolicitudesScreen() {
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Producto *</Text>
-                    <TextInput
-                      style={[styles.input, componentStyles.inputBase]}
-                      placeholder="Seleccionar producto..."
-                      editable={false}
-                      value={products.find((p) => p.id === formData.productId)?.producto || ''}
-                    />
-                    <Text style={styles.pickerHint}>Toca para seleccionar</Text>
+                    <Pressable
+                      style={[styles.pickerBtn, componentStyles.inputBase]}
+                      onPress={() => { setPickerVisible('producto'); setPickerSearch(''); }}
+                    >
+                      <Text style={formData.productId ? styles.pickerValue : styles.pickerPlaceholder}>
+                        {products.find((p) => p.id === formData.productId)?.producto || 'Seleccionar producto...'}
+                      </Text>
+                    </Pressable>
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -281,12 +291,14 @@ export default function SolicitudesScreen() {
                   {!isTienda && (
                     <View style={styles.inputGroup}>
                       <Text style={styles.label}>Tienda *</Text>
-                      <TextInput
-                        style={[styles.input, componentStyles.inputBase]}
-                        placeholder="Seleccionar tienda..."
-                        editable={false}
-                        value={formData.tiendaId ? `Tienda ${formData.tiendaId}` : ''}
-                      />
+                      <Pressable
+                        style={[styles.pickerBtn, componentStyles.inputBase]}
+                        onPress={() => { setPickerVisible('tienda'); setPickerSearch(''); }}
+                      >
+                        <Text style={formData.tiendaId ? styles.pickerValue : styles.pickerPlaceholder}>
+                          {formData.tiendaId ? `Tienda ${formData.tiendaId}` : 'Seleccionar tienda...'}
+                        </Text>
+                      </Pressable>
                     </View>
                   )}
 
@@ -336,7 +348,9 @@ export default function SolicitudesScreen() {
                   renderItem={({ item }) => (
                     <TableRow
                       borderTop={item.id !== filteredSolicitudes[0].id}
+                      onPress={isAdminOrInventario ? () => setEstadoModal({ solicitud: item }) : undefined}
                       accessibilityLabel={`Solicitud ${item.id}, ${item.producto?.producto}, ${item.cantidad} unidades, ${item.estado}`}
+                      accessibilityHint={isAdminOrInventario ? 'Toca para cambiar estado' : undefined}
                     >
                       <View style={styles.itemMain}>
                         <View style={styles.itemInfo}>
@@ -416,12 +430,14 @@ export default function SolicitudesScreen() {
                 <>
                   <View style={styles.modalAlmacenPicker}>
                     <Text style={styles.modalLabel}>Almacén de Origen *</Text>
-                    <TextInput
-                      style={[styles.input, componentStyles.inputBase]}
-                      placeholder="Seleccionar almacén..."
-                      editable={false}
-                      value={almacenes.find((a) => a.id === estadoModal.origenId)?.nombre || ''}
-                    />
+                    <Pressable
+                      style={[styles.pickerBtn, componentStyles.inputBase]}
+                      onPress={() => { setPickerVisible('almacen'); setPickerSearch(''); }}
+                    >
+                      <Text style={estadoModal.origenId ? styles.pickerValue : styles.pickerPlaceholder}>
+                        {almacenes.find((a) => a.id === estadoModal.origenId)?.nombre || 'Seleccionar almacén...'}
+                      </Text>
+                    </Pressable>
                   </View>
                   <Pressable
                     style={({ pressed }) => [
@@ -484,6 +500,87 @@ export default function SolicitudesScreen() {
           <Text style={styles.toastText}>{toast.message}</Text>
         </View>
       )}
+
+      {/* Picker Modals */}
+      <Modal visible={pickerVisible !== null} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setPickerVisible(null)}>
+          <Pressable style={[styles.modal, { maxHeight: '70%', gap: space.md }]} onPress={e => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {pickerVisible === 'producto' ? 'Seleccionar Producto' :
+                 pickerVisible === 'tienda' ? 'Seleccionar Tienda' :
+                 'Seleccionar Almacén'}
+              </Text>
+              <Pressable onPress={() => setPickerVisible(null)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </Pressable>
+            </View>
+
+            {pickerVisible === 'producto' && (
+              <>
+                <TextInput
+                  style={[styles.modalSearch, componentStyles.inputBase]}
+                  placeholder="Buscar producto..."
+                  value={pickerSearch}
+                  onChangeText={setPickerSearch}
+                  placeholderTextColor={colors.textPlaceholder}
+                  autoFocus
+                />
+                <FlatList
+                  data={products.filter(p =>
+                    !pickerSearch || p.producto.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                    p.marca.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                    p.codigoFabrica.toLowerCase().includes(pickerSearch.toLowerCase())
+                  )}
+                  keyExtractor={(item) => String(item.id)}
+                  style={styles.modalList}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={[styles.modalItem, formData.productId === item.id && styles.modalItemActive]}
+                      onPress={() => { setFormData({ ...formData, productId: item.id }); setPickerVisible(null); }}
+                    >
+                      <Text style={styles.modalItemText}>{item.producto}</Text>
+                      <Text style={styles.modalItemSub}>{item.marca} · {item.codigoFabrica}</Text>
+                    </Pressable>
+                  )}
+                />
+              </>
+            )}
+
+            {pickerVisible === 'tienda' && (
+              <FlatList
+                data={tiendas}
+                keyExtractor={(item) => String(item.id)}
+                style={styles.modalList}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={[styles.modalItem, formData.tiendaId === item.id && styles.modalItemActive]}
+                    onPress={() => { setFormData({ ...formData, tiendaId: item.id }); setPickerVisible(null); }}
+                  >
+                    <Text style={styles.modalItemText}>{item.nombre}</Text>
+                  </Pressable>
+                )}
+              />
+            )}
+
+            {pickerVisible === 'almacen' && (
+              <FlatList
+                data={almacenes}
+                keyExtractor={(item) => String(item.id)}
+                style={styles.modalList}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={[styles.modalItem, estadoModal?.origenId === item.id && styles.modalItemActive]}
+                    onPress={() => { setEstadoModal(prev => prev ? { ...prev, origenId: item.id } : null); setPickerVisible(null); }}
+                  >
+                    <Text style={styles.modalItemText}>{item.nombre}</Text>
+                  </Pressable>
+                )}
+              />
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -636,4 +733,33 @@ const styles = StyleSheet.create({
   toastSuccess: { backgroundColor: colors.success, borderWidth: 1, borderColor: colors.success },
   toastError: { backgroundColor: colors.danger, borderWidth: 1, borderColor: colors.danger },
   toastText: { color: colors.white, fontSize: fontSize.body, fontFamily: fontFamily.sans, textAlign: 'center' },
+  pickerBtn: {
+    height: 44,
+    justifyContent: 'center',
+  },
+  pickerValue: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.text },
+  pickerPlaceholder: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.textPlaceholder },
+  modalSearch: { height: 44 },
+  modalList: { maxHeight: 300 },
+  modalItem: {
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalItemActive: { backgroundColor: colors.primarySoft },
+  modalItemText: { fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold, color: colors.text },
+  modalItemSub: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted, marginTop: 2 },
+  modalClose: { fontSize: 20, color: colors.textMuted, padding: space.xs },
+  modalOptions: { gap: space.xs },
+  modalOption: {
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  modalOptionText: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.text },
+  modalOptionTextActive: { color: colors.white },
 });

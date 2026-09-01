@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/products';
 import {
@@ -33,6 +33,7 @@ type PickedFile = { uri: string; name: string; type: string };
 const paymentMethods = ['Efectivo', 'QR', 'Transferencia', 'Crédito'];
 
 export default function VentaMayorScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [mode, setMode] = useState<Mode>('manual');
   const [products, setProducts] = useState<Product[]>([]);
@@ -50,13 +51,19 @@ export default function VentaMayorScreen() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const loadProducts = useCallback(async () => {
     try {
       const token = await getToken();
       setProducts(await getProducts({}, token ?? undefined));
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo cargar el catálogo');
+      showToast(error instanceof Error ? error.message : 'No se pudo cargar el catálogo', 'error');
     } finally {
       setLoading(false);
     }
@@ -80,7 +87,7 @@ export default function VentaMayorScreen() {
   function addProduct(product: Product) {
     const available = product.stockTotal ?? 0;
     if (available < 1) {
-      Alert.alert('Sin stock', `${product.producto} no tiene stock disponible.`);
+      showToast(`${product.producto} no tiene stock disponible.`, 'error');
       return;
     }
     setCart((current) => {
@@ -122,7 +129,7 @@ export default function VentaMayorScreen() {
       const token = await getToken();
       setPreview(await previewExcel(file, token ?? ''));
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo procesar el archivo');
+      showToast(error instanceof Error ? error.message : 'No se pudo procesar el archivo', 'error');
     } finally {
       setWorking(false);
     }
@@ -130,15 +137,15 @@ export default function VentaMayorScreen() {
 
   async function submitSale() {
     if (mode === 'manual' && (cart.length === 0 || hasStockError)) {
-      Alert.alert('Venta incompleta', 'Agrega productos válidos y verifica el stock.');
+      showToast('Agrega productos válidos y verifica el stock.', 'error');
       return;
     }
     if (mode === 'excel' && (!file || !preview?.ok || preview.items.length === 0)) {
-      Alert.alert('Archivo incompleto', 'Selecciona un archivo válido y genera su vista previa.');
+      showToast('Selecciona un archivo válido y genera su vista previa.', 'error');
       return;
     }
     if (hasPaymentMismatch) {
-      Alert.alert('Pagos incompletos', `El total pagado debe coincidir con Bs ${activeTotal.toFixed(2)}.`);
+      showToast(`El total pagado debe coincidir con Bs ${activeTotal.toFixed(2)}.`, 'error');
       return;
     }
     setWorking(true);
@@ -152,9 +159,9 @@ export default function VentaMayorScreen() {
       setFile(null);
       setPreview(null);
       setPayments([{ metodo: 'Efectivo', monto: 0 }]);
-      Alert.alert('Venta registrada', `${sale.codigo} fue registrada correctamente.`);
+      showToast(`${sale.codigo} fue registrada correctamente.`);
     } catch (error) {
-      Alert.alert('No se pudo registrar', error instanceof Error ? error.message : 'Intenta nuevamente');
+      showToast(error instanceof Error ? error.message : 'Intenta nuevamente', 'error');
     } finally {
       setWorking(false);
     }
@@ -162,8 +169,13 @@ export default function VentaMayorScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Header title="Venta por Mayor" subtitle="Pedido manual o importación Excel" />
+      <Header title="Venta por Mayor" subtitle="Pedido manual o importación Excel" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {toast && (
+          <View style={[styles.toast, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
+            <Text style={styles.toastText}>{toast.message}</Text>
+          </View>
+        )}
         <View style={styles.modeRow}>
           <Pressable style={[styles.modeButton, mode === 'manual' && styles.modeActive]} onPress={() => setMode('manual')}><Ionicons name="cart" size={iconSize.md} color={mode === 'manual' ? colors.white : colors.primary} /><Text style={[styles.modeText, mode === 'manual' && styles.modeTextActive]}>Manual</Text></Pressable>
           <Pressable style={[styles.modeButton, mode === 'excel' && styles.modeActive]} onPress={() => setMode('excel')}><Ionicons name="document-text" size={iconSize.md} color={mode === 'excel' ? colors.white : colors.primary} /><Text style={[styles.modeText, mode === 'excel' && styles.modeTextActive]}>Excel</Text></Pressable>
@@ -237,4 +249,8 @@ const styles = StyleSheet.create({
   paymentMethod: { flex: 1 },
   paymentAmount: { width: 120 },
   successText: { color: colors.success, fontFamily: fontFamily.sansMedium, textAlign: 'center' },
+  toast: { padding: space.md, borderRadius: radius.md, marginBottom: space.md },
+  toastSuccess: { backgroundColor: colors.successSoft, borderWidth: 1, borderColor: colors.success },
+  toastError: { backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger },
+  toastText: { color: colors.text, fontSize: fontSize.body, fontFamily: fontFamily.sans, textAlign: 'center' },
 });

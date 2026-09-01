@@ -1,12 +1,12 @@
 export type RootStackParamList = {
   Login: undefined;
+  Main: undefined;
   AdminDashboard: undefined;
   TiendaDashboard: undefined;
   InventarioDashboard: undefined;
   Inventario: undefined;
   Sales: undefined;
   SalesEdit: { saleId: number };
-  Main: undefined;
   Devoluciones: undefined;
   Solicitudes: undefined;
   VentaMayor: undefined;
