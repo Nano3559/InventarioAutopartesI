@@ -48,17 +48,6 @@ export function DevolucionesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const getAvailableStock = (productId: number): number => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return 0;
-    if (formData.locationId && product.stockByLocation) {
-      return product.stockByLocation[formData.locationId] ?? 0;
-    }
-    return product.stockTotal ?? 0;
-  };
-
-  const selectedAvailable = getAvailableStock(formData.productId);
-
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
@@ -120,10 +109,6 @@ export function DevolucionesPage() {
     e.preventDefault();
     if (!formData.productId || !formData.motivo || formData.cantidad <= 0 || formData.monto <= 0) {
       showToast('Complete todos los campos requeridos', 'error');
-      return;
-    }
-    if (selectedAvailable > 0 && formData.cantidad > selectedAvailable) {
-      showToast(`La cantidad no puede superar el stock disponible (${selectedAvailable})`, 'error');
       return;
     }
     if (!formData.locationId) {
@@ -355,11 +340,6 @@ export function DevolucionesPage() {
                 <div className="form-group">
                   <label htmlFor="cantidad">
                     Cantidad <span className="required">*</span>
-                    {formData.productId > 0 && (
-                      <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#38bdf8', marginLeft: '0.5rem' }}>
-                        (Disponible: {selectedAvailable})
-                      </span>
-                    )}
                   </label>
                   <input
                     id="cantidad"
@@ -368,15 +348,11 @@ export function DevolucionesPage() {
                     value={formData.cantidad}
                     onChange={(e) => {
                       const val = Number(e.target.value) || 0;
-                      setFormData({ ...formData, cantidad: val > selectedAvailable && selectedAvailable > 0 ? selectedAvailable : val });
+                      setFormData({ ...formData, cantidad: val });
                     }}
                     min="1"
-                    max={selectedAvailable > 0 ? selectedAvailable : undefined}
                     required
                   />
-                  {formData.productId > 0 && selectedAvailable === 0 && (
-                    <small style={{ color: '#f87171', fontSize: '0.78rem' }}>Sin stock disponible en esta ubicación</small>
-                  )}
                 </div>
               </div>
 
