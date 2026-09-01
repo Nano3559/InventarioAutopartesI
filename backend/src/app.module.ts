@@ -29,7 +29,10 @@ import { ReportesModule } from './reportes/reportes.module';
         port: parseInt(config.get('DB_PORT', '5432'), 10),
         username: config.get('DB_USER', 'postgres'),
         password: config.get('DB_PASSWORD', 'postgres'),
-        database: config.get('DB_NAME', 'inventario'),
+        database: config.get('DB_NAME', 'postgres'),
+        ssl: {
+          rejectUnauthorized: false,
+        },
         autoLoadEntities: true,
         // Activar synchronize solo en desarrollo. En producción usar DB_SYNC=false
         // y aplicar migraciones de forma controlada.
