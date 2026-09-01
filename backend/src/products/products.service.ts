@@ -6,7 +6,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
 import { Product } from '../entities/product.entity';
 import { Inventory } from '../entities/inventory.entity';
@@ -28,7 +28,7 @@ export interface ProductFilters {
 
 @Injectable()
 export class ProductsService {
-  private supabase: SupabaseClient;
+  private supabase: ReturnType<typeof createClient>;
   private bucket: string;
 
   constructor(
@@ -85,9 +85,7 @@ export class ProductsService {
       qb.andWhere('p.activo = :act', { act: true });
     }
 
-    const products = await qb
-      .orderBy('p.id', 'DESC')
-      .getMany();
+    const products = await qb.orderBy('p.id', 'DESC').getMany();
 
     return this.attachStock(products);
   }
@@ -418,7 +416,9 @@ export class ProductsService {
     const ext = path.extname(file.originalname) || '.png';
     const filename = `product-${id}-${Date.now()}${ext}`;
 
-    console.log(`[Upload] Subiendo imagen: ${filename} (${file.size} bytes, ${file.mimetype}) al bucket "${this.bucket}"`);
+    console.log(
+      `[Upload] Subiendo imagen: ${filename} (${file.size} bytes, ${file.mimetype}) al bucket "${this.bucket}"`,
+    );
 
     const { data: uploadData, error: uploadError } = await this.supabase.storage
       .from(this.bucket)
@@ -458,7 +458,9 @@ export class ProductsService {
     try {
       hash = await computeHash(file.buffer);
     } catch {
-      throw new BadRequestException('No se pudo procesar la imagen para búsqueda');
+      throw new BadRequestException(
+        'No se pudo procesar la imagen para búsqueda',
+      );
     }
     const products = await this.repo().find({ where: { activo: true } });
     const results = products
