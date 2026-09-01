@@ -117,46 +117,7 @@ export const movimientosService = {
   },
 
   async createMovimiento(dto: CreateMovimientoDto): Promise<MovimientoItem> {
-    try {
-      const data = await api.post<MovimientoItem>('/movimientos', dto);
-      return data;
-    } catch (err) {
-      console.warn('Backend /movimientos POST falló, guardando localmente:', err);
-      const origen = MOCK_LOCATIONS_FALLBACK.find((l: LocationItem) => l.id === dto.origenId) || MOCK_LOCATIONS_FALLBACK[0];
-      const destino = MOCK_LOCATIONS_FALLBACK.find((l: LocationItem) => l.id === dto.destinoId) || MOCK_LOCATIONS_FALLBACK[4];
-
-      const newMov: MovimientoItem = {
-        id: localMovimientos.length > 0 ? Math.max(...localMovimientos.map((m: MovimientoItem) => m.id)) + 1 : 1,
-        productId: dto.productId,
-        product: {
-          id: dto.productId,
-          producto: 'Repuesto transferido',
-          fabricante: 'Genérico',
-          marca: 'Universal',
-          modelo: 'Universal',
-          codigoFabrica: `TRF-${dto.productId}`,
-          costo: 0,
-          stockTotal: 10,
-          activo: true,
-        },
-        cantidad: dto.cantidad,
-        origenId: dto.origenId,
-        origen,
-        destinoId: dto.destinoId,
-        destino,
-        usuarioId: 1,
-        usuario: {
-          id: 1,
-          nombre: 'Marco Admin',
-          email: 'admin@autorepuestos.com',
-          rol: 'admin',
-        },
-        fecha: new Date().toISOString(),
-        observacion: dto.observacion || null,
-      };
-
-      localMovimientos = [newMov, ...localMovimientos];
-      return newMov;
-    }
+    const data = await api.post<MovimientoItem>('/movimientos', dto);
+    return data;
   },
 };

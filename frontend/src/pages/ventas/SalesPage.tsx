@@ -26,7 +26,7 @@ const validatePhone = (value: string): boolean => {
 
 const validateName = (value: string): boolean => {
   if (!value) return true;
-  return /^[a-zA-ZáéíóúñüÁÉÍÓÚÑÜ\s]+$/.test(value.trim());
+  return /^[a-zA-ZáéíóúñüÁÉÍÓÚÑÜ0-9\s.,&'\-()]+$/.test(value.trim());
 };
 
 export function SalesPage() {
@@ -192,8 +192,12 @@ export function SalesPage() {
     const available = product ? getProductStock(product) : 0;
 
     if (available <= 0) {
-      setCart((current) => current.filter((item) => item.productId !== productId));
       showToast('El producto ya no tiene stock disponible.', 'error');
+      setCart(cart.map((item) =>
+        item.productId === productId && delta < 0
+          ? { ...item, cantidad: Math.max(1, item.cantidad + delta) }
+          : item
+      ));
       return;
     }
     

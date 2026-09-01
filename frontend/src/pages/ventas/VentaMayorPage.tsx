@@ -24,7 +24,7 @@ const validatePhone = (value: string): boolean => {
 
 const validateName = (value: string): boolean => {
   if (!value) return true;
-  return /^[a-zA-ZáéíóúñüÁÉÍÓÚÑÜ\s]+$/.test(value.trim());
+  return /^[a-zA-ZáéíóúñüÁÉÍÓÚÑÜ0-9\s.,&'\-()]+$/.test(value.trim());
 };
 
 export function VentaMayorPage() {
@@ -143,8 +143,12 @@ export function VentaMayorPage() {
     const available = product ? getProductStock(product) : 0;
 
     if (available <= 0) {
-      setCart((current) => current.filter((item) => item.productId !== productId));
       showToast('El producto ya no tiene stock disponible.', 'error');
+      setCart(cart.map((item) =>
+        item.productId === productId && delta < 0
+          ? { ...item, cantidad: Math.max(1, item.cantidad + delta) }
+          : item
+      ));
       return;
     }
 
@@ -407,14 +411,14 @@ export function VentaMayorPage() {
       <div className="mode-tabs">
         <button
           className={`mode-tab ${mode === 'manual' ? 'active' : ''}`}
-          onClick={() => { setMode('manual'); setPreviewResult(null); setExcelFile(null); }}
+          onClick={() => { setMode('manual'); setPreviewResult(null); setExcelFile(null); setPayments([{ metodo: 'efectivo', monto: 0 }]); }}
         >
           <ShoppingCart size={18} />
           <span>Opción A: Ingreso Manual</span>
         </button>
         <button
           className={`mode-tab ${mode === 'excel' ? 'active' : ''}`}
-          onClick={() => { setMode('excel'); setCart([]); }}
+          onClick={() => { setMode('excel'); setCart([]); setPreviewResult(null); setPayments([{ metodo: 'efectivo', monto: 0 }]); }}
         >
           <FileSpreadsheet size={18} />
           <span>Opción B: Importar Excel</span>
