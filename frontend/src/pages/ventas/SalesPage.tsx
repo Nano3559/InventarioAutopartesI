@@ -5,7 +5,7 @@ import { productsService } from '../../services/products.service';
 import { salesService, type SaleInput, type SaleItemInput, type PaymentInput, type PaymentMethod, getPaymentMethods, formatCurrency } from '../../services/sales.service';
 import type { Product } from '../../types/product.types';
 import type { SaleResponse } from '../../services/sales.service';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, RotateCcw, CheckCircle2, AlertCircle, Loader2, X, Printer, UserPlus, Edit } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, RotateCcw, CheckCircle2, AlertCircle, Loader2, X, Printer, UserPlus, Edit, ClipboardList } from 'lucide-react';
 import '../../styles/sales.css';
 
 export function SalesPage() {
@@ -185,6 +185,12 @@ export function SalesPage() {
     setCart(cart.filter((item) => item.productId !== productId));
   };
 
+  const handlePriceChange = (productId: number, newPrice: number) => {
+    setCart(cart.map((item) =>
+      item.productId === productId ? { ...item, precio: Math.max(0, newPrice) } : item
+    ));
+  };
+
   const handlePaymentChange = (index: number, field: 'metodo' | 'monto', value: string | number) => {
     setPayments(payments.map((p, i) => i === index ? { ...p, [field]: value } : p));
   };
@@ -206,6 +212,11 @@ export function SalesPage() {
   const handleSubmitSale = async () => {
     if (!canSubmit) {
       showToast('Verifique que el total de pagos coincida con el total de la venta', 'error');
+      return;
+    }
+
+    if (requiereFactura && (!cliente.ciNit || !cliente.nombre)) {
+      showToast('Para factura requiere: Nombre y CI/NIT', 'error');
       return;
     }
 
@@ -385,6 +396,31 @@ export function SalesPage() {
                         )}
                       </div>
                       {!outOfStock && <Plus size={20} className="add-btn" />}
+                        {outOfStock && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/solicitudes?productId=${product.id}`);
+                            }}
+                            style={{
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              color: '#f59e0b',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                            }}
+                            title="Solicitar a almacén"
+                          >
+                            <ClipboardList size={14} />
+                          </button>
+                        )}
                     </button>
                   );
                 })
@@ -419,7 +455,27 @@ export function SalesPage() {
                           <div className="cart-item-info">
                             <div className="cart-item-name">{product?.producto || 'Producto desconocido'}</div>
                             <div className="cart-item-detail">
-                              {product?.marca} {product?.modelo} | {formatCurrency(item.precio)} c/u
+                              {product?.marca} {product?.modelo}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '4px' }}>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Precio:</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.precio}
+                                onChange={(e) => handlePriceChange(item.productId, parseFloat(e.target.value) || 0)}
+                                style={{
+                                  width: '80px',
+                                  fontSize: '0.78rem',
+                                  padding: '2px 4px',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '4px',
+                                  background: 'var(--bg-alt)',
+                                  color: 'var(--text-strong)',
+                                  fontFamily: 'var(--font-mono)',
+                                }}
+                              />
                             </div>
                             <div style={{ fontSize: '0.72rem', color: atMax ? '#ef4444' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
                               Stock disp.: {available} uds.{atMax ? ' (máximo)' : ''}

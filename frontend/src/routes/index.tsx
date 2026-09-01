@@ -82,11 +82,11 @@ export function AppRoutes() {
           }
         />
 
-        {/* Módulo de Reportes de Marco (M9) */}
+        {/* Módulo de Reportes (Admin ve todo, Tienda ve sus reportes) */}
         <Route
           path="reportes"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'tienda']}>
               <ReportesPage />
             </ProtectedRoute>
           }

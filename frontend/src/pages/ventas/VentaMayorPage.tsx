@@ -64,7 +64,6 @@ export function VentaMayorPage() {
 
   const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + item.cantidad * item.precio, 0), [cart]);
   const paymentsTotal = useMemo(() => payments.reduce((sum, p) => sum + p.monto, 0), [payments]);
-  const change = paymentsTotal - cartTotal;
   const hasStockViolation = cart.some((item) => {
     const p = products.find((pr) => pr.id === item.productId);
     return p && item.cantidad > (p.stockTotal ?? 0);
@@ -72,6 +71,8 @@ export function VentaMayorPage() {
   const canSubmitManual = cart.length > 0 && !hasStockViolation && Math.abs(paymentsTotal - cartTotal) < 0.01;
 
   const previewTotal = previewResult?.total ?? 0;
+  const activeTotal = mode === 'manual' ? cartTotal : previewTotal;
+  const change = paymentsTotal - activeTotal;
   const canSubmitExcel = !!excelFile && previewResult?.ok === true && previewResult.items.length > 0 && Math.abs(paymentsTotal - previewTotal) < 0.01;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {

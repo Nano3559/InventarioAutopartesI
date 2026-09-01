@@ -110,6 +110,9 @@ export const salesService = {
       headers['Authorization'] = `Bearer ${token}`;
     }
     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/sales/${id}/nota`, { headers });
+    if (!response.ok) {
+      throw new Error('Error al obtener nota de venta');
+    }
     return response.text();
   },
 

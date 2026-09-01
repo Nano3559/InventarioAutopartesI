@@ -130,6 +130,8 @@ export function DevolucionesPage() {
     try {
       await createDevolucion(formData);
       showToast('Devolución registrada');
+      const refreshedProducts = await productsService.getProducts({});
+      setProducts(refreshedProducts);
       handleRefresh();
       setFormOpen(false);
     } catch (err: unknown) {

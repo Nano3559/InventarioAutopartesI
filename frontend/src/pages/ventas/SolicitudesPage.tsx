@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ClipboardList,
   Plus,
@@ -31,6 +32,7 @@ const ESTADO_STYLES: Record<string, 'badge-info' | 'badge-warning' | 'badge-prim
 
 export function SolicitudesPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [reloadTrigger, setReloadTrigger] = useState<number>(0);
@@ -40,14 +42,17 @@ export function SolicitudesPage() {
   const [almacenes, setAlmacenes] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
   const [tiendas, setTiendas] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
 
-  const [formOpen, setFormOpen] = useState<boolean>(false);
+  const [formOpen, setFormOpen] = useState<boolean>(() => Boolean(searchParams.get('productId')));
   const [editingSolicitud, setEditingSolicitud] = useState<Solicitud | null>(null);
   const [estadoModalOpen, setEstadoModalOpen] = useState<{ solicitud: Solicitud; origenId?: number } | null>(null);
 
-  const [formData, setFormData] = useState<CreateSolicitudInput>({
-    productId: 0,
-    cantidad: 1,
-    tiendaId: undefined,
+  const [formData, setFormData] = useState<CreateSolicitudInput>(() => {
+    const urlProductId = searchParams.get('productId');
+    return {
+      productId: urlProductId ? Number(urlProductId) : 0,
+      cantidad: 1,
+      tiendaId: user?.tiendaId ?? undefined,
+    };
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -68,6 +73,13 @@ export function SolicitudesPage() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  useEffect(() => {
+    if (searchParams.get('productId')) {
+      searchParams.delete('productId');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     async function loadProducts() {
@@ -109,7 +121,7 @@ export function SolicitudesPage() {
     let isMounted = true;
     async function fetchData() {
       try {
-        const data = await getSolicitudes();
+        const data = await getSolicitudes(isTienda ? (user?.tiendaId ?? undefined) : undefined);
         if (isMounted) {
           setSolicitudes(data);
           setLoading(false);
@@ -121,7 +133,7 @@ export function SolicitudesPage() {
     }
     fetchData();
     return () => { isMounted = false; };
-  }, [reloadTrigger]);
+  }, [reloadTrigger, isTienda, user?.tiendaId]);
 
   const handleRefresh = () => {
     setLoading(true);
@@ -129,9 +141,18 @@ export function SolicitudesPage() {
   };
 
   const handleOpenNew = () => {
+    const urlProductId = searchParams.get('productId');
     setEditingSolicitud(null);
-    setFormData({ productId: 0, cantidad: 1, tiendaId: user?.tiendaId ?? undefined });
+    setFormData({
+      productId: urlProductId ? Number(urlProductId) : 0,
+      cantidad: 1,
+      tiendaId: user?.tiendaId ?? undefined,
+    });
     setFormOpen(true);
+    if (urlProductId) {
+      searchParams.delete('productId');
+      setSearchParams(searchParams);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
