@@ -39,6 +39,7 @@ export interface ProductFilters {
   anio?: string;
   codigoOem?: string;
   codigoFabrica?: string;
+  activo?: string;
 }
 
 export interface CreateProductDto {

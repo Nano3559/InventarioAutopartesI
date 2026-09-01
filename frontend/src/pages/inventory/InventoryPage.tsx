@@ -18,6 +18,7 @@ import { ProductTable } from '../../components/inventory/ProductTable';
 import { StockBreakdownModal } from '../../components/inventory/StockBreakdownModal';
 import { ProductFormModal } from '../../components/inventory/ProductFormModal';
 import { DeleteConfirmModal } from '../../components/inventory/DeleteConfirmModal';
+import { AddStockModal } from '../../components/inventory/AddStockModal';
 import '../../styles/inventory.css';
 
 export function InventoryPage() {
@@ -28,6 +29,7 @@ export function InventoryPage() {
 
   // Modales
   const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
+  const [addStockModalProduct, setAddStockModalProduct] = useState<Product | null>(null);
   const [formModalOpen, setFormModalOpen] = useState<boolean>(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [deleteModalProduct, setDeleteModalProduct] = useState<Product | null>(null);
@@ -85,6 +87,17 @@ export function InventoryPage() {
   const handleDelete = async (id: number) => {
     await productsService.deleteProduct(id);
     showToast('Repuesto dado de baja del catálogo.', 'info');
+    handleRefresh();
+  };
+
+  const handleToggleActive = async (product: Product) => {
+    const result = await productsService.toggleActive(product.id);
+    showToast(
+      result.activo
+        ? `Repuesto "${product.producto}" activado.`
+        : `Repuesto "${product.producto}" desactivado.`,
+      result.activo ? 'success' : 'info',
+    );
     handleRefresh();
   };
 
@@ -205,11 +218,13 @@ export function InventoryPage() {
         products={products}
         loading={loading}
         onOpenStockModal={(product) => setStockModalProduct(product)}
+        onOpenAddStockModal={(product) => setAddStockModalProduct(product)}
         onOpenEditModal={(product) => {
           setProductToEdit(product);
           setFormModalOpen(true);
         }}
         onOpenDeleteModal={(product) => setDeleteModalProduct(product)}
+        onToggleActive={handleToggleActive}
       />
 
       {/* Modales */}
@@ -232,6 +247,12 @@ export function InventoryPage() {
         product={deleteModalProduct}
         onClose={() => setDeleteModalProduct(null)}
         onConfirm={handleDelete}
+      />
+
+      <AddStockModal
+        product={addStockModalProduct}
+        onClose={() => setAddStockModalProduct(null)}
+        onStockUpdated={handleRefresh}
       />
     </div>
   );

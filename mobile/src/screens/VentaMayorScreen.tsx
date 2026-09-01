@@ -32,6 +32,26 @@ type PickedFile = { uri: string; name: string; type: string };
 
 const paymentMethods = ['Efectivo', 'QR', 'Transferencia', 'Crédito'];
 
+const validateCI = (value: string): boolean => {
+  if (!value) return true;
+  const trimmed = value.trim().toUpperCase();
+  const ciPattern = /^\d{7,8}$/;
+  const ciExtPattern = /^\d{7,8}(LP|CH|CB|OR|TJ|SC|BE|PA|PO|PT|ON|SA|DA|SU)$/;
+  const nitPattern = /^\d{10,12}$/;
+  return ciPattern.test(trimmed) || ciExtPattern.test(trimmed) || nitPattern.test(trimmed);
+};
+
+const validatePhone = (value: string): boolean => {
+  if (!value) return true;
+  const trimmed = value.trim();
+  return /^[67]\d{7}$/.test(trimmed);
+};
+
+const validateName = (value: string): boolean => {
+  if (!value) return true;
+  return /^[a-zA-ZáéíóúñüÁÉÍÓÚÑÜ\s]+$/.test(value.trim());
+};
+
 export default function VentaMayorScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -52,10 +72,47 @@ export default function VentaMayorScreen() {
   const [working, setWorking] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [clientErrors, setClientErrors] = useState<{ nombre?: string; ciNit?: string; celular?: string }>({});
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const validateClientField = (field: 'nombre' | 'ciNit' | 'celular', value: string) => {
+    const newErrors = { ...clientErrors };
+    if (field === 'nombre' && value && !validateName(value)) {
+      newErrors.nombre = 'Solo se permiten letras y espacios';
+    } else if (field === 'nombre') {
+      delete newErrors.nombre;
+    }
+    if (field === 'ciNit' && value && !validateCI(value)) {
+      newErrors.ciNit = 'CI: 7-8 dígitos. NIT: 10-12 dígitos';
+    } else if (field === 'ciNit') {
+      delete newErrors.ciNit;
+    }
+    if (field === 'celular' && value && !validatePhone(value)) {
+      newErrors.celular = 'Celular: 8 dígitos, empieza con 6 o 7';
+    } else if (field === 'celular') {
+      delete newErrors.celular;
+    }
+    setClientErrors(newErrors);
+  };
+
+  const handleClientNameChange = (value: string) => {
+    setClientName(value);
+    validateClientField('nombre', value);
+  };
+
+  const handleClientCiChange = (value: string) => {
+    setClientCiNit(value);
+    validateClientField('ciNit', value);
+  };
+
+  const handleClientPhoneChange = (value: string) => {
+    const numericValue = value.replace(/[^0-9]/g, '');
+    setClientPhone(numericValue);
+    validateClientField('celular', numericValue);
   };
 
   const loadProducts = useCallback(async () => {
@@ -148,6 +205,18 @@ export default function VentaMayorScreen() {
       showToast(`El total pagado debe coincidir con Bs ${activeTotal.toFixed(2)}.`, 'error');
       return;
     }
+    if (clientName && !validateName(clientName)) {
+      showToast('El nombre solo debe contener letras', 'error');
+      return;
+    }
+    if (clientCiNit && !validateCI(clientCiNit)) {
+      showToast('Formato de CI/NIT inválido', 'error');
+      return;
+    }
+    if (clientPhone && !validatePhone(clientPhone)) {
+      showToast('Celular inválido: 8 dígitos, empieza con 6 o 7', 'error');
+      return;
+    }
     setWorking(true);
     try {
       const token = await getToken();
@@ -204,9 +273,12 @@ export default function VentaMayorScreen() {
 
         <View style={styles.panel}>
           <Text style={styles.sectionTitle}>Cliente y entrega</Text>
-          <TextInput style={componentStyles.inputBase} value={clientName} onChangeText={setClientName} placeholder="Nombre del cliente" placeholderTextColor={colors.textPlaceholder} />
-          <TextInput style={componentStyles.inputBase} value={clientCiNit} onChangeText={setClientCiNit} placeholder="CI/NIT" placeholderTextColor={colors.textPlaceholder} />
-          <TextInput style={componentStyles.inputBase} value={clientPhone} onChangeText={setClientPhone} placeholder="Celular" placeholderTextColor={colors.textPlaceholder} keyboardType="phone-pad" />
+          <TextInput style={componentStyles.inputBase} value={clientName} onChangeText={handleClientNameChange} placeholder="Nombre del cliente" placeholderTextColor={colors.textPlaceholder} />
+          {clientErrors.nombre && <Text style={styles.clientErrorText}>{clientErrors.nombre}</Text>}
+          <TextInput style={componentStyles.inputBase} value={clientCiNit} onChangeText={handleClientCiChange} placeholder="CI/NIT" placeholderTextColor={colors.textPlaceholder} maxLength={15} />
+          {clientErrors.ciNit && <Text style={styles.clientErrorText}>{clientErrors.ciNit}</Text>}
+          <TextInput style={componentStyles.inputBase} value={clientPhone} onChangeText={handleClientPhoneChange} placeholder="Celular" placeholderTextColor={colors.textPlaceholder} keyboardType="phone-pad" maxLength={8} />
+          {clientErrors.celular && <Text style={styles.clientErrorText}>{clientErrors.celular}</Text>}
           <TextInput style={componentStyles.inputBase} value={forWhom} onChangeText={setForWhom} placeholder="Para quién es el pedido" placeholderTextColor={colors.textPlaceholder} />
           <TextInput style={componentStyles.inputBase} value={deliveryPlace} onChangeText={setDeliveryPlace} placeholder="Lugar de entrega" placeholderTextColor={colors.textPlaceholder} />
           <Pressable style={styles.checkRow} onPress={() => setRequiresInvoice(!requiresInvoice)}><Ionicons name={requiresInvoice ? 'checkbox' : 'square-outline'} size={iconSize.lg} color={colors.primary} /><Text style={styles.muted}>Requiere factura</Text></Pressable>
@@ -240,6 +312,7 @@ const styles = StyleSheet.create({
   uploadText: { color: colors.text, fontFamily: fontFamily.sansMedium, textAlign: 'center' },
   previewBox: { backgroundColor: colors.primarySoft, padding: space.md, borderRadius: radius.sm, gap: space.xs },
   errorText: { color: colors.danger, fontFamily: fontFamily.sans, fontSize: fontSize.caption },
+  clientErrorText: { color: colors.danger, fontSize: fontSize.caption, fontFamily: fontFamily.sans, marginTop: 2, marginLeft: 4 },
   total: { color: colors.text, fontFamily: fontFamily.sansBold, fontSize: fontSize.title, textAlign: 'right' },
   quantity: { color: colors.text, fontFamily: fontFamily.sansSemiBold, minWidth: 24, textAlign: 'center' },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 44 },

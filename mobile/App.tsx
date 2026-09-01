@@ -22,6 +22,7 @@ import SolicitudesScreen from './src/screens/SolicitudesScreen';
 import VentaMayorScreen from './src/screens/VentaMayorScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import SearchByImageScreen from './src/screens/SearchByImageScreen';
+import ProductDetailScreen from './src/screens/ProductDetailScreen';
 import {
   colors,
   space,
@@ -133,6 +134,7 @@ function RootNavigator() {
       {user.rol === 'tienda' && <Stack.Screen name="Main" component={TiendaDrawer} />}
       {user.rol === 'inventario' && <Stack.Screen name="Main" component={InventarioDrawer} />}
       <Stack.Screen name="SalesEdit" component={SalesEditScreen} />
+      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </Stack.Navigator>
   );
 }

@@ -9,8 +9,12 @@ import {
   Car,
   Eye,
   ClipboardList,
+  PackagePlus,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import type { Product } from '../../types/product.types';
+import { resolveImageUrl } from '../../api/client';
 
 interface ProductTableProps {
   products: Product[];
@@ -18,6 +22,8 @@ interface ProductTableProps {
   onOpenStockModal: (product: Product) => void;
   onOpenEditModal: (product: Product) => void;
   onOpenDeleteModal: (product: Product) => void;
+  onOpenAddStockModal: (product: Product) => void;
+  onToggleActive: (product: Product) => void;
 }
 
 export function ProductTable({
@@ -26,6 +32,8 @@ export function ProductTable({
   onOpenStockModal,
   onOpenEditModal,
   onOpenDeleteModal,
+  onOpenAddStockModal,
+  onToggleActive,
 }: ProductTableProps) {
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -89,12 +97,15 @@ export function ProductTable({
                     <div className="product-cell">
                       <div
                         className="product-thumb-box"
-                        onClick={() => p.imagen && setSelectedImg(p.imagen)}
+                        onClick={() => {
+                          const img = resolveImageUrl(p.imagen);
+                          if (img) setSelectedImg(img);
+                        }}
                         style={{ cursor: p.imagen ? 'pointer' : 'default' }}
                         title={p.imagen ? 'Clic para ampliar imagen' : undefined}
                       >
-                        {p.imagen ? (
-                          <img src={p.imagen} alt={p.producto} className="product-thumb-img" />
+                        {resolveImageUrl(p.imagen) ? (
+                          <img src={resolveImageUrl(p.imagen)!} alt={p.producto} className="product-thumb-img" />
                         ) : (
                           <Boxes size={20} className="product-thumb-fallback" />
                         )}
@@ -199,11 +210,31 @@ export function ProductTable({
 
                       <button
                         type="button"
+                        className="btn-table-action"
+                        onClick={() => onOpenAddStockModal(p)}
+                        title="Agregar stock a una ubicación"
+                        style={{ color: '#10b981' }}
+                      >
+                        <PackagePlus size={16} />
+                      </button>
+
+                      <button
+                        type="button"
                         className="btn-table-action edit-btn"
                         onClick={() => onOpenEditModal(p)}
                         title="Editar información del repuesto"
                       >
                         <Edit2 size={16} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-table-action"
+                        onClick={() => onToggleActive(p)}
+                        title={p.activo ? 'Desactivar producto' : 'Activar producto'}
+                        style={{ color: p.activo ? '#f59e0b' : '#10b981' }}
+                      >
+                        {p.activo ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                       </button>
 
                       <button
@@ -250,7 +281,7 @@ export function ProductTable({
             <img
               src={selectedImg}
               alt="Vista previa ampliada"
-              style={{ width: '100%', borderRadius: 'var(--radius-sm)', display: 'block' }}
+              style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 'var(--radius-sm)', display: 'block', background: 'var(--bg-alt)' }}
             />
           </div>
         </div>

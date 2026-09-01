@@ -21,6 +21,10 @@ export async function getProducts(filters: ProductFilters = {}, token?: string) 
   }, token);
 }
 
+export async function getProductById(id: number, token?: string) {
+  return request<Product>(`/products/${id}`, { method: 'GET' }, token);
+}
+
 export async function getProductStock(productId: number, token?: string) {
   return request<Array<{ locationId: number; ubicacion: string; tipo: string; cantidad: number }>>(`/products/${productId}/stock`, {}, token);
 }
@@ -43,6 +47,78 @@ export async function deleteProduct(id: number, token?: string) {
   return request(`/products/${id}`, {
     method: 'DELETE',
   }, token);
+}
+
+export async function adjustStock(
+  productId: number,
+  locationId: number,
+  cantidad: number,
+  token?: string,
+) {
+  return request<{ locationId: number; cantidad: number }>(
+    `/products/${productId}/stock`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ locationId, cantidad }),
+    },
+    token,
+  );
+}
+
+export async function toggleActive(
+  id: number,
+  token?: string,
+): Promise<{ id: number; activo: boolean }> {
+  return request(`/products/${id}/toggle-active`, {
+    method: 'PATCH',
+  }, token);
+}
+
+export async function uploadProductImage(
+  id: number,
+  fileUri: string,
+  fileName: string,
+  mimeType: string,
+  token?: string,
+): Promise<{ imagen: string }> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: fileUri,
+    name: fileName,
+    type: mimeType,
+  } as any);
+
+  let response: Response;
+  try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    response = await fetch(`${config.apiUrl}/products/${id}/image`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+  } catch {
+    throw new ApiError('No se pudo conectar con el servidor. Verifique su conexión.', 0);
+  }
+
+  if (!response.ok) {
+    let message = `Error ${response.status}`;
+    try {
+      const payload = (await response.json()) as { message?: string | string[] };
+      if (Array.isArray(payload.message)) {
+        message = payload.message.join(', ');
+      } else if (payload.message) {
+        message = payload.message;
+      }
+    } catch {
+      // respuesta sin cuerpo JSON
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as { imagen: string };
 }
 
 export async function searchByImage(

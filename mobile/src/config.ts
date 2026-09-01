@@ -19,3 +19,10 @@ function baseUrl(): string {
 export const config = {
   apiUrl: `${baseUrl()}/api`,
 };
+
+export function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  const base = config.apiUrl.replace(/\/api\/?$/, '');
+  return `${base}${url}`;
+}
