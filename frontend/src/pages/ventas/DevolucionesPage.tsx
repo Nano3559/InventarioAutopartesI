@@ -5,7 +5,6 @@ import {
   RefreshCw,
   Package,
   CreditCard,
-
   CheckCircle2,
   History,
   Search,
@@ -129,7 +128,7 @@ export function DevolucionesPage() {
     setFormData({ ...formData, ventaId: sale.id, saleItemId: undefined, productId: 0, monto: 0, cantidad: 1 });
   };
 
-  const handleSelectSaleItem = (item: SaleItemSummary, _product: Product | undefined) => {
+  const handleSelectSaleItem = (item: SaleItemSummary) => {
     setSelectedSaleItem(item);
     setFormData({
       ...formData,
@@ -424,7 +423,7 @@ export function DevolucionesPage() {
                       return (
                         <div
                           key={item.id}
-                          onClick={() => handleSelectSaleItem(item, prod)}
+                          onClick={() => handleSelectSaleItem(item)}
                           style={{
                             display: 'flex',
                             alignItems: 'center',

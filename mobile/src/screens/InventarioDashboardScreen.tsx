@@ -85,7 +85,6 @@ export default function InventarioDashboardScreen() {
       />
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-
         {/* ── Banner ── */}
         <View style={s.banner}>
           <View style={s.bannerOverlay}>
@@ -203,9 +202,9 @@ export default function InventarioDashboardScreen() {
         </View>
         <View style={s.actionsGrid}>
           {([
+            { label: 'Inventario', icon: 'cube-outline' as const, route: 'Inventario', color: colors.primary },
             { label: 'Solicitudes', icon: 'document-text-outline' as const, route: 'Solicitudes', color: '#a855f7' },
             { label: 'Reportes', icon: 'stats-chart-outline' as const, route: 'Reportes', color: colors.emerald },
-            { label: 'Búsqueda Imagen', icon: 'camera-outline' as const, route: 'SearchByImage', color: '#38bdf8' },
           ]).map((a) => (
             <Pressable
               key={a.route}

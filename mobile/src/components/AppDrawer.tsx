@@ -23,6 +23,7 @@ interface NavItem {
 
 const adminItems: NavItem[] = [
   { label: 'Dashboard', icon: 'home', route: 'AdminDashboard' },
+  { label: 'Inventario', icon: 'cube', route: 'Inventario' },
   { label: 'Ventas', icon: 'cash', route: 'Sales' },
   { label: 'Ventas por Mayor', icon: 'briefcase', route: 'VentaMayor' },
   { label: 'Historial Ventas', icon: 'receipt', route: 'SalesHistory' },
@@ -34,6 +35,7 @@ const adminItems: NavItem[] = [
 
 const tiendaItems: NavItem[] = [
   { label: 'Dashboard', icon: 'home', route: 'TiendaDashboard' },
+  { label: 'Catálogo e Inventario', icon: 'cube', route: 'Inventario' },
   { label: 'Punto de Venta', icon: 'cash', route: 'Sales' },
   { label: 'Ventas por Mayor', icon: 'briefcase', route: 'VentaMayor' },
   { label: 'Historial Ventas', icon: 'receipt', route: 'SalesHistory' },
@@ -45,6 +47,7 @@ const tiendaItems: NavItem[] = [
 
 const inventarioItems: NavItem[] = [
   { label: 'Dashboard', icon: 'home', route: 'InventarioDashboard' },
+  { label: 'Inventario Físico', icon: 'cube', route: 'Inventario' },
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
   { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
