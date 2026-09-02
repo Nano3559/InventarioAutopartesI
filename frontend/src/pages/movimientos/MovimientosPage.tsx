@@ -92,6 +92,8 @@ export function MovimientosPage() {
 
   // Métricas
   const totalUnitsMoved = movimientos.reduce((acc, curr) => acc + (curr.cantidad || 0), 0);
+  const almacenesCount = locations.filter((l) => l.tipo === 'almacen').length;
+  const tiendasCount = locations.filter((l) => l.tipo === 'tienda').length;
 
   return (
     <div className="movimientos-page-container">
@@ -126,7 +128,7 @@ export function MovimientosPage() {
         <div>
           <h1 className="page-title">Movimientos y Traslados entre Ubicaciones</h1>
           <p className="page-subtitle">
-            Control de transferencias de mercadería entre 4 almacenes y 3 tiendas (7 importadoras)
+            Control de transferencias de mercadería entre {almacenesCount} {almacenesCount === 1 ? 'almacén' : 'almacenes'} y {tiendasCount} {tiendasCount === 1 ? 'tienda' : 'tiendas'}
           </p>
         </div>
 
