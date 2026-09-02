@@ -42,14 +42,17 @@ export function SolicitudesPage() {
   const [almacenes, setAlmacenes] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
   const [tiendas, setTiendas] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
 
-  const [formOpen, setFormOpen] = useState<boolean>(false);
+  const [formOpen, setFormOpen] = useState<boolean>(() => Boolean(searchParams.get('productId')));
   const [editingSolicitud, setEditingSolicitud] = useState<Solicitud | null>(null);
   const [estadoModalOpen, setEstadoModalOpen] = useState<{ solicitud: Solicitud; origenId?: number } | null>(null);
 
-  const [formData, setFormData] = useState<CreateSolicitudInput>({
-    productId: 0,
-    cantidad: 1,
-    tiendaId: undefined,
+  const [formData, setFormData] = useState<CreateSolicitudInput>(() => {
+    const urlProductId = searchParams.get('productId');
+    return {
+      productId: urlProductId ? Number(urlProductId) : 0,
+      cantidad: 1,
+      tiendaId: user?.tiendaId ?? undefined,
+    };
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -88,19 +91,11 @@ export function SolicitudesPage() {
   };
 
   useEffect(() => {
-    const urlProductId = searchParams.get('productId');
-    if (urlProductId) {
-      setEditingSolicitud(null);
-      setFormData({
-        productId: Number(urlProductId),
-        cantidad: 1,
-        tiendaId: user?.tiendaId ?? undefined,
-      });
-      setFormOpen(true);
+    if (searchParams.get('productId')) {
       searchParams.delete('productId');
-      setSearchParams(searchParams);
+      setSearchParams(searchParams, { replace: true });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     async function loadProducts() {

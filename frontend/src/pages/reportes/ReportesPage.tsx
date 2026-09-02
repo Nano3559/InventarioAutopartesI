@@ -41,8 +41,23 @@ export function ReportesPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let isMounted = true;
+    const fetchDashboard = async () => {
+      setLoading(true);
+      try {
+        const data = await reportesService.getDashboard();
+        if (isMounted) setDashboardData(data);
+      } catch (err) {
+        console.error('Error al cargar datos del dashboard de reportes:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchDashboard();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const generateReportHTML = (): string => {
     if (!dashboardData) return '';

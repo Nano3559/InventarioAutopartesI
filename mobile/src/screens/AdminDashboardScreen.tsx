@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -9,7 +9,6 @@ import {
   fontFamily,
   fontSize,
   shadows,
-  iconSize,
   a11y,
 } from '../theme';
 import { Header, StatCard, TableRow, TableCard, Badge } from '../components';
@@ -17,18 +16,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAdminDashboard } from '../hooks/useDashboard';
 
 const quickActions = [
+  { label: 'Inventario', icon: 'cube-outline', route: 'Inventario', color: colors.primary },
   { label: 'Ventas', icon: 'cash-outline', route: 'Sales', color: colors.emerald },
   { label: 'Ventas por Mayor', icon: 'briefcase-outline', route: 'VentaMayor', color: colors.primary },
   { label: 'Devoluciones', icon: 'refresh-outline', route: 'Devoluciones', color: colors.warning },
   { label: 'Solicitudes', icon: 'document-text-outline', route: 'Solicitudes', color: '#a855f7' },
   { label: 'Reportes', icon: 'stats-chart-outline', route: 'Reportes', color: '#f472b6' },
-  { label: 'Búsqueda Imagen', icon: 'camera-outline', route: 'SearchByImage', color: '#38bdf8' },
 ] as const;
 
 export default function AdminDashboardScreen() {
   const { user } = useAuth();
   const navigation = useNavigation();
-  const { width } = useWindowDimensions();
   const { data, loading, error, refetch } = useAdminDashboard();
 
   const openMenu = () => navigation.dispatch(DrawerActions.openDrawer());
@@ -73,7 +71,6 @@ export default function AdminDashboardScreen() {
       />
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-
         {/* ── Banner ── */}
         <View style={s.banner}>
           <View style={s.bannerOverlay}>
@@ -137,8 +134,8 @@ export default function AdminDashboardScreen() {
         {/* ── Stock Crítico ── */}
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>Stock Crítico</Text>
-          <Pressable style={s.linkBtn} onPress={() => goTo('Reportes')}>
-            <Text style={s.linkText}>Ver reportes</Text>
+          <Pressable style={s.linkBtn} onPress={() => goTo('Inventario')}>
+            <Text style={s.linkText}>Ver inventario</Text>
             <Ionicons name="arrow-forward" size={14} color={colors.primary} />
           </Pressable>
         </View>
