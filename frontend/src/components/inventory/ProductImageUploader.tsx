@@ -53,12 +53,29 @@ export function ProductImageUploader({
   };
 
   const handleSaveUrl = async () => {
-    if (!urlValue.trim()) return;
+    const value = urlValue.trim();
+    if (!value) {
+      setError('Ingrese una URL de imagen');
+      return;
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      setError('La URL ingresada no es válida. Debe comenzar con http:// o https://');
+      return;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      setError('La URL debe comenzar con http:// o https://');
+      return;
+    }
+
     setError(null);
     try {
       setUploading(true);
-      await productsService.updateProduct(productId, { imagen: urlValue.trim() });
-      onImageUpdated(urlValue.trim());
+      await productsService.updateProduct(productId, { imagen: value });
+      onImageUpdated(value);
       setShowUrlInput(false);
       setUrlValue('');
     } catch (err: any) {

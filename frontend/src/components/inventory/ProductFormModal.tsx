@@ -96,6 +96,9 @@ function ProductFormModalContent({
     field: keyof CreateProductDto,
     value: string | number
   ) => {
+    if (typeof value === 'number' && ['costo', 'precio1', 'precio2', 'precioMayor', 'stockMinimo'].includes(field)) {
+      value = Math.max(0, value);
+    }
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -126,8 +129,26 @@ function ProductFormModalContent({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.producto.trim() || !formData.codigoFabrica.trim() || !formData.marca.trim() || !formData.modelo.trim()) {
+    if (
+      !formData.producto.trim() ||
+      !formData.codigoFabrica.trim() ||
+      !formData.fabricante.trim() ||
+      !formData.marca.trim() ||
+      !formData.modelo.trim()
+    ) {
       setError('Por favor complete los campos obligatorios (*)');
+      return;
+    }
+
+    const anio = String(formData.anio || '').trim();
+    if (anio && !/^\d{4}(-\d{4})?$/.test(anio)) {
+      setError('El año debe ser un año válido (Ej. 2016) o un rango (Ej. 2016-2020)');
+      return;
+    }
+
+    const imagen = String(formData.imagen || '');
+    if (imagen && !/^https?:\/\/.+/.test(imagen)) {
+      setError('La URL de imagen debe comenzar con http:// o https://');
       return;
     }
 

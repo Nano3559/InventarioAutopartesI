@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { User } from './entities/user.entity';
 import { Location } from './entities/location.entity';
 import { Product } from './entities/product.entity';
@@ -817,6 +818,44 @@ async function seedProveedores(): Promise<void> {
   }
 }
 
+async function uploadSeedImageToSupabase(
+  buffer: Buffer,
+  codigoFabrica: string,
+): Promise<string | null> {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY;
+  const bucket = process.env.SUPABASE_BUCKET || 'products';
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn(
+      '   [seed] SUPABASE_URL/SUPABASE_KEY no configurados, imagen se guarda local',
+    );
+    return null;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const safeCode = codigoFabrica.replace(/[^A-Za-z0-9-_]/g, '-');
+  const filename = `seed-${safeCode}-${Date.now()}.png`;
+
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(filename, buffer, {
+      contentType: 'image/png',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error(
+      `   [seed] Error al subir imagen "${codigoFabrica}" a Supabase: ${uploadError.message}`,
+    );
+    return null;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(uploadData?.path || filename);
+  return urlData?.publicUrl || null;
+}
+
 async function seedProducts(): Promise<Product[]> {
   const repo = dataSource.getRepository(Product);
   if (!fs.existsSync(UPLOADS_DIR))
@@ -832,13 +871,22 @@ async function seedProducts(): Promise<Product[]> {
       Object.assign(prod, def);
     }
 
-    if (!prod.imagenHash) {
+    const needsPublicImage =
+      !prod.imagenHash || !prod.imagen || prod.imagen.startsWith('/uploads/');
+
+    if (needsPublicImage) {
       const buffer = await generatePlaceholderImage(
         prod.id || PRODUCTS.indexOf(def) + 1,
       );
-      const filename = `seed-${prod.codigoFabrica}-${Date.now()}.png`;
+      const safeCode = prod.codigoFabrica.replace(/[^A-Za-z0-9-_]/g, '-');
+      const filename = `seed-${safeCode}-${Date.now()}.png`;
       fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
-      prod.imagen = `/uploads/${filename}`;
+
+      const publicUrl = await uploadSeedImageToSupabase(
+        buffer,
+        prod.codigoFabrica,
+      );
+      prod.imagen = publicUrl || `/uploads/${filename}`;
       prod.imagenHash = await computeHash(buffer);
     }
 
