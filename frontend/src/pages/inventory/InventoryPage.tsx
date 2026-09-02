@@ -8,6 +8,7 @@ import {
   Car,
 } from 'lucide-react';
 import { productsService } from '../../services/products.service';
+import { locationsService } from '../../services/locations.service';
 import type {
   Product,
   ProductFilters,
@@ -26,6 +27,7 @@ export function InventoryPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [filters, setFilters] = useState<ProductFilters>({});
   const [reloadTrigger, setReloadTrigger] = useState<number>(0);
+  const [locationCounts, setLocationCounts] = useState({ almacenes: 0, tiendas: 0 });
 
   // Modales
   const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
@@ -60,7 +62,22 @@ export function InventoryPage() {
       }
     }
 
+    async function fetchLocationCounts() {
+      try {
+        const locations = await locationsService.getLocations();
+        if (isMounted) {
+          setLocationCounts({
+            almacenes: locations.filter((l) => l.tipo === 'almacen').length,
+            tiendas: locations.filter((l) => l.tipo === 'tienda').length,
+          });
+        }
+      } catch (err) {
+        console.error('Error al cargar ubicaciones:', err);
+      }
+    }
+
     fetchData();
+    fetchLocationCounts();
 
     return () => {
       isMounted = false;
@@ -139,7 +156,7 @@ export function InventoryPage() {
         <div>
           <h1 className="page-title">Inventario Central de Autopartes</h1>
           <p className="page-subtitle">
-            Control de stock en 4 almacenes y 3 tiendas (7 importadoras) • Catálogo de repuestos vehiculares
+            Control de stock en {locationCounts.almacenes} {locationCounts.almacenes === 1 ? 'almacén' : 'almacenes'} y {locationCounts.tiendas} {locationCounts.tiendas === 1 ? 'tienda' : 'tiendas'} • Catálogo de repuestos vehiculares
           </p>
         </div>
 

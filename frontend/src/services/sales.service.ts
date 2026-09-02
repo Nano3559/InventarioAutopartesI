@@ -1,4 +1,4 @@
-import { api } from '../api/client';
+import { api, API_BASE_URL } from '../api/client';
 import type { Product } from '../types/product.types';
 
 export interface SaleItemInput {
@@ -109,7 +109,7 @@ export const salesService = {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/sales/${id}/nota`, { headers });
+    const response = await fetch(`${API_BASE_URL}/sales/${id}/nota`, { headers });
     if (!response.ok) {
       throw new Error('Error al obtener nota de venta');
     }
@@ -125,7 +125,7 @@ export const salesService = {
     const formData = new FormData();
     formData.append('archivo', file);
     const token = localStorage.getItem('auth_token');
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const baseUrl = API_BASE_URL;
     const response = await fetch(`${baseUrl}/sales/import-mayor/preview`, {
       method: 'POST',
       headers: {
@@ -151,7 +151,7 @@ export const salesService = {
     if (meta.pagos) formData.append('pagos', JSON.stringify(meta.pagos));
 
     const token = localStorage.getItem('auth_token');
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const baseUrl = API_BASE_URL;
     const response = await fetch(`${baseUrl}/sales/import-mayor`, {
       method: 'POST',
       headers: {
