@@ -61,15 +61,19 @@ export function SolicitudesPage() {
   const isTienda = user?.rol === 'tienda';
   const isAdminOrInventario = ['admin', 'inventario'].includes(user?.rol || '');
 
-  const getAvailableStock = (productId: number): number => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return 0;
+  const getAlmacenStock = (product: Product): number => {
     if (product.stockLocationDetails && product.stockLocationDetails.length > 0) {
       return product.stockLocationDetails
         .filter((sl) => sl.tipo === 'almacen')
         .reduce((sum, sl) => sum + sl.cantidad, 0);
     }
     return product.stockTotal ?? 0;
+  };
+
+  const getAvailableStock = (productId: number): number => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return 0;
+    return getAlmacenStock(product);
   };
 
   const selectedAvailable = getAvailableStock(formData.productId);
@@ -360,13 +364,13 @@ export function SolicitudesPage() {
                   <th>Estado</th>
                   <th>Almacén Origen</th>
                   <th>Solicitado por</th>
-                  {isAdminOrInventario && <th>Acciones</th>}
+                  {(isAdminOrInventario || isTienda) && <th>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredSolicitudes.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdminOrInventario ? 9 : 8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    <td colSpan={(isAdminOrInventario || isTienda) ? 9 : 8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                       {filterEstado ? `No hay solicitudes con estado "${filterEstado}"` : 'No hay solicitudes registradas'}
                     </td>
                   </tr>
@@ -392,10 +396,10 @@ export function SolicitudesPage() {
                       </td>
                       <td>{sol.origen?.nombre || (sol.origenId ? 'Asignado' : '—')}</td>
                       <td>{sol.usuario?.nombre}</td>
-                      {isAdminOrInventario && (
+                      {(isAdminOrInventario || isTienda) && (
                         <td>
                           <div style={{ display: 'flex', gap: '0.25rem' }}>
-                            {sol.estado === 'Pendiente' && (
+                            {isAdminOrInventario && sol.estado === 'Pendiente' && (
                               <button
                                 className="btn-icon"
                                 onClick={() => handleOpenEstadoModal(sol)}
@@ -404,7 +408,7 @@ export function SolicitudesPage() {
                                 <Package size={16} />
                               </button>
                             )}
-                            {sol.estado === 'En preparación' && (
+                            {isAdminOrInventario && sol.estado === 'En preparación' && (
                               <button
                                 className="btn-icon"
                                 onClick={() => handleOpenEstadoModal(sol)}
@@ -416,17 +420,17 @@ export function SolicitudesPage() {
                             {sol.estado === 'Enviado' && (
                               <button
                                 className="btn-icon"
-                                onClick={() => handleUpdateEstado('Recibido')}
+                                onClick={() => handleOpenEstadoModal(sol)}
                                 title="Marcar como recibido"
                               >
                                 <CheckCircle2 size={16} />
                               </button>
                             )}
-                            {(sol.estado === 'Pendiente' || sol.estado === 'En preparación') && (
+                            {isAdminOrInventario && (sol.estado === 'Pendiente' || sol.estado === 'En preparación') && (
                               <button
                                 className="btn-icon"
                                 style={{ color: '#ef4444' }}
-                                onClick={() => handleUpdateEstado('Cancelado')}
+                                onClick={() => handleOpenEstadoModal(sol)}
                                 title="Cancelar"
                               >
                                 <XCircle size={16} />
@@ -465,7 +469,7 @@ export function SolicitudesPage() {
                   <option value={0}>Seleccionar producto...</option>
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.producto} — {p.marca} {p.modelo} ({p.codigoFabrica}) [Disponible: {p.stockTotal ?? 0}]
+                      {p.producto} — {p.marca} {p.modelo} ({p.codigoFabrica}) [Disponible: {getAlmacenStock(p)}]
                     </option>
                   ))}
                 </select>

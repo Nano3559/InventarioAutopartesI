@@ -78,10 +78,16 @@ export function MovimientosPage() {
   }, [filters]);
 
   const handleTransferSubmit = async (dto: CreateMovimientoDto) => {
-    const created = await movimientosService.createMovimiento(dto);
-    showToast(`Traslado registrado con éxito: ${dto.cantidad} unidad(es) transferida(s).`);
-    setSelectedMovReceipt(created);
-    loadData();
+    try {
+      const created = await movimientosService.createMovimiento(dto);
+      showToast(`Traslado registrado con éxito: ${dto.cantidad} unidad(es) transferida(s).`);
+      setSelectedMovReceipt(created);
+      loadData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al registrar el traslado';
+      showToast(`Error: ${msg}`);
+      console.error('Error al crear movimiento:', err);
+    }
   };
 
   // Métricas

@@ -69,6 +69,8 @@ export interface Sale {
   usuarioId: number;
   clienteId?: number;
   cliente?: { id: number; nombre: string; ciNit?: string; celular?: string } | null;
+  location?: { id: number; nombre: string };
+  usuario?: { id: number; nombre: string };
   items: SaleDetail[];
   pagos: PaymentDetail[];
 }

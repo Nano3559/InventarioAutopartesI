@@ -13,18 +13,25 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
+  PackagePlus,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { productsService } from '../../services/products.service';
 import type { Product, CreateProductDto } from '../../types/product.types';
+import { useAuth } from '../../context';
 import { ProductImageUploader } from '../../components/inventory/ProductImageUploader';
 import { ProductPricingCard } from '../../components/inventory/ProductPricingCard';
 import { ProductFormModal } from '../../components/inventory/ProductFormModal';
 import { DeleteConfirmModal } from '../../components/inventory/DeleteConfirmModal';
+import { AddStockModal } from '../../components/inventory/AddStockModal';
 import '../../styles/product-detail.css';
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canEdit = user?.rol === 'admin';
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -33,6 +40,7 @@ export function ProductDetailPage() {
   // Modals
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [addStockModalOpen, setAddStockModalOpen] = useState(false);
 
   // Copy feedback
   const [copiedOem, setCopiedOem] = useState(false);
@@ -81,6 +89,20 @@ export function ProductDetailPage() {
   const handleDelete = async (productId: number) => {
     await productsService.deleteProduct(productId);
     navigate('/inventario');
+  };
+
+  const handleToggleActive = async () => {
+    if (!product) return;
+    const result = await productsService.toggleActive(product.id);
+    setProduct((prev) => (prev ? { ...prev, activo: result.activo } : null));
+    showToast(result.activo ? 'Producto activado.' : 'Producto desactivado.');
+  };
+
+  const handleStockUpdated = async () => {
+    if (!id) return;
+    const data = await productsService.getProductById(Number(id));
+    setProduct(data);
+    showToast('Stock actualizado correctamente.');
   };
 
   const handleImageUpdated = (newUrl: string) => {
@@ -182,27 +204,49 @@ export function ProductDetailPage() {
           <span>Volver al Inventario</span>
         </NavLink>
 
-        <div style={{ display: 'flex', gap: '0.65rem' }}>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setEditModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            <Edit2 size={15} />
-            <span>Editar Ficha</span>
-          </button>
+        {canEdit && (
+          <div style={{ display: 'flex', gap: '0.65rem' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setAddStockModalOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981' }}
+            >
+              <PackagePlus size={15} />
+              <span>Agregar Stock</span>
+            </button>
 
-          <button
-            type="button"
-            className="btn-danger-action"
-            onClick={() => setDeleteModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.65rem 1rem' }}
-          >
-            <Trash2 size={15} />
-            <span>Dar de Baja</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setEditModalOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <Edit2 size={15} />
+              <span>Editar Ficha</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleToggleActive}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: product.activo ? '#f59e0b' : '#10b981' }}
+            >
+              {product.activo ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
+              <span>{product.activo ? 'Desactivar' : 'Activar'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn-danger-action"
+              onClick={() => setDeleteModalOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.65rem 1rem' }}
+            >
+              <Trash2 size={15} />
+              <span>Dar de Baja</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Cabecera Principal */}
@@ -457,6 +501,12 @@ export function ProductDetailPage() {
         product={deleteModalOpen ? product : null}
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleDelete}
+      />
+
+      <AddStockModal
+        product={addStockModalOpen ? product : null}
+        onClose={() => setAddStockModalOpen(false)}
+        onStockUpdated={handleStockUpdated}
       />
     </div>
   );

@@ -21,8 +21,10 @@ import DevolucionesScreen from './src/screens/DevolucionesScreen';
 import SolicitudesScreen from './src/screens/SolicitudesScreen';
 import VentaMayorScreen from './src/screens/VentaMayorScreen';
 import InventarioScreen from './src/screens/InventarioScreen';
+import SalesHistoryScreen from './src/screens/SalesHistoryScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import SearchByImageScreen from './src/screens/SearchByImageScreen';
+import ProductDetailScreen from './src/screens/ProductDetailScreen';
 import {
   colors,
 } from './src/theme';
@@ -50,6 +52,7 @@ function AdminDrawer() {
       <Drawer.Screen name="Inventario" component={InventarioScreen} />
       <Drawer.Screen name="Sales" component={SalesScreen} />
       <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
+      <Drawer.Screen name="SalesHistory" component={SalesHistoryScreen} />
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
@@ -68,6 +71,7 @@ function TiendaDrawer() {
       <Drawer.Screen name="Inventario" component={InventarioScreen} />
       <Drawer.Screen name="Sales" component={SalesScreen} />
       <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
+      <Drawer.Screen name="SalesHistory" component={SalesHistoryScreen} />
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
@@ -136,6 +140,7 @@ function RootNavigator() {
       {user.rol === 'tienda' && <Stack.Screen name="Main" component={TiendaDrawer} />}
       {user.rol === 'inventario' && <Stack.Screen name="Main" component={InventarioDrawer} />}
       <Stack.Screen name="SalesEdit" component={SalesEditScreen} />
+      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </Stack.Navigator>
   );
 }

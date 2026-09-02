@@ -1,5 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+export function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  const base = API_BASE_URL.replace(/\/api\/?$/, '');
+  return `${base}${url}`;
+}
+
 export class ApiError extends Error {
   status: number;
   data?: unknown;

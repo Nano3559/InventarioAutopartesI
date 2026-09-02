@@ -5,15 +5,26 @@ import {
   RefreshCw,
   Package,
   CreditCard,
-  AlertTriangle,
   CheckCircle2,
   History,
+  Search,
+  ShoppingCart,
+  X,
 } from 'lucide-react';
-import { getDevoluciones, createDevolucion, type Devolucion, type CreateDevolucionInput } from '../../api/devoluciones';
+import {
+  getDevoluciones,
+  getSalesForDevolucion,
+  createDevolucion,
+  type Devolucion,
+  type CreateDevolucionInput,
+  type SaleSummary,
+  type SaleItemSummary,
+} from '../../api/devoluciones';
 import { productsService } from '../../services/products.service';
 import { getLocations } from '../../api/locations';
 import type { Product } from '../../types/product.types';
 import '../../styles/inventory.css';
+import '../../styles/sales.css';
 
 const MOTIVOS_DEVOLUCION = [
   'Defectuoso',
@@ -28,13 +39,17 @@ const METODOS_REEMBOLSO = ['Efectivo', 'Transferencia', 'Nota de crédito', 'Tar
 
 export function DevolucionesPage() {
   const [devoluciones, setDevoluciones] = useState<Devolucion[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [reloadTrigger, setReloadTrigger] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
+  const [sales, setSales] = useState<SaleSummary[]>([]);
+  const [loadingSales, setLoadingSales] = useState(false);
+  const [saleSearch, setSaleSearch] = useState('');
 
-  const [formOpen, setFormOpen] = useState<boolean>(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<SaleSummary | null>(null);
+  const [selectedSaleItem, setSelectedSaleItem] = useState<SaleItemSummary | null>(null);
 
   const [formData, setFormData] = useState<CreateDevolucionInput>({
     productId: 0,
@@ -43,21 +58,12 @@ export function DevolucionesPage() {
     monto: 0,
     metodo: 'Efectivo',
     locationId: undefined,
+    ventaId: undefined,
+    saleItemId: undefined,
   });
 
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const getAvailableStock = (productId: number): number => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return 0;
-    if (formData.locationId && product.stockByLocation) {
-      return product.stockByLocation[formData.locationId] ?? 0;
-    }
-    return product.stockTotal ?? 0;
-  };
-
-  const selectedAvailable = getAvailableStock(formData.productId);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -65,55 +71,78 @@ export function DevolucionesPage() {
   };
 
   useEffect(() => {
-    async function loadProducts() {
+    async function load() {
       try {
-        const data = await productsService.getProducts({});
-        setProducts(data);
+        const [prods, locs] = await Promise.all([
+          productsService.getProducts({}),
+          getLocations(),
+        ]);
+        setProducts(prods);
+        setLocations(locs);
       } catch (err) {
-        console.error('Error cargando productos:', err);
+        console.error('Error cargando datos:', err);
       }
     }
-    loadProducts();
+    load();
   }, []);
 
   useEffect(() => {
-    async function loadLocations() {
-      try {
-        const data = await getLocations();
-        setLocations(data);
-      } catch (err) {
-        console.error('Error cargando ubicaciones:', err);
-      }
-    }
-    loadLocations();
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
+    let active = true;
     async function fetchData() {
       try {
         const data = await getDevoluciones();
-        if (isMounted) {
-          setDevoluciones(data);
-          setLoading(false);
-        }
+        if (active) setDevoluciones(data);
       } catch (err) {
         console.error('Error cargando devoluciones:', err);
-        if (isMounted) setLoading(false);
+      } finally {
+        if (active) setLoading(false);
       }
     }
     fetchData();
-    return () => { isMounted = false; };
-  }, [reloadTrigger]);
+    return () => { active = false; };
+  }, []);
 
-  const handleRefresh = () => {
-    setLoading(true);
-    setReloadTrigger((prev) => prev + 1);
+  const loadSales = async (search?: string) => {
+    try {
+      setLoadingSales(true);
+      const data = await getSalesForDevolucion(search);
+      setSales(data);
+    } catch (err) {
+      console.error('Error cargando ventas:', err);
+    } finally {
+      setLoadingSales(false);
+    }
   };
 
   const handleOpenNew = () => {
-    setFormData({ productId: 0, motivo: '', cantidad: 1, monto: 0, metodo: 'Efectivo', locationId: undefined });
+    setFormData({ productId: 0, motivo: '', cantidad: 1, monto: 0, metodo: 'Efectivo', locationId: undefined, ventaId: undefined, saleItemId: undefined });
+    setSelectedSale(null);
+    setSelectedSaleItem(null);
+    setSaleSearch('');
     setFormOpen(true);
+  };
+
+  const handleSelectSale = (sale: SaleSummary) => {
+    setSelectedSale(sale);
+    setSelectedSaleItem(null);
+    setFormData({ ...formData, ventaId: sale.id, saleItemId: undefined, productId: 0, monto: 0, cantidad: 1 });
+  };
+
+  const handleSelectSaleItem = (item: SaleItemSummary) => {
+    setSelectedSaleItem(item);
+    setFormData({
+      ...formData,
+      productId: item.productId,
+      saleItemId: item.id,
+      monto: item.precio,
+      cantidad: 1,
+    });
+  };
+
+  const handleClearSale = () => {
+    setSelectedSale(null);
+    setSelectedSaleItem(null);
+    setFormData({ ...formData, ventaId: undefined, saleItemId: undefined, productId: 0, monto: 0, cantidad: 1 });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,21 +151,24 @@ export function DevolucionesPage() {
       showToast('Complete todos los campos requeridos', 'error');
       return;
     }
-    if (selectedAvailable > 0 && formData.cantidad > selectedAvailable) {
-      showToast(`La cantidad no puede superar el stock disponible (${selectedAvailable})`, 'error');
-      return;
-    }
     if (!formData.locationId) {
       showToast('Seleccione una ubicación', 'error');
+      return;
+    }
+    if (selectedSaleItem && formData.cantidad > selectedSaleItem.cantidad) {
+      showToast(`La cantidad devuelta no puede exceder la vendida (${selectedSaleItem.cantidad})`, 'error');
       return;
     }
     setSubmitting(true);
     try {
       await createDevolucion(formData);
-      showToast('Devolución registrada');
-      const refreshedProducts = await productsService.getProducts({});
+      showToast('Devolución registrada exitosamente');
+      const [refreshedProducts, refreshedDevs] = await Promise.all([
+        productsService.getProducts({}),
+        getDevoluciones(),
+      ]);
       setProducts(refreshedProducts);
-      handleRefresh();
+      setDevoluciones(refreshedDevs);
       setFormOpen(false);
     } catch (err: unknown) {
       const msg = (err as Error)?.message || 'Error al registrar devolución';
@@ -146,62 +178,41 @@ export function DevolucionesPage() {
     }
   };
 
-  const handleCloseForm = () => {
-    setFormOpen(false);
-  };
-
   const totalDevueltos = devoluciones.reduce((sum, d) => sum + d.cantidad, 0);
   const totalMonto = devoluciones.reduce((sum, d) => sum + d.monto, 0);
 
   return (
-    <div className="inventory-page-container">
+    <div className="inventory-page">
       {toast && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '80px',
-            right: '24px',
-            zIndex: 200,
-            background: toast.type === 'success' ? '#065f46' : '#7f1d1d',
-            border: `1px solid ${toast.type === 'success' ? '#10b981' : '#ef4444'}`,
-            color: '#ffffff',
-            padding: '0.85rem 1.25rem',
-            borderRadius: 'var(--radius-sm)',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            fontSize: '0.88rem',
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          {toast.type === 'success' ? <CheckCircle2 size={18} color="#34d399" /> : <AlertTriangle size={18} color="#f87171" />}
-          <span>{toast.message}</span>
+        <div className={`toast ${toast.type === 'error' ? 'toast-error' : 'toast-success'}`}>
+          {toast.message}
         </div>
       )}
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">Devoluciones de Mercadería</h1>
+          <h1 className="page-title">
+            <RotateCcw size={22} style={{ marginRight: 8, verticalAlign: 'text-bottom' }} />
+            Devoluciones de Mercadería
+          </h1>
           <p className="page-subtitle">
-            Registro de devoluciones de productos por venta previa y reincorporación al inventario
+            Registro de devoluciones vinculadas a ventas y reincorporación al inventario
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.65rem' }}>
-          <button type="button" className="btn-secondary" onClick={handleRefresh} title="Recargar" disabled={loading}>
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-            <span>Actualizar</span>
+          <button type="button" className="btn-ghost" onClick={() => { setLoading(true); getDevoluciones().then(setDevoluciones).finally(() => setLoading(false)); }}>
+            <RefreshCw size={15} /> Actualizar
           </button>
           <button type="button" className="btn-primary" onClick={handleOpenNew}>
-            <Plus size={15} />
-            <span>Nueva Devolución</span>
+            <Plus size={15} /> Nueva Devolución
           </button>
         </div>
       </div>
 
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+      {/* Stats */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <div className="stat-card">
-          <div className="stat-icon-wrapper" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+          <div className="stat-icon-wrapper" style={{ background: 'rgba(56,189,248,0.12)', color: '#38bdf8' }}>
             <RotateCcw size={22} />
           </div>
           <div className="stat-info">
@@ -210,7 +221,7 @@ export function DevolucionesPage() {
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+          <div className="stat-icon-wrapper" style={{ background: 'rgba(16,185,129,0.12)', color: '#34d399' }}>
             <Package size={22} />
           </div>
           <div className="stat-info">
@@ -219,48 +230,39 @@ export function DevolucionesPage() {
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon-wrapper" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+          <div className="stat-icon-wrapper" style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa' }}>
             <CreditCard size={22} />
           </div>
           <div className="stat-info">
-            <span className="stat-label">Monto Total Reembolsado</span>
+            <span className="stat-label">Monto Reembolsado</span>
             <span className="stat-value">Bs {totalMonto.toFixed(2)}</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
-            <History size={22} />
-          </div>
-          <div className="stat-info">
-            <span className="stat-label">Motivos Frecuentes</span>
-            <span className="stat-value">{MOTIVOS_DEVOLUCION.length}</span>
           </div>
         </div>
       </div>
 
-      <div className="card-section">
-        <div className="card-section-header">
-          <h2 className="card-section-title">
-            <History size={18} style={{ display: 'inline', marginRight: '8px', color: '#38bdf8' }} />
+      {/* Table */}
+      <div className="inventory-table-container">
+        <div className="card-section-header" style={{ padding: '1rem 1.25rem' }}>
+          <h2 className="card-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <History size={18} style={{ color: 'var(--accent)' }} />
             Historial de Devoluciones
           </h2>
         </div>
-
         {loading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            <RefreshCw size={24} className="animate-spin" style={{ marginBottom: '0.5rem', display: 'block', margin: '0 auto 0.5rem' }} />
-            Cargando devoluciones...
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem', gap: '0.75rem', color: 'var(--text-muted)' }}>
+            <div className="spinner" /> Cargando...
           </div>
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-responsive-wrapper">
+            <table className="inventory-table">
               <thead>
                 <tr>
                   <th>ID</th>
                   <th>Fecha</th>
+                  <th>Venta</th>
                   <th>Producto</th>
                   <th>Motivo</th>
-                  <th>Cantidad</th>
+                  <th>Cant.</th>
                   <th>Monto</th>
                   <th>Método</th>
                   <th>Ubicación</th>
@@ -270,30 +272,36 @@ export function DevolucionesPage() {
               <tbody>
                 {devoluciones.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    <td colSpan={10} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                       No hay devoluciones registradas
                     </td>
                   </tr>
                 ) : (
                   devoluciones.map((dev) => (
                     <tr key={dev.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{dev.id}</td>
-                      <td>{new Date(dev.fecha).toLocaleString()}</td>
+                      <td><span className="code-chip">#{dev.id}</span></td>
+                      <td>{new Date(dev.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                       <td>
-                        <strong>{dev.producto?.producto}</strong>
-                        <br />
-                        <small style={{ color: 'var(--text-muted)' }}>
-                          {dev.producto?.marca} {dev.producto?.modelo} · {dev.producto?.codigoFabrica}
-                        </small>
+                        {dev.venta ? (
+                          <span className="code-chip">{dev.venta.codigo}</span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>—</span>
+                        )}
                       </td>
                       <td>
-                        <span className="badge badge-info">{dev.motivo}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{dev.producto?.producto}</span>
+                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            {dev.producto?.marca} {dev.producto?.modelo}
+                          </span>
+                        </div>
                       </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{dev.cantidad}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)', color: '#10b981' }}>Bs {dev.monto.toFixed(2)}</td>
-                      <td><span className="badge badge-primary">{dev.metodo}</span></td>
-                      <td>{dev.location?.nombre} <small>({dev.location?.tipo})</small></td>
-                      <td>{dev.usuario?.nombre}</td>
+                      <td><span className="stock-badge in-stock">{dev.motivo}</span></td>
+                      <td style={{ fontWeight: 600 }}>{dev.cantidad}</td>
+                      <td><span className="price-tag" style={{ color: '#34d399' }}>Bs {dev.monto.toFixed(2)}</span></td>
+                      <td><span className="stock-badge low-stock">{dev.metodo}</span></td>
+                      <td style={{ fontSize: '0.85rem' }}>{dev.location?.nombre}</td>
+                      <td style={{ fontSize: '0.85rem' }}>{dev.usuario?.nombre}</td>
                     </tr>
                   ))
                 )}
@@ -303,44 +311,221 @@ export function DevolucionesPage() {
         )}
       </div>
 
+      {/* Modal */}
       {formOpen && (
-      <div className="modal-overlay" onClick={handleCloseForm}>
-        <div className="modal" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>Nueva Devolución</h3>
-            <button className="modal-close" onClick={handleCloseForm}>&times;</button>
-          </div>
-          <form onSubmit={handleSubmit}>
-            <div className="modal-body">
-              <div className="form-group">
-                <label htmlFor="productId">Producto <span className="required">*</span></label>
-                <select
-                  id="productId"
-                  className="form-input"
-                  value={formData.productId}
-                  onChange={(e) => setFormData({ ...formData, productId: Number(e.target.value) })}
-                  required
-                >
-                  <option value={0}>Seleccionar producto...</option>
-                  {products.map((p) => {
-                    const stock = formData.locationId && p.stockByLocation
-                      ? (p.stockByLocation[formData.locationId] ?? 0)
-                      : (p.stockTotal ?? 0);
-                    return (
-                      <option key={p.id} value={p.id}>
-                        {p.producto} — {p.marca} {p.modelo} ({p.codigoFabrica}) [Disponible: {stock}]
-                      </option>
-                    );
-                  })}
-                </select>
+        <div className="modal-overlay" onClick={() => setFormOpen(false)}>
+          <div className="modal-dialog" style={{ maxWidth: 640, maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-strong)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <RotateCcw size={18} style={{ color: 'var(--accent)' }} />
+                Nueva Devolución
+              </h3>
+              <button className="btn-table-action" onClick={() => setFormOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: 'calc(90vh - 70px)' }}>
+              {/* Sale Selector */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+                  <ShoppingCart size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
+                  Venta asociada (opcional)
+                </label>
+                {selectedSale ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.7rem 1rem',
+                    background: 'var(--accent-soft)',
+                    border: '1px solid var(--accent-border)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}>
+                    <div>
+                      <span className="code-chip" style={{ marginRight: 8 }}>{selectedSale.codigo}</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>
+                        {selectedSale.cliente?.nombre || 'Sin cliente'} — {new Date(selectedSale.fecha).toLocaleDateString('es-BO')}
+                      </span>
+                    </div>
+                    <button type="button" className="btn-table-action" onClick={handleClearSale} style={{ flexShrink: 0 }}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div className="filters-search-wrapper" style={{ flex: 1 }}>
+                        <Search size={16} className="filters-search-icon" />
+                        <input
+                          className="filters-search-input"
+                          type="text"
+                          placeholder="Buscar por código, cliente..."
+                          value={saleSearch}
+                          onChange={(e) => setSaleSearch(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && loadSales(saleSearch)}
+                        />
+                      </div>
+                      <button type="button" className="btn-ghost" onClick={() => loadSales(saleSearch)} style={{ padding: '0.5rem 0.85rem', fontSize: '0.82rem' }}>
+                        Buscar
+                      </button>
+                    </div>
+                    {loadingSales && (
+                      <div style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                        <div className="spinner" style={{ display: 'inline-block', marginRight: 6 }} /> Buscando ventas...
+                      </div>
+                    )}
+                    {sales.length > 0 && !loadingSales && (
+                      <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', marginTop: '0.5rem' }}>
+                        {sales.slice(0, 10).map((sale) => (
+                          <div
+                            key={sale.id}
+                            onClick={() => handleSelectSale(sale)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '0.6rem 0.85rem',
+                              borderBottom: '1px solid var(--border)',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <div>
+                              <span className="code-chip" style={{ marginRight: 8 }}>{sale.codigo}</span>
+                              <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{sale.cliente?.nombre || 'Sin cliente'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{sale.items.length} ítems</span>
+                              <span className="price-tag" style={{ fontSize: '0.85rem' }}>Bs {sale.total.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="motivo">Motivo <span className="required">*</span></label>
+              {/* Sale Item Selector */}
+              {selectedSale && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+                    <Package size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
+                    Producto de la venta
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {selectedSale.items.map((item) => {
+                      const prod = products.find((p) => p.id === item.productId);
+                      const isSelected = selectedSaleItem?.id === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSelectSaleItem(item)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.55rem 0.85rem',
+                            background: isSelected ? 'var(--accent-soft)' : 'rgba(255,255,255,0.02)',
+                            border: `1px solid ${isSelected ? 'var(--accent-border)' : 'var(--border)'}`,
+                            borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontWeight: 600, color: 'var(--text-strong)', fontSize: '0.88rem' }}>
+                              {prod?.producto || `Producto #${item.productId}`}
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 8 }}>
+                              Bs {item.precio.toFixed(2)} c/u
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="stock-badge in-stock">Vendido: {item.cantidad}</span>
+                            {isSelected && <CheckCircle2 size={16} style={{ color: 'var(--accent)' }} />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Product (fallback if no sale selected) */}
+              {!selectedSale && (
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                    Producto <span style={{ color: '#f87171' }}>*</span>
+                  </label>
                   <select
-                    id="motivo"
-                    className="form-input"
+                    className="filter-select"
+                    style={{ width: '100%' }}
+                    value={formData.productId}
+                    onChange={(e) => setFormData({ ...formData, productId: Number(e.target.value) })}
+                    required
+                  >
+                    <option value={0}>Seleccionar producto...</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.producto} — {p.marca} {p.codigoFabrica} (Stock: {p.stockTotal ?? 0})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Quantity & Price */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                    Cantidad <span style={{ color: '#f87171' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="filter-input"
+                    style={{ width: '100%' }}
+                    value={formData.cantidad}
+                    onChange={(e) => setFormData({ ...formData, cantidad: Number(e.target.value) || 1 })}
+                    min="1"
+                    max={selectedSaleItem?.cantidad || undefined}
+                    required
+                  />
+                  {selectedSaleItem && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                      Máximo: {selectedSaleItem.cantidad} unidades
+                    </span>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                    Monto (Bs) <span style={{ color: '#f87171' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="filter-input"
+                    style={{ width: '100%' }}
+                    value={formData.monto}
+                    onChange={(e) => setFormData({ ...formData, monto: parseFloat(e.target.value) || 0 })}
+                    min="0.01"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Motivo & Method */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                    Motivo <span style={{ color: '#f87171' }}>*</span>
+                  </label>
+                  <select
+                    className="filter-select"
+                    style={{ width: '100%' }}
                     value={formData.motivo}
                     onChange={(e) => setFormData({ ...formData, motivo: e.target.value })}
                     required
@@ -351,55 +536,13 @@ export function DevolucionesPage() {
                     ))}
                   </select>
                 </div>
-
                 <div className="form-group">
-                  <label htmlFor="cantidad">
-                    Cantidad <span className="required">*</span>
-                    {formData.productId > 0 && (
-                      <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#38bdf8', marginLeft: '0.5rem' }}>
-                        (Disponible: {selectedAvailable})
-                      </span>
-                    )}
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                    Método de Reembolso <span style={{ color: '#f87171' }}>*</span>
                   </label>
-                  <input
-                    id="cantidad"
-                    type="number"
-                    className="form-input"
-                    value={formData.cantidad}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) || 0;
-                      setFormData({ ...formData, cantidad: val > selectedAvailable && selectedAvailable > 0 ? selectedAvailable : val });
-                    }}
-                    min="1"
-                    max={selectedAvailable > 0 ? selectedAvailable : undefined}
-                    required
-                  />
-                  {formData.productId > 0 && selectedAvailable === 0 && (
-                    <small style={{ color: '#f87171', fontSize: '0.78rem' }}>Sin stock disponible en esta ubicación</small>
-                  )}
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="monto">Monto (Bs) <span className="required">*</span></label>
-                  <input
-                    id="monto"
-                    type="number"
-                    step="0.01"
-                    className="form-input"
-                    value={formData.monto}
-                    onChange={(e) => setFormData({ ...formData, monto: parseFloat(e.target.value) || 0 })}
-                    min="0.01"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="metodo">Método de Reembolso <span className="required">*</span></label>
                   <select
-                    id="metodo"
-                    className="form-input"
+                    className="filter-select"
+                    style={{ width: '100%' }}
                     value={formData.metodo}
                     onChange={(e) => setFormData({ ...formData, metodo: e.target.value })}
                     required
@@ -411,11 +554,14 @@ export function DevolucionesPage() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="locationId">Ubicación <span className="required">*</span></label>
+              {/* Location */}
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                  Ubicación de devolución <span style={{ color: '#f87171' }}>*</span>
+                </label>
                 <select
-                  id="locationId"
-                  className="form-input"
+                  className="filter-select"
+                  style={{ width: '100%' }}
                   value={formData.locationId || ''}
                   onChange={(e) => setFormData({ ...formData, locationId: Number(e.target.value) || undefined })}
                   required
@@ -428,28 +574,27 @@ export function DevolucionesPage() {
                   ))}
                 </select>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn-secondary" onClick={handleCloseForm} disabled={submitting}>
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary" disabled={submitting}>
-                {submitting ? (
-                  <>
-                    <RefreshCw size={15} className="animate-spin" />
-                    <span>Guardando...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={15} />
-                    <span>Registrar</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)} disabled={submitting}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <div className="spinner" /> Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} /> Registrar Devolución
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
       )}
     </div>
   );

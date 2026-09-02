@@ -7,6 +7,7 @@ export type RootStackParamList = {
   Inventario: undefined;
   Sales: undefined;
   SalesEdit: { saleId: number };
+  ProductDetail: { productId: number };
   Devoluciones: undefined;
   Solicitudes: undefined;
   VentaMayor: undefined;
