@@ -7,7 +7,7 @@ Documentación del negocio y plan: `requerimientos.md` (ejercicio) y `PLAN.md` (
 ## Asistentes y skills propios (opencode)
 
 - **Agentes** en `.opencode/agent/`: `backend`, `frontend`, `mobile`, `docs` (subagentes por dominio). Para tareas específicas de un frente, delega al subagente correspondiente.
-- **Skills** en `.opencode/skills/`: `verificar-modulo` (correr lint+build antes de cerrar una tarea) y `git-convencion` (aplicar ramas/commits/PR según `docs/git-convention.md`).
+- **Skills** en `.opencode/skills/`: `verificar-modulo` (correr lint+build antes de cerrar una tarea), `git-convencion` (aplicar ramas/commits/PR según `docs/git-convention.md`) e `impeccable` (diseño/UX de interfaces frontend: audit, polish, critique, layout, animaciones, etc.).
 - Los cambios en `.opencode/` requieren reiniciar opencode para tomar efecto.
 
 ## Stack implementado
@@ -47,7 +47,7 @@ Módulos NestJS: `auth`, `users`, `products`, `locations`, `sales`, `movimientos
 
 ## Frontend (`frontend/`)
 
-SPA con layout (Sidebar por rol + Navbar), rutas protegidas por rol. Capas `api/` (cliente fetch) y `services/` (dominios: products, sales, movimientos, precios, costos, reportes). Contextos: `AuthContext` (JWT + localStorage) y `NotificationContext` (localStorage).
+SPA con layout (Sidebar por rol + Navbar), rutas protegidas por rol. Capas `api/` (cliente fetch) y `services/` (dominios: products, sales, movimientos, precios, costos, reportes, locations). Contextos: `AuthContext` (JWT + localStorage) y `NotificationContext` (localStorage).
 
 ### Comandos
 - `npm run dev` — servidor de desarrollo (Vite).
@@ -61,7 +61,7 @@ SPA con layout (Sidebar por rol + Navbar), rutas protegidas por rol. Capas `api/
 
 ## Mobile (`mobile/`)
 
-App Expo con drawer por rol (admin/tienda comparten 9 pantallas; inventario 5). Screens principales: Login, dashboards por rol, Inventario/Detalle, Venta (POS), Venta Mayor (import Excel), Historial, Devoluciones, Solicitudes, Reportes, Búsqueda por imagen. API en `src/api/` (fetch wrapper con Bearer + ApiError), sesión en SecureStore/localStorage.
+App Expo con drawer por rol (admin/tienda comparten 9 pantallas; inventario 5). Screens principales: Login, dashboards por rol, Inventario/Detalle, Venta (POS), Venta Mayor (import Excel), Historial, Ventas (edición), Devoluciones, Solicitudes, Reportes, Búsqueda por imagen. API en `src/api/` (fetch wrapper con Bearer + ApiError), sesión en SecureStore/localStorage.
 
 ### Comandos
 - `npm start` — `expo start`.

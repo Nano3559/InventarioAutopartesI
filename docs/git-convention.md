@@ -1,47 +1,80 @@
 # Convención de Git
 
-Documento de referencia para todo el trabajo sobre el repositorio. Reglas vividas
-por todo el equipo (backend, web y móvil) para mantener `main` siempre en un estado
+Documento de referencia para el trabajo sobre el repositorio. Describe el flujo
+real del equipo (backend, web y móvil) para mantener `main` siempre en un estado
 desplegable.
 
 ## 1. Modelo de ramas
 
 ```
-        feature/B11            feature/m8-precios
-            │                        │
-        ┌───┴─────┐              ┌───┴─────┐
-        │  PR/Cherry-pick        │  PR     │
-        ▼         ▼              ▼         ▼
-     ──────────────────────────────────────────────  main (protegida, solo merge)
+        feature/R9              feature/m11-movil-inventario
+            │                              │
+        ┌───┴─────┐                    ┌───┴─────┐
+        │   PR    │                    │   PR    │
+        ▼         ▼                    ▼         ▼
+     ─────────────────────────────────────────────────  main (protegida, solo merge)
 ```
 
-- **`main`** — rama protegida. Solo código que pasa `build` + `lint` (definición de
+- **`main`** — rama principal. Solo código que pasa `build` + `lint` (definición de
   "terminado" abajo). Se actualiza exclusivamente por merge de una rama `feature/*`
-  (idealmente vía Pull Request con revisión).
-- **`feature/*`** — rama de trabajo. Nombre descriptivo del cambio:
-  `feature/m8-precios`, `feature/b11-build-ios`, `feature/r9-busqueda-imagen`.
-  Una rama = una tarea; no acumular tareas distintas en la misma rama.
-- **Histórico del equipo** — las primeras ramas `rama/brian`, `rama/marco`,
-  `rama/raul` del inicio del proyecto quedan como históricas; ya no se usan.
+  vía Pull Request.
+- **`feature/*`** — rama de trabajo por tarea. Una rama = una tarea; no acumular
+  tareas distintas en la misma rama.
+- **Histórico del equipo** — las primeras ramas `Brian`, `raul` del inicio del
+  proyecto quedan como históricas; ya no se usan.
 
-### Convención de nombres
+### Convención de nombres utilizada
 
-`feature/<contexto-inicial>-<descripción-corta-en-kebab-case>`
+El equipo usó dos patrones para nombrar ramas:
 
-Precedentes en el repo: `feature/inventario-m2`, `feature/m5-movimientos`,
-`feature/b7-b8`, `feature/r7ventamayor`, `feature/correccioncrud`.
+| Patrón | Ejemplo | Cuándo se usó |
+| :--- | :--- | :--- |
+| `feature/<código-tarea>` | `feature/R9`, `feature/M12`, `feature/B11` | Tareas asignadas con código (R=módulo reportes, M=módulo, B=backend) |
+| `feature/<descripción>` | `feature/movilproduc`, `feature/historialventas`, `feature/optimizaciones` | Cambios descriptivos sin código formal |
+| `feature/<código>-<descripción>` | `feature/m11-movil-inventario`, `feature/m10-notificaciones-responsive` | Combinación de código + descripción (usado en módulos recientes) |
 
-## 2. Mensajes de commit (Conventional Commits)
+Precedentes reales en el repo: `feature/R10supabase`, `feature/r7ventamayor`,
+`feature/correccionarchivos`, `feature/carrito`, `feature/solialmacen`,
+`feature/m8-precios`, `feature/B9-B10`.
 
-Formato: `<tipo>(<alcance>): <descripción>`
+## 2. Mensajes de commit
+
+El equipo utilizó mayormente un formato **descriptivo libre** en español, con
+algunos commits recientes siguiendo Conventional Commits.
+
+### Formato principal utilizado (mayoritario)
 
 ```
-feat(auth): login con JWT y refresh de sesión
-fix(products): stock negativo en venta por mayor
-docs(readme): instrucciones de puesta en marcha
-refactor(sales): extraer cálculo de totales
-test(solicitudes): cubre flujo Pendiente -> Enviado
-chore(deps): actualizar typeorm a la versión 1.1.0
+<descripción del cambio en español>
+```
+
+Ejemplos reales del repositorio:
+
+```
+Tarea M12 Completada
+backend listo para produccion
+frontend-produccion completada
+historial ventas y guia despliegue movil
+Optimizaciones
+Tarea R8 implementada
+Tareas B9-B10 completadas
+env agregado
+```
+
+### Formato Conventional Commits (adoptado en módulos recientes)
+
+A partir de los módulos M9, M10 y M11 se empezó a usar el formato formal:
+
+```
+<tipo>(<alcance>): <descripción>
+```
+
+Ejemplos reales:
+
+```
+feat(mobile): implementacion M11 - pantalla de inventario movil con 7 ubicaciones
+feat(frontend): implementacion M10 - centro de notificaciones en tiempo real
+feat(frontend): implementacion M9 - modulo de reportes avanzados
 ```
 
 | Tipo | Uso |
@@ -50,39 +83,41 @@ chore(deps): actualizar typeorm a la versión 1.1.0
 | `fix` | Corrección de bug |
 | `docs` | Cambios solo de documentación |
 | `refactor` | Cambia estructura sin cambiar comportamiento |
-| `test` | Añadir/modificar tests |
 | `chore` | Tareas de mantenimiento (deps, config, build) |
-| `style` | Formato, espacios, estilos que no afectan al código |
-| `perf` | Mejoras de rendimiento |
-| `ci` | Cambios de CI/CD |
 
-Reglas:
+### Reglas del equipo
 
-1. Descripción en español, imperativo, sin punto final.
-2. Alcance = módulo/carpeta afectada (`products`, `sales`, `auth`, `mobile`, `docs`...).
-3. Un commit = un cambio lógico.
-4. **No commitear a medias**: solo commitear, pushear o mergear cuando la tarea esté terminada.
-5. Los secretos jamás van en un commit ni en el mensaje.
+1. Descripción clara del cambio, en español.
+2. **No commitear a medias**: solo commitear, pushear o mergear cuando la tarea
+   esté terminada.
+3. Los secretos jamás van en un commit ni en el mensaje.
+4. Un commit = un cambio lógico cuando sea posible.
 
-## 3. Flujo diario
+## 3. Flujo de trabajo
+
+### Pull Requests
+
+El equipo usó **Pull Requests** como flujo principal para integrar código a `main`.
+Se registraron más de 40 PRs durante el desarrollo del proyecto.
 
 ```bash
-# 1) Actualizar desde main
+# 1) Crear rama de tarea
 git checkout main && git pull origin main
+git checkout -b feature/mi-tarea
 
-# 2) Actualizar tu rama con lo último de main
-git checkout feature/mi-tarea
-git merge main
-
-# 3) Trabajar, verificar y commitear
+# 2) Trabajar y commitear
 git add .
-git commit -m "feat(products): <descripción>"
+git commit -m "Tarea M12 Completada"
 git push -u origin feature/mi-tarea
 
-# 4) Al terminar la tarea -> PR hacia main (o merge directo si el consenso lo permite)
-git checkout main && git merge feature/mi-tarea
-git push origin main
+# 3) Abrir PR hacia main en GitHub
+# 4) Revisar y mergear
 ```
+
+### Merges
+
+Los merges a `main` se realizaron principalmente vía PR en GitHub. En algunos
+casos se realizaron merges directos cuando el consenso lo permitía.
 
 ## 4. Definición de "terminado" (Definition of Done)
 
@@ -101,14 +136,14 @@ Si aplican cambios de rutas/entidades/entorno, actualizar además `docs/` en el 
 1. **Nunca mergear a `main`** algo que no pase `build` + `lint` en verde.
 2. Al empezar el día, `git pull origin main` y resolver conflictos en tu rama.
 3. Si dos personas van a tocar el mismo archivo (ej. `App.tsx`), coordinar quién lo hace primero.
-4. Commitear en español siguiendo Conventional Commits.
-5. `main` solo almacena integraciones revisadas; no commits directos salvo hotfix acordado.
+4. `main` solo almacena integraciones revisadas; no commits directos salvo hotfix acordado.
+5. Coordinar ramas para evitar conflictos frecuentes en archivos compartidos.
 
 ## 6. Checklist de Pull Request
 
 - [ ] La rama parte de `main` actualizado.
 - [ ] Build + lint verdes (y tests en backend).
-- [ ] Mensajes de commit siguiendo Conventional Commits.
+- [ ] Mensajes de commit descriptivos y claros.
 - [ ] Sin secretos ni `.env` reales en el diff.
 - [ ] `docs/` y `AGENTS.md` actualizados si cambió estructura/rutas/entorno.
 - [ ] `schema.sql` alineado si se tocaron entidades TypeORM.

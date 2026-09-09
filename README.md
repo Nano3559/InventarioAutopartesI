@@ -235,6 +235,7 @@ Docs de negocio: [requerimientos.md](requerimientos.md) y [PLAN.md](PLAN.md).
   Reglas completas en [docs/git-convention.md](docs/git-convention.md).
 - Definition of Done: `build` + `lint` en verde en el módulo afectado antes de mergear.
 - Asistente de código: leer `AGENTS.md`; agentes/skills propios en `.opencode/`.
+  - **Skills**: `verificar-modulo` (lint+build antes de cerrar), `git-convencion` (ramas/commits/PR) e `impeccable` (diseño/UX de interfaces frontend).
 
 ---
 
