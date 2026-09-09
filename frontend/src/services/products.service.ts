@@ -1,4 +1,4 @@
-import { api } from '../api/client';
+import { api, API_BASE_URL } from '../api/client';
 import type {
   Product,
   ProductFilters,
@@ -47,7 +47,7 @@ export const productsService = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const baseUrl = API_BASE_URL;
     const res = await fetch(`${baseUrl}/products/${id}/image`, {
       method: 'POST',
       headers: {
@@ -95,7 +95,7 @@ export const productsService = {
     formData.append('file', file);
     if (limit) formData.append('limit', String(limit));
 
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const baseUrl = API_BASE_URL;
     const res = await fetch(`${baseUrl}/products/search-by-image`, {
       method: 'POST',
       headers: {

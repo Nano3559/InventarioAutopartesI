@@ -20,13 +20,13 @@ import SalesEditScreen from './src/screens/SalesEditScreen';
 import DevolucionesScreen from './src/screens/DevolucionesScreen';
 import SolicitudesScreen from './src/screens/SolicitudesScreen';
 import VentaMayorScreen from './src/screens/VentaMayorScreen';
+import InventarioScreen from './src/screens/InventarioScreen';
 import SalesHistoryScreen from './src/screens/SalesHistoryScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import SearchByImageScreen from './src/screens/SearchByImageScreen';
 import ProductDetailScreen from './src/screens/ProductDetailScreen';
 import {
   colors,
-  space,
 } from './src/theme';
 import type { RootStackParamList } from './src/types/navigation';
 
@@ -45,10 +45,11 @@ const drawerScreenOptions = {
 function AdminDrawer() {
   return (
     <Drawer.Navigator
-      drawerContent={(props) => <AppDrawer {...props} />}
+      drawerContent={AppDrawer}
       screenOptions={drawerScreenOptions}
     >
       <Drawer.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Drawer.Screen name="Inventario" component={InventarioScreen} />
       <Drawer.Screen name="Sales" component={SalesScreen} />
       <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
       <Drawer.Screen name="SalesHistory" component={SalesHistoryScreen} />
@@ -63,10 +64,11 @@ function AdminDrawer() {
 function TiendaDrawer() {
   return (
     <Drawer.Navigator
-      drawerContent={(props) => <AppDrawer {...props} />}
+      drawerContent={AppDrawer}
       screenOptions={drawerScreenOptions}
     >
       <Drawer.Screen name="TiendaDashboard" component={TiendaDashboardScreen} />
+      <Drawer.Screen name="Inventario" component={InventarioScreen} />
       <Drawer.Screen name="Sales" component={SalesScreen} />
       <Drawer.Screen name="VentaMayor" component={VentaMayorScreen} />
       <Drawer.Screen name="SalesHistory" component={SalesHistoryScreen} />
@@ -81,10 +83,11 @@ function TiendaDrawer() {
 function InventarioDrawer() {
   return (
     <Drawer.Navigator
-      drawerContent={(props) => <AppDrawer {...props} />}
+      drawerContent={AppDrawer}
       screenOptions={drawerScreenOptions}
     >
       <Drawer.Screen name="InventarioDashboard" component={InventarioDashboardScreen} />
+      <Drawer.Screen name="Inventario" component={InventarioScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
       <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />

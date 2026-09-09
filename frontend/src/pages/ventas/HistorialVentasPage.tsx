@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
   Eye,
@@ -38,7 +38,7 @@ export function HistorialVentasPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const loadSales = async () => {
+  const loadSales = useCallback(async () => {
     try {
       setLoading(true);
       const params: Record<string, string> = {};
@@ -54,10 +54,25 @@ export function HistorialVentasPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, tipoFilter, dateFrom, dateTo]);
 
   useEffect(() => {
-    loadSales();
+    let isMounted = true;
+    const init = async () => {
+      try {
+        setLoading(true);
+        const data = await salesService.getSales({});
+        if (isMounted) setSales(data);
+      } catch (err) {
+        console.error('Error cargando ventas:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    init();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSearch = () => loadSales();

@@ -227,7 +227,15 @@ export function SalesPage() {
   };
 
   const handlePaymentChange = (index: number, field: 'metodo' | 'monto', value: string | number) => {
-    setPayments(payments.map((p, i) => i === index ? { ...p, [field]: value } : p));
+    setPayments(payments.map((p, i) => {
+      if (i !== index) return p;
+      if (field === 'monto') {
+        const numeric = parseFloat(String(value));
+        const monto = Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+        return { ...p, monto };
+      }
+      return { ...p, metodo: String(value) };
+    }));
   };
 
   const handleAddPayment = () => {
@@ -277,8 +285,8 @@ export function SalesPage() {
         pagos: payments,
         cliente: cliente.nombre ? cliente : undefined,
         requiereFactura,
-        lugarEntrega: lugarEntrega || undefined,
-        paraQuien: paraQuien || undefined,
+        lugarEntrega: lugarEntrega.trim() || undefined,
+        paraQuien: paraQuien.trim() || undefined,
         locationId: user?.tiendaId ?? undefined,
       };
 

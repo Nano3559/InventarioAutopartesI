@@ -42,14 +42,17 @@ export function SolicitudesPage() {
   const [almacenes, setAlmacenes] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
   const [tiendas, setTiendas] = useState<Array<{ id: number; nombre: string; tipo: string }>>([]);
 
-  const [formOpen, setFormOpen] = useState<boolean>(false);
+  const [formOpen, setFormOpen] = useState<boolean>(() => Boolean(searchParams.get('productId')));
   const [editingSolicitud, setEditingSolicitud] = useState<Solicitud | null>(null);
   const [estadoModalOpen, setEstadoModalOpen] = useState<{ solicitud: Solicitud; origenId?: number } | null>(null);
 
-  const [formData, setFormData] = useState<CreateSolicitudInput>({
-    productId: 0,
-    cantidad: 1,
-    tiendaId: undefined,
+  const [formData, setFormData] = useState<CreateSolicitudInput>(() => {
+    const urlProductId = searchParams.get('productId');
+    return {
+      productId: urlProductId ? Number(urlProductId) : 0,
+      cantidad: 1,
+      tiendaId: user?.tiendaId ?? undefined,
+    };
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -67,6 +70,13 @@ export function SolicitudesPage() {
     return product.stockTotal ?? 0;
   };
 
+  const getStockAtLocation = (productId: number, locationId: number): number => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return 0;
+    const detail = (product.stockLocationDetails || []).find((sl) => sl.locationId === locationId);
+    return detail?.cantidad ?? 0;
+  };
+
   const getAvailableStock = (productId: number): number => {
     const product = products.find((p) => p.id === productId);
     if (!product) return 0;
@@ -81,19 +91,11 @@ export function SolicitudesPage() {
   };
 
   useEffect(() => {
-    const urlProductId = searchParams.get('productId');
-    if (urlProductId) {
-      setEditingSolicitud(null);
-      setFormData({
-        productId: Number(urlProductId),
-        cantidad: 1,
-        tiendaId: user?.tiendaId ?? undefined,
-      });
-      setFormOpen(true);
+    if (searchParams.get('productId')) {
       searchParams.delete('productId');
-      setSearchParams(searchParams);
+      setSearchParams(searchParams, { replace: true });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     async function loadProducts() {
@@ -208,6 +210,18 @@ export function SolicitudesPage() {
 
   const handleUpdateEstado = async (estado: UpdateSolicitudEstadoInput['estado'], origenId?: number) => {
     if (!estadoModalOpen) return;
+
+    if (estado === 'Enviado' && origenId) {
+      const stockEnOrigen = getStockAtLocation(estadoModalOpen.solicitud.productId, origenId);
+      if (estadoModalOpen.solicitud.cantidad > stockEnOrigen) {
+        showToast(
+          `Stock insuficiente en el almacén de origen (disponible: ${stockEnOrigen})`,
+          'error'
+        );
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       await updateSolicitudEstado(estadoModalOpen.solicitud.id, { estado, origenId });

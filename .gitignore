@@ -1,0 +1,100 @@
+# ============================================================
+#  INVENTARIO AUTOPARTES — .gitignore raíz (monorepo)
+# ------------------------------------------------------------
+#  Cada subproyecto tiene un .gitignore propio más específico
+#  (backend/, frontend/, mobile/). Este cubre los patrones
+#  comunes de todo el monorepo.
+#
+#  NOTA: NO se ignoran (se versionan intencionalmente):
+#    - `frontend/.env.production` (URL de producción para Vercel)
+#    - `backend/uploads/*` ya versionado (imágenes del seed)
+#  Las plantillas `.env.example` NO se versionan por decisión del equipo.
+# ============================================================
+
+# ------------------------------------------------------------
+# Dependencias
+# ------------------------------------------------------------
+node_modules/
+.pnp
+.pnp.js
+
+# ------------------------------------------------------------
+# Builds y salidas de compilación
+# ------------------------------------------------------------
+dist/
+build/
+coverage/
+.nyc_output/
+!.next/
+out/
+
+# ------------------------------------------------------------
+# Variables de entorno (nunca commitear valores reales)
+# ------------------------------------------------------------
+.env
+.env.example
+.env.local
+.env.test
+.env.*.local
+
+# ------------------------------------------------------------
+# Archivos subidos en runtime (imágenes, facturas de costos)
+# ------------------------------------------------------------
+uploads/
+
+# ------------------------------------------------------------
+# Despliegue
+# ------------------------------------------------------------
+.vercel/
+*.pem
+
+# ------------------------------------------------------------
+# Expo / React Native (por si se generan en la raíz del monorepo)
+# ------------------------------------------------------------
+.expo/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# ------------------------------------------------------------
+# Logs
+# ------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------
+# Sistema operativo
+# ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# ------------------------------------------------------------
+# IDE / editores
+# ------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ------------------------------------------------------------
+# Archivos temporales
+# ------------------------------------------------------------
+.tmp/
+.temp/
+*.tmp
+*.temp

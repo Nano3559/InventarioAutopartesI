@@ -265,7 +265,7 @@ export function DashboardPage() {
                     </div>
                     <span className="quick-action-title">Inventario Global</span>
                     <span className="quick-action-desc">
-                      Gestion de catalogo, stock en {inv?.stockPorAlmacen?.length ?? 4} almacenes y {inv?.stockPorTienda?.length ?? 3} tiendas con filtros avanzados.
+                      Gestion de catalogo, stock en {inv?.stockPorAlmacen?.length ?? 0} almacenes y {inv?.stockPorTienda?.length ?? 0} tiendas con filtros avanzados.
                     </span>
                   </NavLink>
 

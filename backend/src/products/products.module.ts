@@ -8,7 +8,10 @@ import { Inventory } from '../entities/inventory.entity';
 import { Location } from '../entities/location.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product, Inventory, Location]), ConfigModule],
+  imports: [
+    TypeOrmModule.forFeature([Product, Inventory, Location]),
+    ConfigModule,
+  ],
   controllers: [ProductsController],
   providers: [ProductsService],
   exports: [ProductsService],

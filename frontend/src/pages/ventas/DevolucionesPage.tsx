@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   RotateCcw,
   Plus,
   RefreshCw,
   Package,
   CreditCard,
-  AlertTriangle,
   CheckCircle2,
   History,
   Search,
@@ -129,7 +128,7 @@ export function DevolucionesPage() {
     setFormData({ ...formData, ventaId: sale.id, saleItemId: undefined, productId: 0, monto: 0, cantidad: 1 });
   };
 
-  const handleSelectSaleItem = (item: SaleItemSummary, product: Product | undefined) => {
+  const handleSelectSaleItem = (item: SaleItemSummary) => {
     setSelectedSaleItem(item);
     setFormData({
       ...formData,
@@ -145,13 +144,6 @@ export function DevolucionesPage() {
     setSelectedSaleItem(null);
     setFormData({ ...formData, ventaId: undefined, saleItemId: undefined, productId: 0, monto: 0, cantidad: 1 });
   };
-
-  const selectedProduct = useMemo(() => {
-    if (selectedSaleItem) {
-      return products.find((p) => p.id === selectedSaleItem.productId);
-    }
-    return products.find((p) => p.id === formData.productId);
-  }, [products, selectedSaleItem, formData.productId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -431,7 +423,7 @@ export function DevolucionesPage() {
                       return (
                         <div
                           key={item.id}
-                          onClick={() => handleSelectSaleItem(item, prod)}
+                          onClick={() => handleSelectSaleItem(item)}
                           style={{
                             display: 'flex',
                             alignItems: 'center',

@@ -19,15 +19,25 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    const emailValue = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailValue || !password) {
       setError('Por favor complete todos los campos');
+      return;
+    }
+    if (!emailRegex.test(emailValue)) {
+      setError('Ingrese un correo electrónico válido');
+      return;
+    }
+    if (!password) {
+      setError('Por favor ingrese su contraseña');
       return;
     }
 
     try {
       setError(null);
       setSubmitting(true);
-      await login({ email, password });
+      await login({ email: emailValue, password });
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const msg = (err as Error)?.message || 'Credenciales inválidas o error de conexión';
@@ -35,12 +45,6 @@ export function LoginPage() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleQuickFill = (testEmail: string, testPass: string) => {
-    setEmail(testEmail);
-    setPassword(testPass);
-    setError(null);
   };
 
   return (
@@ -59,47 +63,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* Quick Role Fillers for smooth team testing */}
-        <div className="quick-roles-section">
-          <span className="quick-roles-title">⚡ Acceso Rápido de Prueba (Demo)</span>
-          <div className="quick-roles-grid">
-            <button
-              type="button"
-              className="quick-role-btn"
-              onClick={() => handleQuickFill('admin@importadoras.com', 'admin123')}
-            >
-              👑 Administrador
-            </button>
-            <button
-              type="button"
-              className="quick-role-btn"
-              onClick={() => handleQuickFill('inventario@importadoras.com', 'inventario123')}
-            >
-              📦 Encargado Inventario
-            </button>
-            <button
-              type="button"
-              className="quick-role-btn"
-              onClick={() => handleQuickFill('tienda1@importadoras.com', 'venta123')}
-            >
-              🛒 Vendedor Tienda 1
-            </button>
-            <button
-              type="button"
-              className="quick-role-btn"
-              onClick={() => handleQuickFill('tienda2@importadoras.com', 'venta123')}
-            >
-              🛒 Vendedor Tienda 2
-            </button>
-            <button
-              type="button"
-              className="quick-role-btn"
-              onClick={() => handleQuickFill('tienda3@importadoras.com', 'venta123')}
-            >
-              🛒 Vendedor Tienda 3
-            </button>
-          </div>
-        </div>
+        {/* Quick Role Fillers removed for production */}
 
         {error && (
           <div className="alert-error" role="alert">
