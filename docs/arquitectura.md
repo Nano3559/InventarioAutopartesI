@@ -34,12 +34,12 @@ autenticación/RBAC y los flujos de negocio críticos.
 | :--- | :--- | :--- |
 | `User` | `users` | Usuarios con `rol` (admin/tienda/inventario) + FK `tienda` |
 | `Location` | `locations` | 7 ubicaciones: 4 almacenes + 3 tiendas (`tipo`, `codigo`) |
-| `Product` | `products` | Catálogo: fabricante, marca, modelo, años, OEM, fábrica, precios, costo, stock mínimo |
+| `Product` | `products` | Catálogo: fabricante, marca, modelo, años, OEM, fábrica, código de barras (`codigo`, Hito 3), precios, costo, stock mínimo |
 | `Inventory` | `inventory` | Stock por producto + ubicación (UNIQUE product+location) |
 | `Cliente` | `clientes` | Datos de factura (ciNit, nombre, celular) |
 | `Sale` / `SaleItem` | `sales` / `sale_items` | Cabecera + líneas de venta (tipo menor/mayor) |
 | `Payment` | `payments` | Pagos multi-método: efectivo, transferencia, qr, crédito |
-| `Movimiento` | `movimientos` | Traslados entre ubicaciones (origen, destino, usuario, observación) |
+| `Movimiento` | `movimientos` | Traslados entre ubicaciones (origen, destino, usuario, observación) + Hito 3: `cantidadDeclarada` y `tipo` (`traslado`\|`entrada`) |
 | `Solicitud` | `solicitudes` | Pedidos tienda→almacén con estados + flag `auto` (reposición) |
 | `Proveedor` | `proveedores` | Proveedor Bolivia (para costos) |
 | `Factura` / `FacturaItem` | `facturas` / `factura_items` | Facturas de compra: tipo cambio, %, monto, archivo e ítems |

@@ -24,6 +24,14 @@ export class Movimiento {
   @Column()
   cantidad: number;
 
+  /** Cantidad que el movimiento declara (recepción), contra la que se compara el conteo del Hito 3. */
+  @Column({ type: 'integer', nullable: true })
+  cantidadDeclarada: number | null;
+
+  /** 'traslado' | 'entrada'. Nullable: los registros existentes son traslados sin tipo asignado. */
+  @Column({ type: 'varchar', nullable: true })
+  tipo: 'traslado' | 'entrada' | null;
+
   @Column()
   origenId: number;
 

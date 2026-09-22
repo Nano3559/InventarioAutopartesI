@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS "products" (
     "detalle"          varchar,
     "codigoOem"        varchar,
     "codigoFabrica"    varchar NOT NULL,
+    "codigo"           varchar UNIQUE,        -- código de barras (Hito 3); nullable
     "imagen"           text,
     "imagenHash"       varchar,
     "costo"            double precision NOT NULL DEFAULT 0,
@@ -136,17 +137,19 @@ CREATE TABLE IF NOT EXISTS "payments" (
 );
 
 -- ------------------------------------------------------------
--- movimientos (traslados de stock entre ubicaciones)
+-- movimientos (traslados de stock entre ubicaciones; 'entrada' via Hito 3)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "movimientos" (
-    "id"          serial PRIMARY KEY,
-    "productId"   integer NOT NULL REFERENCES "products" ("id"),
-    "cantidad"    integer NOT NULL,
-    "origenId"    integer NOT NULL REFERENCES "locations" ("id"),
-    "destinoId"   integer NOT NULL REFERENCES "locations" ("id"),
-    "usuarioId"   integer NOT NULL REFERENCES "users" ("id"),
-    "fecha"       timestamp NOT NULL DEFAULT now(),
-    "observacion" varchar
+    "id"               serial PRIMARY KEY,
+    "productId"        integer NOT NULL REFERENCES "products" ("id"),
+    "cantidad"         integer NOT NULL,
+    "cantidadDeclarada" integer,              -- cantidad declarada en recepción (Hito 3); nullable
+    "tipo"             varchar,               -- 'traslado' | 'entrada' (Hito 3); nullable
+    "origenId"         integer NOT NULL REFERENCES "locations" ("id"),
+    "destinoId"        integer NOT NULL REFERENCES "locations" ("id"),
+    "usuarioId"        integer NOT NULL REFERENCES "users" ("id"),
+    "fecha"            timestamp NOT NULL DEFAULT now(),
+    "observacion"      varchar
 );
 
 -- ------------------------------------------------------------

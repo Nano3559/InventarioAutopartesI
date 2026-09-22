@@ -105,7 +105,7 @@ Detalle con versiones y justificaciones: [docs/stack-tecnologico.md](docs/stack-
 │       ├── components/    AppDrawer por rol, StatCard, Badge...
 │       └── theme.ts       design tokens (light/dark)
 ├── docs/               Documentación técnica organizada
-├── PLAN.md             Plan día a día del equipo + flujo de Git
+├── Plan Hito 3.md      Plan día a día del Hito 3 (conteo + IA)
 ├── requerimientos.md   Ejercicio del cliente (requisitos del sistema)
 └── AGENTS.md           Instrucciones para el asistente de código
 ```
@@ -225,7 +225,7 @@ Resumen rápido; detalle en [docs/entornos.md](docs/entornos.md).
 | [docs/entornos.md](docs/entornos.md) | Variables de entorno por entorno |
 | [docs/despliegue.md](docs/despliegue.md) | Guía de publicación (Vercel, Render, EAS) |
 
-Docs de negocio: [requerimientos.md](requerimientos.md) y [PLAN.md](PLAN.md).
+Docs de negocio: [requerimientos.md](requerimientos.md) y [Plan Hito 3.md](Plan%20Hito%203.md).
 
 ---
 

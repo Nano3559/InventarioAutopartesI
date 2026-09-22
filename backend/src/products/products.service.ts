@@ -217,6 +217,15 @@ export class ProductsService {
         `Ya existe un producto con el código fábrica ${data.codigoFabrica}`,
       );
 
+    const codigo = data.codigo?.trim() || null;
+    if (codigo) {
+      const dupCodigo = await this.repo().findOne({ where: { codigo } });
+      if (dupCodigo)
+        throw new BadRequestException(
+          `Ya existe un producto con el código de barras ${codigo}`,
+        );
+    }
+
     const costo = Number(data.costo) || 0;
     if (costo < 0)
       throw new BadRequestException('El costo no puede ser negativo');
@@ -247,6 +256,7 @@ export class ProductsService {
       detalle: data.detalle?.trim() || null,
       codigoOem: data.codigoOem?.trim() || null,
       codigoFabrica: data.codigoFabrica.trim(),
+      codigo,
       imagen: data.imagen?.trim() || null,
       costo,
       precio1,
@@ -302,6 +312,20 @@ export class ProductsService {
       if (isNaN(sm) || sm < 0)
         throw new BadRequestException('El stock mínimo no puede ser negativo');
       product.stockMinimo = sm;
+    }
+    if (data.codigo !== undefined) {
+      const nuevo =
+        typeof data.codigo === 'string' ? data.codigo.trim() || null : null;
+      if (nuevo && nuevo !== product.codigo) {
+        const dupCodigo = await this.repo().findOne({
+          where: { codigo: nuevo },
+        });
+        if (dupCodigo)
+          throw new BadRequestException(
+            `Ya existe un producto con el código de barras ${nuevo}`,
+          );
+      }
+      product.codigo = nuevo;
     }
 
     const textFields: Array<keyof Product> = [
@@ -376,7 +400,9 @@ export class ProductsService {
     delta: number,
   ): Promise<Inventory> {
     if (!Number.isFinite(delta) || delta === 0) {
-      throw new BadRequestException('El delta debe ser un número distinto de cero');
+      throw new BadRequestException(
+        'El delta debe ser un número distinto de cero',
+      );
     }
 
     const inv = await this.invRepo().findOne({
@@ -395,7 +421,9 @@ export class ProductsService {
     }
 
     if (delta < 0) {
-      throw new BadRequestException('No existe registro de inventario para este producto en esta ubicación');
+      throw new BadRequestException(
+        'No existe registro de inventario para este producto en esta ubicación',
+      );
     }
 
     const created = this.invRepo().create({

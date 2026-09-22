@@ -68,7 +68,11 @@ export class DevolucionesService {
       tipo: sale.tipo,
       total: sale.total,
       cliente: sale.cliente
-        ? { id: sale.cliente.id, nombre: sale.cliente.nombre, ciNit: sale.cliente.ciNit }
+        ? {
+            id: sale.cliente.id,
+            nombre: sale.cliente.nombre,
+            ciNit: sale.cliente.ciNit,
+          }
         : null,
       ubicacion: sale.location?.nombre || null,
       items: sale.items.map((item) => ({
@@ -133,9 +137,7 @@ export class DevolucionesService {
           where: { id: input.saleItemId, saleId: input.ventaId },
         });
         if (!saleItem) {
-          throw new NotFoundException(
-            'El producto no pertenece a esta venta',
-          );
+          throw new NotFoundException('El producto no pertenece a esta venta');
         }
         if (saleItem.productId !== input.productId) {
           throw new BadRequestException(

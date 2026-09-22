@@ -2,7 +2,7 @@
 
 Sistema de Inventario y Ventas para 7 importadoras de autopartes (**AutoParts Pro / AutoRepuestos PRO**). Proyecto de Programación Avanzada (Unifranz). Implementado como monorepo simple con 3 subproyectos npm independientes (sin workspaces).
 
-Documentación del negocio y plan: `requerimientos.md` (ejercicio) y `PLAN.md` (plan día a día, flujo de Git del equipo). Documentación técnica consolidada en `docs/` (`docs/README.md` es el índice; `docs/git-convention.md` y `docs/api.md` se consultan con frecuencia).
+Documentación del negocio y plan: `requerimientos.md` (ejercicio), `Plan Hito 3.md` (plan día a día del Hito 3 — conteo de productos con códigos de barras + IA) y `docs/git-convention.md` (flujo de Git del equipo). Documentación técnica consolidada en `docs/` (`docs/README.md` es el índice; `docs/api.md` se consulta con frecuencia).
 
 ## Asistentes y skills propios (opencode)
 
@@ -24,7 +24,7 @@ frontend/   SPA React (Vite) para admin y tienda
 mobile/     App Expo para admin, tienda e inventario
 ```
 
-Archivos raíz: `PLAN.md`, `requerimientos.md`, `README.md` y `docs/` (documentación técnica indexada en `docs/README.md`).
+Archivos raíz: `Plan Hito 3.md`, `requerimientos.md`, `README.md` y `docs/` (documentación técnica indexada en `docs/README.md`).
 
 ### Roles
 
