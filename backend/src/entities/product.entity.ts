@@ -32,6 +32,10 @@ export class Product {
   @Column()
   codigoFabrica: string;
 
+  /** Código de barras del producto (Hito 3). Nullable: los datos sembrados no lo traen. */
+  @Column({ type: 'varchar', nullable: true, unique: true })
+  codigo: string | null;
+
   @Column({ type: 'text', nullable: true })
   imagen: string | null;
 

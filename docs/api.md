@@ -65,6 +65,9 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 | GET | `/movimientos` | Historial de movimientos entre ubicaciones |
 | POST | `/movimientos` | Registrar traslado (origen → destino, cantidad, responsable) |
 
+> Ver también la sección [Hito 3 — Conteo por lotes](#hito-3--conteo-por-lotes-contrato-congelado--b1)
+> con el contrato congelado de `/movimientos/entrada/count` (aún sin implementar).
+
 ## Solicitudes
 
 | Método | Ruta | Descripción |
@@ -116,6 +119,111 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 | GET | `/reportes/ventas` | Ventas con filtros (marca, modelo, mes, tienda, proveedor, producto) |
 | GET | `/reportes/mensual` | Reporte mensual por tienda (con costo) |
 | GET | `/reportes/proveedores` | Compras por proveedor |
+
+## Hito 3 — Conteo por lotes (contrato congelado · B1)
+
+> **Contrato acordado el 22/09/2026 (tarea B1 del Plan Hito 3).** Los endpoints de esta
+> sección **aún no están implementados** (implementación: `entrada/count` en B2,
+> `inference/detect` en B4). No cambiar la forma request/response sin acordarlo antes con
+> el equipo (móvil/web), para no rehacer consumidores.
+
+### `POST /api/movimientos/entrada/count` — modo solo-códigos (Ruta A)
+
+| | |
+| :--- | :--- |
+| Estado | **Congelado — por implementar (B2)** |
+| Acceso | `JwtAuthGuard` + `RolesGuard`, `@Roles('admin', 'inventario')` |
+| Content-Type | `application/json` |
+
+**Request**
+
+```json
+{
+  "locationId": 1,
+  "items": [{ "codigo": "DAI309005", "cantidad": 12 }]
+}
+```
+
+- `locationId` (number): ubicación donde se realiza el conteo (recepción de mercadería).
+- `items` (array): conteo agrupado por código de barras, `{codigo → cantidad}`.
+- `codigo` (string): código de barras leído (columna `products.codigo`).
+- `cantidad` (number): piezas contadas para ese código.
+
+**Response `200`**
+
+```json
+{
+  "ok": false,
+  "total": 14,
+  "faltantes": [
+    { "codigo": "DAI309005", "cantidadContada": 10, "cantidadDeclarada": 12 }
+  ],
+  "sobra": [
+    { "codigo": "BUJ440-XXX", "cantidadContada": 4, "cantidadDeclarada": 2 }
+  ]
+}
+```
+
+- `ok` (boolean): `true` si el conteo coincide con lo declarado (`faltantes` y `sobra` vacíos).
+- `total` (number): suma de `items.cantidad` (total de piezas contadas).
+- `faltantes[]` / `sobra[]`: diferencias por código contra `movimientos.cantidadDeclarada`;
+  `cantidadContada` = lo contado, `cantidadDeclarada` = lo que declara el movimiento.
+
+### `POST /api/inference/detect` — modo IA (Ruta B)
+
+| | |
+| :--- | :--- |
+| Estado | **Congelado — por implementar (B4)** |
+| Servicio | Microservicio **Python FastAPI** (no NestJS), expuesto bajo el mismo prefijo `/api` |
+| Content-Type | `multipart/form-data` |
+
+**Request (multipart)**
+
+| Campo | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `image` | file | Frame capturado por la cámara del móvil |
+| `barcodes` | string (JSON) | Códigos detectados en el mismo frame con su bbox: `[{"codigo":"DAI309005","x":0.12,"y":0.34,"w":0.2,"h":0.08}]` — `x,y,w,h` normalizados 0..1 (origen arriba-izquierda) respecto al frame |
+
+**Response `200`**
+
+```json
+[
+  {
+    "codigo": "DAI309005",
+    "clase": "pastillas_freno",
+    "cantidad": 12,
+    "confianza": 0.91,
+    "necesita_confirmacion": false
+  },
+  {
+    "clase": "bujia",
+    "cantidad": 3,
+    "confianza": 0.72,
+    "necesita_confirmacion": true
+  }
+]
+```
+
+- `codigo?` (string, opcional): presente cuando el bbox del código cae **dentro** del bbox
+  de la pieza → el código gana (identidad exacta). Ausente si la pieza no tiene etiqueta.
+- `clase` (string): clase de la pieza detectada por la IA (tipo/genérico).
+- `cantidad` (number): piezas detectadas para esa identidad/clase.
+- `confianza` (number): confianza de la detección, 0..1.
+- `necesita_confirmacion` (boolean): `true` si es candidato sin código que el encargado
+  debe confirmar antes de sumarlo al conteo.
+
+### Entidades del Hito 3 (columnas nuevas)
+
+| Entidad | Columna | Tipo | Observación |
+| :--- | :--- | :--- | :--- |
+| `products` | `codigo` | `varchar` UNIQUE, nullable | Código de barras del producto; identifica el ítem en el conteo. Datos sembrados sin él (nullable) |
+| `movimientos` | `cantidadDeclarada` | `integer`, nullable | Cantidad que la recepción declara, contra la que se compara el conteo |
+| `movimientos` | `tipo` | `varchar`, nullable | `'traslado'` \| `'entrada'`; `null` en los traslados existentes. B3 creará movimientos `tipo='entrada'` |
+| `locations` | `codigo` | `varchar` UNIQUE | Ya existente; sin cambios |
+
+> `origenId` en `movimientos` sigue siendo **NOT NULL** hoy: la entrada de recepción de
+> proveedor (B3) deberá decidir si lo deja nullable (recibe en una ubicación sin origen)
+> o bien usa el almacén de recepción como origen. Pendiente de decisión en B3.
 
 ## Notas
 
