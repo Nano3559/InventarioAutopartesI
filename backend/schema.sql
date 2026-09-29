@@ -29,14 +29,37 @@ CREATE TABLE IF NOT EXISTS "locations" (
 -- users (usuarios del sistema)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "users" (
-    "id"         serial PRIMARY KEY,
-    "nombre"     varchar NOT NULL,
-    "email"      varchar NOT NULL UNIQUE,
-    "password"   varchar NOT NULL,
-    "rol"        varchar NOT NULL,         -- 'admin' | 'tienda' | 'inventario'
-    "tiendaId"   integer REFERENCES "locations" ("id") ON DELETE SET NULL,
-    "createdAt"  timestamp NOT NULL DEFAULT now()
+    "id"               serial PRIMARY KEY,
+    "nombre"           varchar NOT NULL,
+    "email"            varchar NOT NULL UNIQUE,
+    "password"         varchar NOT NULL,
+    "rol"              varchar NOT NULL,         -- 'admin' | 'tienda' | 'inventario'
+    "tiendaId"         integer REFERENCES "locations" ("id") ON DELETE SET NULL,
+    -- Hito 3: registro facial (asistencia). Ver sql/hito3.sql
+    "apellido"         varchar,
+    "embedding"        jsonb,                    -- vector de identidad de /face/embed
+    "facePhoto"        text,                     -- URL de la foto en Supabase Storage
+    "faceRegisteredAt" timestamp,
+    "activo"           boolean NOT NULL DEFAULT true,
+    "createdAt"        timestamp NOT NULL DEFAULT now()
 );
+
+-- ------------------------------------------------------------
+-- asistencia (Hito 3: marcaje de asistencia por reconocimiento facial)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "asistencia" (
+    "id"              serial PRIMARY KEY,
+    "usuarioId"       integer NOT NULL REFERENCES "users" ("id"),
+    "locationId"      integer REFERENCES "locations" ("id") ON DELETE SET NULL,
+    "fecha"           timestamp NOT NULL DEFAULT now(),
+    "tipo"            varchar NOT NULL,          -- 'entrada' | 'salida'
+    "confianza"       double precision,         -- similitud de /face/match (0-1)
+    "metodo"          varchar NOT NULL DEFAULT 'automatico', -- 'automatico' | 'manual'
+    "confirmadoPorId" integer REFERENCES "users" ("id") ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS "IX_asistencia_fecha" ON "asistencia" ("fecha");
+CREATE INDEX IF NOT EXISTS "IX_asistencia_usuario_fecha" ON "asistencia" ("usuarioId", "fecha");
 
 -- ------------------------------------------------------------
 -- products (catálogo de autopartes)

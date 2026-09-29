@@ -40,8 +40,11 @@ siguientes de esta página.
 | `PORT` | `3000` | Puerto de la API NestJS |
 | `JWT_SECRET` | (obligatorio cambiar) | Clave para firmar tokens JWT |
 | `DB_SYNC` | `true` | `true` en dev sincroniza el esquema automáticamente; `false` en prod |
+| `DB_SSL` | `false` | `true` solo si el host exige TLS (Supabase/Render). Un PostgreSQL local sin SSL falla si se fuerza |
 
-Config TypeORM: `ssl: { rejectUnauthorized: false }`, `autoLoadEntities: true`.
+Config TypeORM: `autoLoadEntities: true`, `synchronize: segun DB_SYNC`. El SSL es
+condicional (`ssl: { rejectUnauthorized: false }` cuando `DB_SSL=true`, si no `false`),
+porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 
 ## 3. Frontend (`frontend/.env.local` y `.env.production`)
 

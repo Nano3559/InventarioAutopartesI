@@ -32,6 +32,24 @@ export class User {
   @Column({ type: 'int', nullable: true })
   tiendaId: number | null;
 
+  /** Apellido del personal. Nullable: los usuarios previos al Hito 3 solo tienen `nombre`. */
+  @Column({ type: 'varchar', nullable: true })
+  apellido: string | null;
+
+  /** Vector de identidad facial devuelto por el microservicio /face/embed. */
+  @Column({ type: 'jsonb', nullable: true })
+  embedding: number[] | null;
+
+  /** URL de la foto de referencia en Supabase Storage. */
+  @Column({ type: 'text', nullable: true })
+  facePhoto: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  faceRegisteredAt: Date | null;
+
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 }
