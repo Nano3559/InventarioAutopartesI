@@ -5,13 +5,14 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
 import { Product } from '../entities/product.entity';
 import { Inventory } from '../entities/inventory.entity';
 import { Location } from '../entities/location.entity';
 import { computeHash, hammingDistance } from '../common/image-hash';
+import { buildCodigoBarras, renderCodigoBarrasPng } from '../common/barcode';
 
 export interface ProductFilters {
   search?: string;
@@ -22,6 +23,7 @@ export interface ProductFilters {
   anio?: string;
   codigoOem?: string;
   codigoFabrica?: string;
+  codigo?: string;
   locationId?: number;
   activo?: string;
 }
@@ -59,7 +61,7 @@ export class ProductsService {
     if (filters.search) {
       const s = `%${filters.search}%`;
       qb.andWhere(
-        '(p.producto LIKE :s OR p.marca LIKE :s OR p.modelo LIKE :s OR p.codigoOem LIKE :s OR p.codigoFabrica LIKE :s)',
+        '(p.producto LIKE :s OR p.marca LIKE :s OR p.modelo LIKE :s OR p.codigoOem LIKE :s OR p.codigoFabrica LIKE :s OR p.codigo LIKE :s)',
         { s },
       );
     }
@@ -78,6 +80,8 @@ export class ProductsService {
       qb.andWhere('p.codigoFabrica LIKE :cf', {
         cf: `%${filters.codigoFabrica}%`,
       });
+    if (filters.codigo)
+      qb.andWhere('p.codigo LIKE :c', { c: `%${filters.codigo}%` });
 
     if (filters.activo !== undefined) {
       qb.andWhere('p.activo = :act', { act: filters.activo === 'true' });
@@ -174,13 +178,77 @@ export class ProductsService {
   async findOne(id: number) {
     const product = await this.repo().findOne({ where: { id } });
     if (!product) throw new NotFoundException('Producto no encontrado');
-    const stock = await this.stockByLocation(id);
+    return this.conDetalle(product);
+  }
+
+  private async conDetalle(product: Product) {
+    const stock = await this.stockByLocation(product.id);
     const [withStock] = await this.attachStock([product]);
     const stockByLocation: Record<number, number> = {};
     for (const s of stock) {
       stockByLocation[s.locationId] = s.cantidad;
     }
     return { ...withStock, stock, stockByLocation };
+  }
+
+  /** Identifica el producto escaneado. Solo devuelve productos activos. */
+  async findByCodigo(codigo: string) {
+    const limpio = codigo?.trim();
+    if (!limpio)
+      throw new BadRequestException('El código de barras es obligatorio');
+    const product = await this.repo().findOne({
+      where: { codigo: limpio, activo: true },
+    });
+    if (!product)
+      throw new NotFoundException(
+        `Código de barras no registrado o producto inactivo: ${limpio}`,
+      );
+    return this.conDetalle(product);
+  }
+
+  /** Asigna el código interno la primera vez que se genera la etiqueta. */
+  private async ensureCodigo(product: Product): Promise<string> {
+    const actual = product.codigo?.trim();
+    if (actual) return actual;
+    const codigo = buildCodigoBarras(product.id, product.codigoFabrica);
+    product.codigo = codigo;
+    await this.repo().save(product);
+    return codigo;
+  }
+
+  /** Genera el PNG de la etiqueta, creando el código si aún no existe. */
+  async renderBarcode(id: number): Promise<{ png: Buffer; codigo: string }> {
+    const product = await this.repo().findOne({ where: { id } });
+    if (!product) throw new NotFoundException('Producto no encontrado');
+    const codigo = await this.ensureCodigo(product);
+    const png = await renderCodigoBarrasPng(codigo);
+    return { png, codigo };
+  }
+
+  /**
+   * Genera y persiste el código de todos los productos que no lo tengan.
+   * Necesario para dejar el catálogo completo etiquetado de una sola vez.
+   */
+  async generarCodigosPendientes(): Promise<{
+    pendientes: number;
+    generados: number;
+    codigos: string[];
+  }> {
+    const productos = await this.repo().find({ where: { codigo: IsNull() } });
+    const codigos: string[] = [];
+    for (const p of productos) {
+      const codigo = buildCodigoBarras(p.id, p.codigoFabrica);
+      const choque = await this.repo().findOne({ where: { codigo } });
+      if (choque && choque.id !== p.id) continue;
+      p.codigo = codigo;
+      await this.repo().save(p);
+      codigos.push(codigo);
+    }
+    return {
+      pendientes: productos.length,
+      generados: codigos.length,
+      codigos,
+    };
   }
 
   async stockByLocation(id: number) {

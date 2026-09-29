@@ -18,7 +18,9 @@ import { SaleItem } from './entities/sale-item.entity';
 import { Payment } from './entities/payment.entity';
 import { Solicitud } from './entities/solicitud.entity';
 import { Devolucion } from './entities/devolucion.entity';
+import { Asistencia } from './entities/asistencia.entity';
 import { computeHash, generatePlaceholderImage } from './common/image-hash';
+import { buildCodigoBarras } from './common/barcode';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
@@ -46,6 +48,8 @@ interface ProductSeed {
   precio1: number;
   precio2: number;
   precioMayor: number;
+  /** Código de barras interno (Hito 3). Opcional: si falta se genera `AP-<id>-<codigoFabrica>`. */
+  codigo?: string;
 }
 
 const dataSource = new DataSource({
@@ -70,6 +74,7 @@ const dataSource = new DataSource({
     Payment,
     Solicitud,
     Devolucion,
+    Asistencia,
   ],
   synchronize: true,
 });
@@ -895,6 +900,22 @@ async function seedProducts(): Promise<Product[]> {
   return saved;
 }
 
+/**
+ * Hito 3: deja el catálogo completo etiquetado. Genera el código interno
+ * `AP-<id>-<codigoFabrica>` de todo producto que todavía no lo tenga.
+ */
+async function seedCodigosBarras(products: Product[]): Promise<number> {
+  const repo = dataSource.getRepository(Product);
+  let generados = 0;
+  for (const prod of products) {
+    if (prod.codigo?.trim()) continue;
+    prod.codigo = buildCodigoBarras(prod.id, prod.codigoFabrica);
+    await repo.save(prod);
+    generados++;
+  }
+  return generados;
+}
+
 async function seedInventory(
   products: Product[],
   locations: Location[],
@@ -935,7 +956,7 @@ async function seedInventory(
 
 async function clearAll(): Promise<void> {
   await dataSource.query(
-    'TRUNCATE TABLE devoluciones, solicitudes, movimientos, payments, sale_items, sales, facturas, inventory, products, users, locations, proveedores, clientes RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE asistencia, devoluciones, solicitudes, movimientos, payments, sale_items, sales, facturas, inventory, products, users, locations, proveedores, clientes RESTART IDENTITY CASCADE',
   );
 }
 
@@ -962,6 +983,9 @@ async function seed(): Promise<void> {
 
     const products = await seedProducts();
     console.log(`[seed] productos: ${products.length}`);
+
+    const codigos = await seedCodigosBarras(products);
+    console.log(`[seed] códigos de barras generados: ${codigos}`);
 
     await seedInventory(products, locations);
 
