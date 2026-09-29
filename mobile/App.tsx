@@ -25,6 +25,7 @@ import SalesHistoryScreen from './src/screens/SalesHistoryScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import SearchByImageScreen from './src/screens/SearchByImageScreen';
 import ProductDetailScreen from './src/screens/ProductDetailScreen';
+import ScannerScreen from './src/screens/ScannerScreen';
 import {
   colors,
 } from './src/theme';
@@ -56,6 +57,7 @@ function AdminDrawer() {
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
+      <Drawer.Screen name="Scanner" component={ScannerScreen} />
       <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
     </Drawer.Navigator>
   );
@@ -75,6 +77,7 @@ function TiendaDrawer() {
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
+      <Drawer.Screen name="Scanner" component={ScannerScreen} />
       <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
     </Drawer.Navigator>
   );
@@ -90,6 +93,7 @@ function InventarioDrawer() {
       <Drawer.Screen name="Inventario" component={InventarioScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
+      <Drawer.Screen name="Scanner" component={ScannerScreen} />
       <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
     </Drawer.Navigator>
   );

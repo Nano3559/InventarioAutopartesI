@@ -18,7 +18,7 @@ entender, correr, mantener y desplegar el proyecto.
 ## Documentos de negocio (raíz)
 
 - [requerimientos.md](../requerimientos.md) — ejercicio completo del cliente: roles, módulos, flujos y criterio principal.
-- [Plan Hito 3.md](../Plan%20Hito%203.md) — plan día a día del Hito 3 (conteo de productos con códigos de barras + IA), códigos de tarea (B/M/R) y fases.
+- [Plan Hito 3.md](../Plan%20Hito%203.md) — plan día a día del Hito 3 (códigos de barras + asistencia facial), códigos de tarea (B/M/R) y fases.
 
 ## Reglas de mantenimiento
 

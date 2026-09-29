@@ -68,8 +68,8 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 | GET | `/movimientos` | Historial de movimientos entre ubicaciones |
 | POST | `/movimientos` | Registrar traslado (origen → destino, cantidad, responsable) |
 
-> Ver también la sección [Hito 3 — Conteo por lotes](#hito-3--conteo-por-lotes-contrato-congelado--b1)
-> con el contrato congelado de `/movimientos/entrada/count` (aún sin implementar).
+> Ver también la sección [Hito 3 — códigos de barras y conteo por lotes](#hito-3--códigos-de-barras-y-conteo-por-lotes)
+> para el futuro `POST /movimientos/entrada/count` (aún sin implementar).
 
 ## Solicitudes
 
@@ -123,33 +123,51 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 | GET | `/reportes/mensual` | Reporte mensual por tienda (con costo) |
 | GET | `/reportes/proveedores` | Compras por proveedor |
 
-## Hito 3 — Conteo por lotes (contrato congelado · B1)
+## Hito 3 — Códigos de barras y conteo por lotes
 
-> **Contrato acordado el 22/09/2026 (tarea B1 del Plan Hito 3).** Los endpoints de esta
-> sección **aún no están implementados** (implementación: `entrada/count` en B2,
-> `inference/detect` en B4). No cambiar la forma request/response sin acordarlo antes con
-> el equipo (móvil/web), para no rehacer consumidores.
+> **Implementado (29/09/2026, tarea B1 del `Plan Hito 3.md`):** el flujo de códigos de barras
+> completo — `products.codigo`, `GET /products/by-barcode/:codigo`,
+> `GET /products/:id/barcode` y `POST /products/barcode/generate-all`, ya documentados en
+> [Products](#products). El escáner del móvil (`mobile/src/screens/ScannerScreen.tsx`) es
+> **solo de consulta**: lee un código y muestra la ficha del producto.
+>
+> **Descartado: conteo de piezas con IA/YOLO.** No hay modelo detector, ni dataset, ni
+> microservicio de inferencia, ni `POST /inference/detect` en este proyecto. Si algún día se
+> implementa el conteo de recepción, es **solo por códigos de barras**.
+>
+> **Flujos sobre el mismo escáner:** (a) **escanear desde el POS** → **tarea pendiente, sin
+> agendar** (diseño ya decidido: botón en `SalesScreen` + cámara en modal; ver "Tarea
+> pendiente" en `Plan Hito 3.md`); (b) **contar piezas en recepción** → fuera del hito,
+> propuesta tentativa abajo.
+>
+> Ninguno de los dos necesita un endpoint nuevo: `POST /sales` y `GET /products/by-barcode/:codigo`
+> ya cubren (a), y (b) sí necesitaría el endpoint de la sección siguiente.
 
-### `POST /api/movimientos/entrada/count` — modo solo-códigos (Ruta A)
+### `POST /api/movimientos/entrada/count` — conteo de recepción (fuera del hito)
 
 | | |
 | :--- | :--- |
-| Estado | **Congelado — por implementar (B2)** |
+| Estado | **Propuesta — no implementada, fuera del Hito 3** |
 | Acceso | `JwtAuthGuard` + `RolesGuard`, `@Roles('admin', 'inventario')` |
 | Content-Type | `application/json` |
+
+> No está implementado: hoy `movimientos.controller.ts` solo expone `GET /movimientos` y
+> `POST /movimientos` (traslados). Los campos `cantidadDeclarada` y `tipo='entrada'` ya
+> existen en la entidad, pero ningún flujo los escribe todavía. Antes de implementarlo hay que
+> resolver la nota sobre `origenId` más abajo.
 
 **Request**
 
 ```json
 {
   "locationId": 1,
-  "items": [{ "codigo": "DAI309005", "cantidad": 12 }]
+  "items": [{ "codigo": "AP-0001-FRLTOYHLX001", "cantidad": 12 }]
 }
 ```
 
 - `locationId` (number): ubicación donde se realiza el conteo (recepción de mercadería).
 - `items` (array): conteo agrupado por código de barras, `{codigo → cantidad}`.
-- `codigo` (string): código de barras leído (columna `products.codigo`).
+- `codigo` (string): código de barras leído (columna `products.codigo`, formato `AP-<id>-<codigoFabrica>`).
 - `cantidad` (number): piezas contadas para ese código.
 
 **Response `200`**
@@ -159,10 +177,10 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
   "ok": false,
   "total": 14,
   "faltantes": [
-    { "codigo": "DAI309005", "cantidadContada": 10, "cantidadDeclarada": 12 }
+    { "codigo": "AP-0001-FRLTOYHLX001", "cantidadContada": 10, "cantidadDeclarada": 12 }
   ],
   "sobra": [
-    { "codigo": "BUJ440-XXX", "cantidadContada": 4, "cantidadDeclarada": 2 }
+    { "codigo": "AP-0007-BUJ440XXX", "cantidadContada": 4, "cantidadDeclarada": 2 }
   ]
 }
 ```
@@ -172,61 +190,32 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 - `faltantes[]` / `sobra[]`: diferencias por código contra `movimientos.cantidadDeclarada`;
   `cantidadContada` = lo contado, `cantidadDeclarada` = lo que declara el movimiento.
 
-### `POST /api/inference/detect` — modo IA (Ruta B)
+### ~~`POST /api/inference/detect` — modo IA (Ruta B)~~ — DESCARTADO
 
-| | |
-| :--- | :--- |
-| Estado | **Congelado — por implementar (B4)** |
-| Servicio | Microservicio **Python FastAPI** (no NestJS), expuesto bajo el mismo prefijo `/api` |
-| Content-Type | `multipart/form-data` |
-
-**Request (multipart)**
-
-| Campo | Tipo | Descripción |
-| :--- | :--- | :--- |
-| `image` | file | Frame capturado por la cámara del móvil |
-| `barcodes` | string (JSON) | Códigos detectados en el mismo frame con su bbox: `[{"codigo":"DAI309005","x":0.12,"y":0.34,"w":0.2,"h":0.08}]` — `x,y,w,h` normalizados 0..1 (origen arriba-izquierda) respecto al frame |
-
-**Response `200`**
-
-```json
-[
-  {
-    "codigo": "DAI309005",
-    "clase": "pastillas_freno",
-    "cantidad": 12,
-    "confianza": 0.91,
-    "necesita_confirmacion": false
-  },
-  {
-    "clase": "bujia",
-    "cantidad": 3,
-    "confianza": 0.72,
-    "necesita_confirmacion": true
-  }
-]
-```
-
-- `codigo?` (string, opcional): presente cuando el bbox del código cae **dentro** del bbox
-  de la pieza → el código gana (identidad exacta). Ausente si la pieza no tiene etiqueta.
-- `clase` (string): clase de la pieza detectada por la IA (tipo/genérico).
-- `cantidad` (number): piezas detectadas para esa identidad/clase.
-- `confianza` (number): confianza de la detección, 0..1.
-- `necesita_confirmacion` (boolean): `true` si es candidato sin código que el encargado
-  debe confirmar antes de sumarlo al conteo.
+> **Ruta B eliminada del alcance el 29/09/2026.** Era el conteo de piezas con un modelo
+> detector (YOLO) servido por un microservicio **Python FastAPI** aparte. Se descartó por
+> costo (2º servicio en Render Free: 512 MB, 750 h/mes, 2º cold start) y por complejidad
+> (dataset + entrenamiento, que el proyecto no tiene). El `Plan Hito 3.md` lo registra en
+> "Descartado" y `AGENTS.md` lo reiterate.
+>
+> **No existe** ningún endpoint `inference/detect`, ni cliente HTTP a FastAPI, ni
+> `FACE_SERVICE_URL` / `FACE_API_KEY`. La única IA del proyecto es el reconocimiento facial
+> ArcFace, que corre **dentro de NestJS con `onnxruntime-node`** (módulo `attendance`).
+> Si alguien busca este endpoint, la referencia es `Plan Hito 3.md` línea 15, no este doc.
 
 ### Entidades del Hito 3 (columnas nuevas)
 
 | Entidad | Columna | Tipo | Observación |
 | :--- | :--- | :--- | :--- |
 | `products` | `codigo` | `varchar` UNIQUE, nullable | Código de barras Code128 del producto, formato `AP-<id>-<codigoFabrica>`. **Nullable** solo para compatibilidad: el seed y `POST /products/barcode/generate-all` lo generan para todo el catálogo |
-| `movimientos` | `cantidadDeclarada` | `integer`, nullable | Cantidad que la recepción declara, contra la que se compara el conteo |
-| `movimientos` | `tipo` | `varchar`, nullable | `'traslado'` \| `'entrada'`; `null` en los traslados existentes. B3 creará movimientos `tipo='entrada'` |
+| `movimientos` | `cantidadDeclarada` | `integer`, nullable | Cantidad que la recepción declara, contra la que se compara el conteo. **Ningún flujo la escribe todavía** |
+| `movimientos` | `tipo` | `varchar`, nullable | `'traslado'` \| `'entrada'`; `null` en los traslados existentes. Solo escribe `'entrada'` el futuro flujo de conteo de recepción |
 | `locations` | `codigo` | `varchar` UNIQUE | Ya existente; sin cambios |
 
-> `origenId` en `movimientos` sigue siendo **NOT NULL** hoy: la entrada de recepción de
-> proveedor (B3) deberá decidir si lo deja nullable (recibe en una ubicación sin origen)
-> o bien usa el almacén de recepción como origen. Pendiente de decisión en B3.
+> `origenId` en `movimientos` sigue siendo **NOT NULL** (`movimiento.entity.ts:36`), y ese es
+> el bloqueo real del conteo de recepción: una entrada de proveedor no tiene ubicación de
+> origen. Cuando se implemente hay que decidir si `origenId` pasa a nullable (recibe sin
+> origen) o si se usa el almacén de recepción como origen. **Decisión pendiente.**
 
 ## Notas
 

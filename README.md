@@ -105,7 +105,7 @@ Detalle con versiones y justificaciones: [docs/stack-tecnologico.md](docs/stack-
 │       ├── components/    AppDrawer por rol, StatCard, Badge...
 │       └── theme.ts       design tokens (light/dark)
 ├── docs/               Documentación técnica organizada
-├── Plan Hito 3.md      Plan día a día del Hito 3 (conteo + IA)
+├── Plan Hito 3.md      Plan día a día del Hito 3 (códigos de barras + asistencia facial)
 ├── requerimientos.md   Ejercicio del cliente (requisitos del sistema)
 └── AGENTS.md           Instrucciones para el asistente de código
 ```

@@ -30,6 +30,7 @@ const adminItems: NavItem[] = [
   { label: 'Devoluciones', icon: 'refresh', route: 'Devoluciones' },
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
+  { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
   { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
 ];
 
@@ -42,6 +43,7 @@ const tiendaItems: NavItem[] = [
   { label: 'Devoluciones', icon: 'refresh', route: 'Devoluciones' },
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
+  { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
   { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
 ];
 
@@ -50,6 +52,7 @@ const inventarioItems: NavItem[] = [
   { label: 'Inventario Físico', icon: 'cube', route: 'Inventario' },
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
+  { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
   { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
 ];
 
