@@ -2,7 +2,7 @@
 
 Sistema de Inventario y Ventas para 7 importadoras de autopartes (**AutoParts Pro / AutoRepuestos PRO**). Proyecto de Programación Avanzada (Unifranz). Implementado como monorepo simple con 3 subproyectos npm independientes (sin workspaces).
 
-Documentación del negocio y plan: `requerimientos.md` (ejercicio), `Plan Hito 3.md` (plan día a día del Hito 3 — conteo de productos con códigos de barras + IA) y `docs/git-convention.md` (flujo de Git del equipo). Documentación técnica consolidada en `docs/` (`docs/README.md` es el índice; `docs/api.md` se consulta con frecuencia).
+Documentación del negocio y plan: `requerimientos.md` (ejercicio), `Plan Hito 3.md` (plan día a día del Hito 3, 29/09 → 06/10/2026 — **códigos de barras + asistencia facial**, ver sección "Hito 3" más abajo), `Documento de Integración Hito 3.md` (referencia técnica previa) y `docs/git-convention.md` (flujo de Git del equipo). Documentación técnica consolidada en `docs/` (`docs/README.md` es el índice; `docs/api.md` se consulta con frecuencia).
 
 ## Asistentes y skills propios (opencode)
 
@@ -30,9 +30,35 @@ Archivos raíz: `Plan Hito 3.md`, `requerimientos.md`, `README.md` y `docs/` (do
 
 `admin` | `tienda` | `inventario` (en los requerimientos figura como "encargado de inventario"). Definidos en `backend/src/common/constants.ts` y aplicados por JWT/RBAC tanto en web como móvil.
 
+## Hito 3 — en curso (29/09 → 06/10/2026)
+
+Plan día a día en `Plan Hito 3.md` (8 días, 3 personas, 1 tarea diaria por persona). Entrega prioritaria del **día 1 (29/09): flujo completo de código de barras** — etiqueta por producto, cámara del celular, mensaje con la info del producto desde la BD.
+
+**Responsables**
+- **Brian** — backend NestJS y despliegue en **Render** (BD en Supabase). IA facial **in-process**.
+- **Raul** — app móvil (Expo) y **base de datos en Supabase** (bucket `faces`, ping diario para que el free tier no pause a los 7 días).
+- **Marco** — frontend web (Vercel). Nunca bloquea a Brian ni a Raul.
+
+**Decisiones tomadas** (estaban abiertas en `Documento de Integración Hito 3.md`; ese documento quedó desactualizado respecto a estas):
+
+- **Identidad de producto:** Code128 generado por el equipo → `products.codigo`, formato `AP-<id>-<codigoFabrica>`. Etiqueta **solo barras** (`includetext: false`), sin texto legible.
+- **Librería de códigos de barras:** `@bwip-js/node` (backend), `@bwip-js/browser` (web), `@bwip-js/react-native` (móvil). **No usar `jsbarcode` ni `bwip-js` v3.**
+- **Reconocimiento facial:** ArcFace ONNX int8 (**Apache-2.0**, `onnxmodelzoo/arcfaceresnet100-11-int8`) ejecutado **dentro de NestJS con `onnxruntime-node`** — un solo servicio. **No hay microservicio FastAPI**, ni `FACE_SERVICE_URL` / `FACE_API_KEY`.
+- **Sin modelo detector de rostros:** la app recorta 112×112 con guía oval y ArcFace ya consume ese recorte.
+- **Umbral de confianza:** `UMBRAL_CONFIANZA_FACIAL` se recalibra con **similitud coseno** (rango típico 0.28–0.45); el 0.55 inicial daba falsos negativos.
+- **Descartado:** conteo de autopartes con YOLO (ya no es el alcance).
+- **Registro facial:** el nombre del formulario debe existir en `users` (`nombre` + `apellido`); si no, 404. El endpoint asocia un rostro a un usuario ya creado, no crea usuarios.
+
+**Ya está listo:** entidades `Product.codigo`, `User` extendida (5 campos) y `Asistencia`; constantes en `backend/src/common/constants.ts`; `backend/sql/hito3.sql`; `AttendanceModule` registrado.
+
+**Trampas conocidas** (ver la tabla completa en el plan):
+- En Nest, `@Get('by-barcode/:codigo')` debe declararse **antes** de `@Get(':id')`, si no responde 400.
+- `npx tsc --noEmit` en `mobile/` requiere `npm install`: `node_modules` puede quedar desactualizado respecto a `package.json`.
+- El bucket `faces` es **privado** (URLs firmadas); datos biométricos → consentimiento explícito (Ley 26935 Bolivia).
+
 ## Backend (`backend/`)
 
-Módulos NestJS: `auth`, `users`, `products`, `locations`, `sales`, `movimientos`, `solicitudes`, `proveedores`, `costos`, `devoluciones`, `precios`, `reportes`. 14 entidades TypeORM en `src/entities/`. `schema.sql` = esquema PostgreSQL de referencia (ojo: no define `factura_items`, que sí existe como entidad).
+Módulos NestJS: `auth`, `users`, `products`, `locations`, `sales`, `movimientos`, `solicitudes`, `proveedores`, `costos`, `devoluciones`, `precios`, `reportes`, `attendance`. 14 entidades TypeORM en `src/entities/` (más `Asistencia`, del Hito 3). `schema.sql` = esquema PostgreSQL de referencia (ojo: no define `factura_items`, que sí existe como entidad).
 
 ### Comandos
 - `npm run start:dev` — dev con hot-reload (`nest start --watch`).
