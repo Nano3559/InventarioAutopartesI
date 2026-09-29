@@ -61,6 +61,9 @@ Dos flujos con visión asistida:
 | 9 | `ProductSeed` no incluye `codigo` → los productos quedaban sin etiqueta; se agrega la generación masiva (`npm run seed` y `POST /products/barcode/generate-all`) | `backend/src/seed.ts:35` | Brian (día 1) |
 | 10 | `clearAll()` del seed hace `TRUNCATE` **sin `asistencia`** → filas huérfanas | `backend/src/seed.ts` | Brian (día 5) |
 | 11 | Frontend **no tiene ninguna pantalla de personal** (`routes/index.tsx` no lista usuarios, no hay `users.service.ts`) | `frontend/src/` | Marco (día 3) |
+| 12 | `SalesScreen` solo acepta `initialSaleId`; su `addToCart` es un **closure local** sobre `cart` → el escáner no puede reutilizarlo desde otra pantalla (motivo de la opción C: botón + modal) | `mobile/src/screens/SalesScreen.tsx:71-75, 247-270` | Raul (tarea pendiente) |
+| 13 | El POS valida contra `stockByLocation[user.tiendaId]`, **no** contra `stockTotal` (que suma las 7 ubicaciones) | `mobile/src/screens/SalesScreen.tsx:110` | Raul (tarea pendiente) |
+| 14 | `Sales` y `Scanner` son pantallas **hermanas** del drawer, no una pila → el escáner no se puede apilar encima de la venta; el `inventario` además no tiene POS | `mobile/App.tsx:54,60` · `mobile/src/components/AppDrawer.tsx:27,40,46,55` | Raul (tarea pendiente) |
 
 ---
 
@@ -105,6 +108,79 @@ Solo dos cosas, y ninguna puede quedar a medias:
 | **8** Mar 06/10<br>Demo y cierre | **B8** Bugfixes acumulados, dejar Render desplegado y despierto, tag de release · *Necesita: B7* | **R8** Guión + video demo móvil: etiqueta → scan → producto; registro → marcaje → **nombre + hora** · *Necesita: R7* | **M8** Demo web (etiquetas, personal, asistencia, dashboard) · Definición de Terminado (build + lint en los 3 módulos) · merge a `main` · *Necesita: B8, R8* |
 
 > ⚠️ **Calibración del umbral (tarea de B4).** `UMBRAL_CONFIANZA_FACIAL = 0.55` quedó definido para el scoring de InsightFace. Con **similitud coseno sobre embeddings ArcFace normalizados** el rango típico de "misma persona" es **0.28–0.45**. Con 0.55 fijo el sistema daría falsos negativos. Medir con los rostros de R5 y ajustar la constante en `common/constants.ts` antes de la demo.
+
+---
+
+## Tarea pendiente — escanear desde el POS (no agendada en este hito)
+
+> **Estado: PENDIENTE, sin día asignado.** Quedó fuera de los 8 días a pedido del equipo
+> (02/10/2026). **No es parte de la entrega del 06/10.** La decisión de diseño ya está tomada
+> abajo, así que cuando se asigne solo hay que implementar. Anotada acá para no perderla:
+> el Flujo A (R1/B1) es **solo consulta** y funciona por sí solo.
+
+**Objetivo:** que el vendedor escanee una etiqueta desde la pantalla de venta y la pieza entre
+al carrito, sin cambiar de pantalla.
+
+**Decisión tomada (opción C):** botón **"Escanear" dentro de `SalesScreen`**, que abre la cámara
+como **modal encima** del POS.
+
+### Por qué esta y no las otras
+
+| Opción | Por qué se descartó |
+| :--- | :--- |
+| `CartContext` (carrito compartido) | Obliga a refactorizar `SalesScreen` (1257 líneas) con `cart` como estado central. Riesgo de regresión en el POS a cambio de una capacidad que no se pidió |
+| `Sales` acepta el producto como parámetro | Manda al POS a la pantalla hermana del drawer por cada pieza escaneada: N rebotes para N piezas, más lento que escribir el código a mano |
+| **C — botón + modal** ✅ | El carrito no se mueve ni se toca. Gana en esfuerzo **y** en velocidad de uso |
+
+### Cómo queda
+
+```
+┌─ PUNTO DE VENTA ──────────────────────┐
+│ Buscar producto…        [ 📷 Escanear ] │  ← botón nuevo
+├───────────────────────────────────────┤
+│ 🛒 Carrito                             │
+│   Pastilla freno   x2      Bs 40.00    │
+│   Bujía            x1      Bs 15.00    │
+└───────────────────────────────────────┘
+        ↓ tocás [Escanear]
+   ┌─────────────────────────┐
+   │  ( cámara )         [X]  │  ← modal encima, no navega
+   └─────────────────────────┘
+        ↓ detectá la etiqueta
+   → agrega al carrito, se cierra, seguís en la venta
+```
+
+1. El carrito **no se mueve**: `addToCart` ya está en `SalesScreen` (`:247-270`) y se la llama directo.
+2. La cámara abre como **modal**, no navegando. `Sales` y `Scanner` son pantallas **hermanas** del
+   drawer (`App.tsx:54` y `:60`), no una pila: no se puede apilar el escáner encima de la venta.
+3. En el POS el escaneo **agrega directo**, sin mostrar la ficha (la ficha es para consultar).
+4. **`ScannerScreen` no se borra**: sigue siendo la herramienta de consulta y la que usa el rol
+   `inventario`, que no tiene POS.
+
+### Para implementarla (todo verificado en el código)
+
+- **Extraer la cámara a un componente compartido** `mobile/src/components/BarcodeScanModal.tsx`
+  (cámara + linterna + permisos + dedup de 2500 ms, ya resuelto en `ScannerScreen`). Lo usan
+  `SalesScreen` (modo POS) y `ScannerScreen` (modo consulta) → no duplicar la lógica de cámara.
+- **Trampa — el stock que valida el POS no es `stockTotal`:** `SalesScreen.tsx:110` usa
+  `p.stockByLocation[user.tiendaId] ?? p.stockTotal`. `stockTotal` suma las 7 importadoras;
+  usarlo dejaría vender más de lo que hay en la tienda donde se cobra.
+- **Trampa — el rol `inventario` no tiene POS:** el botón vive en `SalesScreen`, que solo está
+  en los drawers de `admin` y `tienda` (`AppDrawer.tsx:27,40` vs `:46,55`). Ese rol no lo ve.
+- **Trampa — no colgarlo de `onBarcodeScanned`:** el escáner es multiscan; si el alta al carrito
+  fuera automática, un solo disparo agregaría N veces. Va en un botón explícito.
+- **Backend: no se toca.** `POST /sales` ya acepta `items: [{productId, cantidad, precio}]`, y
+  `GET /products/by-barcode/:codigo` ya devuelve `stockByLocation` (`products.service.ts:191`),
+  así que no hace falta ninguna request extra.
+- **Sin decisión pendiente de diseño.** Queda una de UX menor: si el modal se cierra tras cada
+  escaneo (recomendado: se ve el carrito y se detectan errores de apunte) o si se mantiene
+  abierto para escanear varias seguidas.
+
+### Otra tarea pendiente — conteo de recepción
+
+`POST /movimientos/entrada/count` (ver `docs/api.md`): **fuera del Hito 3**, sin implementar, y
+con un bloqueo técnico sin resolver — `origenId` es NOT NULL y una entrada de proveedor no tiene
+ubicación de origen. El conteo por **IA/YOLO quedó descartado** y no vuelve a plantearse.
 
 ---
 
@@ -174,4 +250,8 @@ Lo mismo aplica en la práctica porque cada persona trabaja en un módulo y dire
 
 ## Fuera de alcance en este hito
 
-Detección/alineación de rostros con modelo detector · FastAPI como servicio aparte · sincronización de foto de perfil · re-entrenamiento o dataset propio · RLS en Supabase (el backend usa `service_role`) · app web de cámara en vivo (el registro facial es móvil).
+Detección/alineación de rostros con modelo detector · FastAPI como servicio aparte · sincronización de foto de perfil · re-entrenamiento o dataset propio · RLS en Supabase (el backend usa `service_role`) · app web de cámara en vivo (el registro facial es móvil) · **conteo de piezas con IA/YOLO (descartado, no es parte de este proyecto)** · **escanear desde el POS** (decisión tomada en "Tarea pendiente", sin día asignado) · **conteo de recepción con `POST /movimientos/entrada/count`** (propuesta en `docs/api.md`, sin implementar).
+
+> El escáner del Hito 3 es **solo de consulta** (R1/B1): lee un código y muestra la ficha del
+> producto. Que además arme el carrito del POS quedó **anotado y sin agendar** — con el diseño
+> ya decidido — en la sección "Tarea pendiente". La entrega del 06/10 no lo incluye.

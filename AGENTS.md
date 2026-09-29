@@ -47,6 +47,7 @@ Plan día a día en `Plan Hito 3.md` (8 días, 3 personas, 1 tarea diaria por pe
 - **Sin modelo detector de rostros:** la app recorta 112×112 con guía oval y ArcFace ya consume ese recorte.
 - **Umbral de confianza:** `UMBRAL_CONFIANZA_FACIAL` se recalibra con **similitud coseno** (rango típico 0.28–0.45); el 0.55 inicial daba falsos negativos.
 - **Descartado:** conteo de autopartes con YOLO (ya no es el alcance).
+- **Pendiente, sin agendar:** escaneo desde el POS (botón en `SalesScreen` + cámara en modal, decisión ya tomada) y conteo de recepción. El escáner del Hito 3 es **solo de consulta**. Ver "Tarea pendiente" en `Plan Hito 3.md`.
 - **Registro facial:** el nombre del formulario debe existir en `users` (`nombre` + `apellido`); si no, 404. El endpoint asocia un rostro a un usuario ya creado, no crea usuarios.
 
 **Ya está listo:** entidades `Product.codigo`, `User` extendida (5 campos) y `Asistencia`; constantes en `backend/src/common/constants.ts`; `backend/sql/hito3.sql`; `AttendanceModule` registrado.

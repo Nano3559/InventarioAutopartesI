@@ -1,3 +1,10 @@
+export interface StockLocationDetail {
+  locationId: number;
+  ubicacion: string;
+  tipo: string;
+  cantidad: number;
+}
+
 export interface Product {
   id: number;
   producto: string;
@@ -9,6 +16,8 @@ export interface Product {
   detalle?: string;
   codigoOem?: string;
   codigoFabrica: string;
+  /** Identidad interna de la etiqueta Code128 (AP-<id>-<codigoFabrica>). */
+  codigo?: string | null;
   imagen?: string;
   costo: number;
   precio1?: number;
@@ -16,6 +25,7 @@ export interface Product {
   precioMayor?: number;
   stockTotal: number;
   stockByLocation?: Record<number, number>;
+  stockLocationDetails?: StockLocationDetail[];
   stockMinimo: number;
   activo: boolean;
   createdAt: string;
@@ -30,5 +40,6 @@ export interface ProductFilters {
   anio?: string;
   codigoOem?: string;
   codigoFabrica?: string;
+  codigo?: string;
   locationId?: number;
 }

@@ -25,6 +25,14 @@ export async function getProductById(id: number, token?: string) {
   return request<Product>(`/products/${id}`, { method: 'GET' }, token);
 }
 
+/**
+ * Flujo A del Hito 3: identifica el producto a partir de la etiqueta Code128.
+ * El backend responde 404 si el código no existe o el producto está inactivo.
+ */
+export async function getProductByBarcode(codigo: string, token?: string) {
+  return request<Product>(`/products/by-barcode/${encodeURIComponent(codigo.trim())}`, { method: 'GET' }, token);
+}
+
 export async function getProductStock(productId: number, token?: string) {
   return request<Array<{ locationId: number; ubicacion: string; tipo: string; cantidad: number }>>(`/products/${productId}/stock`, {}, token);
 }

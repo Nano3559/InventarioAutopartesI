@@ -1,0 +1,79 @@
+name: Supabase ping diario
+
+# El plan free de Supabase pausa el proyecto tras 7 días sin actividad. Este
+# workflow hace una lectura mínima diaria para que la base siga despierta.
+# Referencia: "Plan Hito 3.md" → R1 (Supabase: ping diario).
+#
+# Secretos requeridos en el repositorio (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL  → https://<project-ref>.supabase.co
+#   SUPABASE_KEY  → service_role key (o anon, si la tabla no tiene RLS)
+
+on:
+  schedule:
+    # 13:17 UTC, fuera de la hora punta de los runners de GitHub.
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Mantener Supabase activo
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Consultar products
+        id: ping
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "::error::Faltan los secretos SUPABASE_URL o SUPABASE_KEY en el repositorio."
+            exit 1
+          fi
+
+          # count=exact devuelve la cabecera Content-Range con el total de filas
+          # que aún no tienen código de barras asignado.
+          url="${SUPABASE_URL%/}/rest/v1/products?select=id,codigo&codigo=is.null"
+          response="$(curl -sS -D - -o /tmp/body.json \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Prefer: count=exact" \
+            -H "Range: 0-0" \
+            "${url}")"
+
+          echo "$response" | sed -n '1,20p'
+
+          if echo "$response" | grep -qi '^HTTP/.* 200'; then
+            pendientes="$(echo "$response" | grep -i '^content-range:' | sed -E 's#.*/([0-9]+|\*).*#\1#' || true)"
+            echo "Ping OK. Productos sin código de barras: ${pendientes:-0}"
+            if [ "${pendientes:-0}" != "0" ] && [ "${pendientes:-0}" != "*" ]; then
+              echo "::warning::Hay ${pendientes} producto(s) sin código de barras. Ejecuta POST /api/products/barcode/generate-all (admin) en el backend."
+            fi
+          else
+            echo "::error::Supabase respondió con un estado distinto de 200."
+            cat /tmp/body.json || true
+            exit 1
+          fi
+
+      - name: Verificar índice único de products.codigo
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          # Un índice único es la garantía de que un código de barras identifica
+          # un solo producto. La definición idempotente vive en
+          # backend/sql/hito3.sql (CREATE UNIQUE INDEX IF NOT EXISTS "UQ_products_codigo").
+          # Esta consulta informa si está aplicado; se lee en el SQL Editor de Supabase:
+          #
+          #   select indexname, indexdef
+          #   from pg_indexes
+          #   where schemaname = 'public' and tablename = 'products' and indexdef like '%codigo%';
+          #
+          echo "Índice único de products.codigo: verificar con la consulta de arriba en el SQL Editor."
