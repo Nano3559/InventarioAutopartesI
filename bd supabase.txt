@@ -1,0 +1,207 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.clientes (
+  id integer NOT NULL DEFAULT nextval('clientes_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  ciNit character varying,
+  celular character varying,
+  createdAt timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT clientes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.devoluciones (
+  id integer NOT NULL DEFAULT nextval('devoluciones_id_seq'::regclass),
+  fecha timestamp without time zone NOT NULL DEFAULT now(),
+  productId integer NOT NULL,
+  motivo character varying NOT NULL,
+  cantidad integer NOT NULL,
+  monto double precision NOT NULL,
+  metodo character varying NOT NULL,
+  locationId integer NOT NULL,
+  usuarioId integer NOT NULL,
+  ventaId integer,
+  saleItemId integer,
+  CONSTRAINT devoluciones_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_6d7f59f686e034042da017d7af2 FOREIGN KEY (usuarioId) REFERENCES public.users(id),
+  CONSTRAINT FK_6dd7d7f9856a42a3b662ccb77d5 FOREIGN KEY (productId) REFERENCES public.products(id),
+  CONSTRAINT FK_d6e15989401f3857141a2cb62d4 FOREIGN KEY (locationId) REFERENCES public.locations(id),
+  CONSTRAINT FK_b5146a6d4c2a4bf27b95c4e3f14 FOREIGN KEY (ventaId) REFERENCES public.sales(id)
+);
+CREATE TABLE public.factura_items (
+  id integer NOT NULL DEFAULT nextval('factura_items_id_seq'::regclass),
+  facturaId integer NOT NULL,
+  codigoFabrica character varying NOT NULL,
+  producto character varying NOT NULL,
+  marca character varying NOT NULL,
+  modelo character varying NOT NULL,
+  anio character varying,
+  detalle character varying,
+  costo double precision NOT NULL DEFAULT '0'::double precision,
+  cantidad integer NOT NULL DEFAULT 0,
+  almacenId integer NOT NULL,
+  CONSTRAINT factura_items_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_41e13c4a0928217546fd29257c9 FOREIGN KEY (facturaId) REFERENCES public.facturas(id),
+  CONSTRAINT FK_fafb09319343fe48ab012cfe011 FOREIGN KEY (almacenId) REFERENCES public.locations(id)
+);
+CREATE TABLE public.facturas (
+  id integer NOT NULL DEFAULT nextval('facturas_id_seq'::regclass),
+  proveedorId integer NOT NULL,
+  numero character varying NOT NULL,
+  tipoCambio double precision NOT NULL DEFAULT 1,
+  porcentaje double precision NOT NULL DEFAULT 0,
+  monto double precision NOT NULL DEFAULT 0,
+  archivo text,
+  fecha timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT facturas_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_0ffb497c8b449c9d6e2959dcc83 FOREIGN KEY (proveedorId) REFERENCES public.proveedores(id)
+);
+CREATE TABLE public.inventory (
+  id integer NOT NULL DEFAULT nextval('inventory_id_seq'::regclass),
+  productId integer NOT NULL,
+  locationId integer NOT NULL,
+  cantidad integer NOT NULL DEFAULT 0,
+  CONSTRAINT inventory_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_178e44a002ef47ff6a0c5d196ef FOREIGN KEY (locationId) REFERENCES public.locations(id),
+  CONSTRAINT FK_c8622e1e24c6d054d36e8824490 FOREIGN KEY (productId) REFERENCES public.products(id)
+);
+CREATE TABLE public.locations (
+  id integer NOT NULL DEFAULT nextval('locations_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  tipo character varying NOT NULL,
+  numero integer NOT NULL,
+  codigo character varying NOT NULL UNIQUE,
+  ubicacion character varying,
+  horarios character varying,
+  contacto character varying,
+  CONSTRAINT locations_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.movimientos (
+  id integer NOT NULL DEFAULT nextval('movimientos_id_seq'::regclass),
+  productId integer NOT NULL,
+  cantidad integer NOT NULL,
+  origenId integer NOT NULL,
+  destinoId integer NOT NULL,
+  usuarioId integer NOT NULL,
+  fecha timestamp without time zone NOT NULL DEFAULT now(),
+  observacion character varying,
+  cantidadDeclarada integer,
+  tipo character varying,
+  CONSTRAINT movimientos_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_2d52ccab7c9bd48c3eabab812a2 FOREIGN KEY (productId) REFERENCES public.products(id),
+  CONSTRAINT FK_3a5880f3fae856b074862c1c677 FOREIGN KEY (destinoId) REFERENCES public.locations(id),
+  CONSTRAINT FK_82b5cb68093077742683848ee82 FOREIGN KEY (usuarioId) REFERENCES public.users(id),
+  CONSTRAINT FK_d2855b22f4b5120ae70052e5af0 FOREIGN KEY (origenId) REFERENCES public.locations(id)
+);
+CREATE TABLE public.payments (
+  id integer NOT NULL DEFAULT nextval('payments_id_seq'::regclass),
+  saleId integer NOT NULL,
+  metodo character varying NOT NULL,
+  monto double precision NOT NULL,
+  CONSTRAINT payments_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_e15427928c7a02bd304d628c41e FOREIGN KEY (saleId) REFERENCES public.sales(id)
+);
+CREATE TABLE public.products (
+  id integer NOT NULL DEFAULT nextval('products_id_seq'::regclass),
+  producto character varying NOT NULL,
+  fabricante character varying NOT NULL,
+  empresaFabricante character varying,
+  marca character varying NOT NULL,
+  modelo character varying NOT NULL,
+  anio character varying,
+  detalle character varying,
+  codigoOem character varying,
+  codigoFabrica character varying NOT NULL,
+  imagen text,
+  imagenHash character varying,
+  costo double precision NOT NULL DEFAULT 0,
+  precio1 double precision,
+  precio2 double precision,
+  precioMayor double precision,
+  stockMinimo integer NOT NULL DEFAULT 1,
+  activo boolean NOT NULL DEFAULT true,
+  createdAt timestamp without time zone NOT NULL DEFAULT now(),
+  codigo character varying UNIQUE,
+  CONSTRAINT products_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.proveedores (
+  id integer NOT NULL DEFAULT nextval('proveedores_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  pais character varying NOT NULL DEFAULT 'Bolivia'::character varying,
+  contacto character varying,
+  createdAt timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT proveedores_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.sale_items (
+  id integer NOT NULL DEFAULT nextval('sale_items_id_seq'::regclass),
+  saleId integer NOT NULL,
+  productId integer NOT NULL,
+  cantidad integer NOT NULL,
+  precio double precision NOT NULL,
+  subtotal double precision NOT NULL,
+  CONSTRAINT sale_items_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_c642be08de5235317d4cf3deb40 FOREIGN KEY (saleId) REFERENCES public.sales(id),
+  CONSTRAINT FK_d675aea38a16313e844662c48f8 FOREIGN KEY (productId) REFERENCES public.products(id)
+);
+CREATE TABLE public.sales (
+  id integer NOT NULL DEFAULT nextval('sales_id_seq'::regclass),
+  codigo character varying NOT NULL UNIQUE,
+  fecha timestamp without time zone NOT NULL DEFAULT now(),
+  tipo character varying NOT NULL DEFAULT 'menor'::character varying,
+  total double precision NOT NULL,
+  requiereFactura boolean NOT NULL DEFAULT false,
+  lugarEntrega character varying,
+  paraQuien character varying,
+  locationId integer NOT NULL,
+  usuarioId integer NOT NULL,
+  clienteId integer,
+  CONSTRAINT sales_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_3cb0abfd86da005d29337b4793d FOREIGN KEY (locationId) REFERENCES public.locations(id),
+  CONSTRAINT FK_ce042019578fafce54f26b6c526 FOREIGN KEY (usuarioId) REFERENCES public.users(id),
+  CONSTRAINT FK_eb1a6c945c423b776588e3c3e9c FOREIGN KEY (clienteId) REFERENCES public.clientes(id)
+);
+CREATE TABLE public.solicitudes (
+  id integer NOT NULL DEFAULT nextval('solicitudes_id_seq'::regclass),
+  productId integer NOT NULL,
+  cantidad integer NOT NULL,
+  tiendaId integer NOT NULL,
+  origenId integer,
+  usuarioId integer NOT NULL,
+  fecha timestamp without time zone NOT NULL DEFAULT now(),
+  estado character varying NOT NULL DEFAULT 'Pendiente'::character varying,
+  auto boolean NOT NULL DEFAULT false,
+  CONSTRAINT solicitudes_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_14e7497249c1cbff307fc8a1634 FOREIGN KEY (usuarioId) REFERENCES public.users(id),
+  CONSTRAINT FK_33274f68fbc5c94cb03e6df63a8 FOREIGN KEY (origenId) REFERENCES public.locations(id),
+  CONSTRAINT FK_bd2a1993dc609ccfe439a03c976 FOREIGN KEY (productId) REFERENCES public.products(id),
+  CONSTRAINT FK_ea1b72fda0983b193e779a1aac5 FOREIGN KEY (tiendaId) REFERENCES public.locations(id)
+);
+CREATE TABLE public.users (
+  id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  password character varying NOT NULL,
+  rol character varying NOT NULL,
+  tiendaId integer,
+  createdAt timestamp without time zone NOT NULL DEFAULT now(),
+  apellido character varying,
+  embedding jsonb,
+  facePhoto text,
+  faceRegisteredAt timestamp without time zone,
+  activo boolean NOT NULL DEFAULT true,
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT FK_86557b981d677a13035d2a12208 FOREIGN KEY (tiendaId) REFERENCES public.locations(id)
+);
+CREATE TABLE public.asistencia (
+  id integer NOT NULL DEFAULT nextval('asistencia_id_seq'::regclass),
+  usuarioId integer NOT NULL,
+  locationId integer,
+  fecha timestamp without time zone NOT NULL DEFAULT now(),
+  tipo character varying NOT NULL,
+  confianza double precision,
+  metodo character varying NOT NULL DEFAULT 'automatico'::character varying,
+  confirmadoPorId integer,
+  CONSTRAINT asistencia_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_asistencia_usuario FOREIGN KEY (usuarioId) REFERENCES public.users(id),
+  CONSTRAINT fk_asistencia_location FOREIGN KEY (locationId) REFERENCES public.locations(id),
+  CONSTRAINT fk_asistencia_confirmadopor FOREIGN KEY (confirmadoPorId) REFERENCES public.users(id)
+);

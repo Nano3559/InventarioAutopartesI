@@ -28,11 +28,11 @@ autenticación/RBAC y los flujos de negocio críticos.
 - **Imágenes** de producto: se guardan en el FS (`/uploads`, servidas estáticamente)
   y se suben a **Supabase** vía `sharp` (hash) en `backend/src/common/image-hash.ts`.
 
-## 2. Modelo de datos (14 entidades TypeORM)
+## 2. Modelo de datos (15 entidades TypeORM)
 
 | Entidad | Tabla | Propósito |
 | :--- | :--- | :--- |
-| `User` | `users` | Usuarios con `rol` (admin/tienda/inventario) + FK `tienda` |
+| `User` | `users` | Usuarios con `rol` (admin/tienda/inventario) + FK `tienda` + Hito 3: `embedding`, `facePhoto`, `faceRegisteredAt`, `activo` (registro facial) |
 | `Location` | `locations` | 7 ubicaciones: 4 almacenes + 3 tiendas (`tipo`, `codigo`) |
 | `Product` | `products` | Catálogo: fabricante, marca, modelo, años, OEM, fábrica, código de barras (`codigo`, Hito 3), precios, costo, stock mínimo |
 | `Inventory` | `inventory` | Stock por producto + ubicación (UNIQUE product+location) |
@@ -44,14 +44,20 @@ autenticación/RBAC y los flujos de negocio críticos.
 | `Proveedor` | `proveedores` | Proveedor Bolivia (para costos) |
 | `Factura` / `FacturaItem` | `facturas` / `factura_items` | Facturas de compra: tipo cambio, %, monto, archivo e ítems |
 | `Devolucion` | `devoluciones` | Devoluciones (motivo, cantidad, monto, método) |
+| `Asistencia` | `asistencia` | Hito 3: marcaje de asistencia por reconocimiento facial (usuario, fecha, tipo `entrada`\|`salida`, `confianza`, `metodo`, tienda, quién confirmó) |
 
 > `schema.sql` es el esquema PostgreSQL de referencia. **Nota:** no define
 > `factura_items` aunque la entidad `FacturaItem` sí existe.
+>
+> `sql/hito3.sql` es el DDL ejecutable e idempotente del Hito 3 (tabla `asistencia`
+> + campos faciales en `users` + `products.codigo`). Aplícalo con el SQL Editor de
+> Supabase o con `psql`; en dev `DB_SYNC=true` ya lo replica desde las entidades.
 
 ## 3. Módulos NestJS
 
 `auth` · `users` · `products` · `locations` · `sales` · `movimientos` ·
-`solicitudes` · `proveedores` · `costos` · `devoluciones` · `precios` · `reportes`.
+`solicitudes` · `proveedores` · `costos` · `devoluciones` · `precios` · `reportes` ·
+`attendance` (Hito 3, en preparación).
 
 Infraestructura compartida:
 
