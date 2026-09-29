@@ -29,9 +29,12 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 
 | Método | Ruta | Descripción |
 | :--- | :--- | :--- |
-| GET | `/products` | Listar/filtrar catálogo |
+| GET | `/products` | Listar/filtrar catálogo (admite `?codigo=` y `?search=`) |
+| GET | `/products/by-barcode/:codigo` | Buscar producto por código de barras (solo `activo = true`). **Declarada antes de `:id`** |
 | GET | `/products/:id` | Detalle de producto |
 | GET | `/products/:id/stock` | Stock del producto por ubicación |
+| GET | `/products/:id/barcode` | Etiqueta PNG Code128 (`AP-<id>-<codigoFabrica>`); persiste `codigo` si era NULL |
+| POST | `/products/barcode/generate-all` | Generar los códigos de barras de todo el catálogo sin etiquetar (**solo admin**) |
 | POST | `/products` | Crear producto |
 | PATCH | `/products/:id` | Actualizar producto |
 | DELETE | `/products/:id` | Eliminar producto |
@@ -216,7 +219,7 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 
 | Entidad | Columna | Tipo | Observación |
 | :--- | :--- | :--- | :--- |
-| `products` | `codigo` | `varchar` UNIQUE, nullable | Código de barras del producto; identifica el ítem en el conteo. Datos sembrados sin él (nullable) |
+| `products` | `codigo` | `varchar` UNIQUE, nullable | Código de barras Code128 del producto, formato `AP-<id>-<codigoFabrica>`. **Nullable** solo para compatibilidad: el seed y `POST /products/barcode/generate-all` lo generan para todo el catálogo |
 | `movimientos` | `cantidadDeclarada` | `integer`, nullable | Cantidad que la recepción declara, contra la que se compara el conteo |
 | `movimientos` | `tipo` | `varchar`, nullable | `'traslado'` \| `'entrada'`; `null` en los traslados existentes. B3 creará movimientos `tipo='entrada'` |
 | `locations` | `codigo` | `varchar` UNIQUE | Ya existente; sin cambios |

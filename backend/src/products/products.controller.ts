@@ -8,10 +8,12 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -48,9 +50,38 @@ export class ProductsController {
     return this.productsService.findAll(filters);
   }
 
+  /**
+   * Identifica el producto por su código de barras.
+   * Debe declararse ANTES de `@Get(':id')`: si no, Express intenta parsear
+   * "by-barcode" con ParseIntPipe y responde 400.
+   */
+  @Get('by-barcode/:codigo')
+  findByBarcode(@Param('codigo') codigo: string) {
+    return this.productsService.findByCodigo(codigo);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.productsService.findOne(id);
+  }
+
+  /** Etiqueta PNG Code128 (solo barras). Asigna el código si no existe. */
+  @Get(':id/barcode')
+  async barcode(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+    const { png, codigo } = await this.productsService.renderBarcode(id);
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Disposition': `inline; filename="etiqueta-${codigo}.png"`,
+      'Cache-Control': 'no-store',
+    });
+    res.send(png);
+  }
+
+  /** Genera los códigos de todos los productos que aún no lo tengan. */
+  @Post('barcode/generate-all')
+  @Roles('admin')
+  generateAllBarcodes() {
+    return this.productsService.generarCodigosPendientes();
   }
 
   @Get(':id/stock')
