@@ -16,6 +16,7 @@ export interface Product {
   detalle?: string | null;
   codigoOem?: string | null;
   codigoFabrica: string;
+  codigo?: string | null;
   imagen?: string | null;
   costo: number;
   precio1?: number | null;
@@ -39,6 +40,7 @@ export interface ProductFilters {
   anio?: string;
   codigoOem?: string;
   codigoFabrica?: string;
+  codigo?: string;
   activo?: string;
 }
 
