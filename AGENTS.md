@@ -56,6 +56,8 @@ Plan día a día en `Plan Hito 3.md` (8 días, 3 personas, 1 tarea diaria por pe
 - En Nest, `@Get('by-barcode/:codigo')` debe declararse **antes** de `@Get(':id')`, si no responde 400.
 - `npx tsc --noEmit` en `mobile/` requiere `npm install`: `node_modules` puede quedar desactualizado respecto a `package.json`.
 - El bucket `faces` es **privado** (URLs firmadas); datos biométricos → consentimiento explícito (Ley 26935 Bolivia).
+- Un `.ts` **fuera de `src/`** (ej. `backend/spike/`) entra en `nest build` si no está en el `exclude` de `tsconfig.build.json`: eso baja el `rootDir` y `dist/main.js` pasa a `dist/src/main.js`, rompiendo `npm run start:prod` **sin error de build**.
+- `leftJoinAndSelect('a.usuario', 'u')` filtra **todas** las columnas de `users`, incluido `password` y `embedding`. Para joins de solo lectura usar `leftJoin(...)` + `addSelect([...])` con las columnas explícitas.
 
 ## Backend (`backend/`)
 
