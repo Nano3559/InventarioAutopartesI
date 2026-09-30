@@ -12,6 +12,7 @@ import {
   PackagePlus,
   ToggleLeft,
   ToggleRight,
+  Barcode,
 } from 'lucide-react';
 import type { Product } from '../../types/product.types';
 import { resolveImageUrl } from '../../api/client';
@@ -23,6 +24,7 @@ interface ProductTableProps {
   onOpenEditModal: (product: Product) => void;
   onOpenDeleteModal: (product: Product) => void;
   onOpenAddStockModal: (product: Product) => void;
+  onOpenBarcodeModal: (product: Product) => void;
   onToggleActive: (product: Product) => void;
 }
 
@@ -33,6 +35,7 @@ export function ProductTable({
   onOpenEditModal,
   onOpenDeleteModal,
   onOpenAddStockModal,
+  onOpenBarcodeModal,
   onToggleActive,
 }: ProductTableProps) {
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
@@ -73,6 +76,7 @@ export function ProductTable({
               <th>Repuesto</th>
               <th>Vehículo</th>
               <th>Fabricante / Códigos</th>
+              <th>Código de Barras</th>
               <th>Precios (Bs.)</th>
               <th>Stock Total</th>
               <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -152,6 +156,31 @@ export function ProductTable({
                           </span>
                         )}
                       </div>
+                    </div>
+                  </td>
+
+                  {/* Código de Barras (Hito 3) */}
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      {p.codigo ? (
+                        <span className="barcode-table-chip" title="Código Code128 asignado">
+                          <Barcode size={13} color="#38bdf8" />
+                          <span>{p.codigo}</span>
+                        </span>
+                      ) : (
+                        <span className="barcode-table-chip pending" title="Código se asignará automáticamente">
+                          Pendiente
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-table-action"
+                        style={{ color: '#38bdf8' }}
+                        onClick={() => onOpenBarcodeModal(p)}
+                        title="Ver e imprimir etiqueta individual Code128"
+                      >
+                        <Barcode size={15} />
+                      </button>
                     </div>
                   </td>
 
