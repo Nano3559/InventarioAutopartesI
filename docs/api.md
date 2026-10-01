@@ -123,13 +123,52 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 | GET | `/reportes/mensual` | Reporte mensual por tienda (con costo) |
 | GET | `/reportes/proveedores` | Compras por proveedor |
 
-## Hito 3 — Códigos de barras y conteo por lotes
+## Attendance
+
+Solo rol `admin` (datos de personal). Es el módulo que B2 del `Plan Hito 3.md` abriu rutas; el
+marcaje en sí (`POST /attendance/check`) llega en B4.
+
+| Método | Ruta | Descripción |
+| :--- | :--- | :--- |
+| GET | `/attendance` | Historial paginado con filtros (ver abajo) |
+| PATCH | `/attendance/:id` | Corregir un marcaje: `usuarioId`, `locationId`, `fecha`, `tipo`, `metodo`, `confianza`, `confirmadoPorId` |
+
+**`GET /attendance`** — query params:
+
+| Param | Default | Notas |
+| :--- | :--- | :--- |
+| `page` | `1` | Entero positivo |
+| `limit` | `25` | Entero positivo, tope 200 |
+| `usuarioId` | — | Filtra por persona |
+| `locationId` | — | Filtra por tienda |
+| `tipo` | — | `entrada` \| `salida` |
+| `metodo` | — | `automatico` \| `manual` |
+| `desde` / `hasta` | — | `YYYY-MM-DD` (se toma el día entero) o ISO completo. `hasta` incluye las 23:59:59 |
+| `search` | — | `nombre`, `apellido` o `email` del usuario |
+
+Responde `{ data, total, page, limit, pages }`, ordenado por `fecha` descendente. Cada fila trae
+`nombreCompleto` ya armado. Los datos del usuario se seleccionan **columna por columna**: la
+respuesta nunca incluye `users.password` ni `users.embedding`.
+
+**`PATCH /attendance/:id`** — al dejar `metodo: 'manual'` el servicio anula `confianza` (un
+marcaje manual no viene de `/face/match`) y, si no se pasó `confirmadoPorId`, sella al admin que
+editó. Los ids se validan antes de tocar la BD: tipo inválido → `400`, id inexistente → `404`.
+
+## Hito 3 — Códigos de barras, asistencia facial y conteo por lotes
 
 > **Implementado (29/09/2026, tarea B1 del `Plan Hito 3.md`):** el flujo de códigos de barras
 > completo — `products.codigo`, `GET /products/by-barcode/:codigo`,
 > `GET /products/:id/barcode` y `POST /products/barcode/generate-all`, ya documentados en
 > [Products](#products). El escáner del móvil (`mobile/src/screens/ScannerScreen.tsx`) es
 > **solo de consulta**: lee un código y muestra la ficha del producto.
+>
+> **Implementado (30/09/2026, tarea B2 del `Plan Hito 3.md`):** el spike de reconocimiento
+> facial **medido y cerrado** — ArcFace int8 (`onnxmodelzoo/arcfaceresnet100-11-int8`,
+> Apache-2.0) corre **in-process en NestJS con `onnxruntime-node`**: **no hay microservicio
+> Python/FastAPI**, ni `FACE_SERVICE_URL`, ni `FACE_API_KEY`. Overhead **125.9 MB** (entra en los
+> 512 MB de Render) a **246.8 ms** por embedding; el límite real es la latencia, no la memoria.
+> Se descartó el fallback a MobileFaceNet. Script reproducible en `backend/spike/`
+> (`npm run spike:arcface`). Las rutas de historial, en [Attendance](#attendance).
 >
 > **Descartado: conteo de piezas con IA/YOLO.** No hay modelo detector, ni dataset, ni
 > microservicio de inferencia, ni `POST /inference/detect` en este proyecto. Si algún día se
