@@ -46,6 +46,35 @@ Config TypeORM: `autoLoadEntities: true`, `synchronize: segun DB_SYNC`. El SSL e
 condicional (`ssl: { rejectUnauthorized: false }` cuando `DB_SSL=true`, si no `false`),
 porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 
+### 2.1 Supabase Storage (imágenes)
+
+| Variable | Default | Descripción |
+| :--- | :--- | :--- |
+| `SUPABASE_URL` | — | Project URL de Supabase. **Obligatoria** para subir imágenes |
+| `SUPABASE_KEY` | — | `service_role` key. **Obligatoria** para subir imágenes |
+| `SUPABASE_BUCKET` | `products` | Bucket **público** de imágenes de producto |
+| `FACE_BUCKET` | `faces` | Bucket **privado** de fotos de rostro (Hito 3). Solo se accede con URL firmada |
+
+> Sin `SUPABASE_URL` / `SUPABASE_KEY` el backend arranca (el cliente se crea lazy) pero
+> `POST /products/:id/image` y `POST /users/face/register` responden **400**. El bucket
+> `faces` debe existir y ser privado: policies solo `service_role`.
+
+### 2.2 Reconocimiento facial (Hito 3)
+
+| Variable | Default | Descripción |
+| :--- | :--- | :--- |
+| `ARCFACE_MODEL` | busca en `spike/models/` y `models/` | Ruta al modelo ONNX (63 MB, Apache-2.0, **no** se versiona) |
+
+El modelo **no** se descarga solo: hay que bajarlo de
+`https://huggingface.co/onnxmodelzoo/arcfaceresnet100-11-int8/resolve/main/arcfaceresnet100-11-int8.onnx`
+a `backend/spike/models/`, o definir `ARCFACE_MODEL` apuntando a donde esté en el
+servidor. Si el archivo no está, el registro facial responde **503** con un mensaje que
+dice exactamente eso; el resto de la API sigue funcionando (la `InferenceSession` se
+carga en la primera inferencia, no al arrancar).
+
+En Render el modelo hay que dejarlo en el build o bajarlo en el start command: es la
+tarea de B6. Para verificar el contrato del modelo en local: `npm run face:check`.
+
 ## 3. Frontend (`frontend/.env.local` y `.env.production`)
 
 | Variable | Local | Producción |
