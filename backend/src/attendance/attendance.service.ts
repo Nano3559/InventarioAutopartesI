@@ -4,11 +4,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import { Asistencia } from '../entities/asistencia.entity';
 import { User } from '../entities/user.entity';
 import { Location } from '../entities/location.entity';
-import { METODOS_ASISTENCIA, TIPOS_ASISTENCIA } from '../common/constants';
+import { FaceService } from '../face/face.service';
+import {
+  METODOS_ASISTENCIA,
+  TIPOS_ASISTENCIA,
+  UMBRAL_CONFIANZA_FACIAL,
+} from '../common/constants';
 import type { MetodoAsistencia, TipoAsistencia } from '../common/constants';
 
 const LIMITE_PAGINA_MAX = 200;
@@ -67,6 +72,7 @@ export class AttendanceService {
     private usuariosRepo: Repository<User>,
     @InjectRepository(Location)
     private locationsRepo: Repository<Location>,
+    private readonly faceService: FaceService,
   ) {}
 
   /**
@@ -247,6 +253,97 @@ export class AttendanceService {
   /** El id ya viene validado como entero; acá solo se comprueba que exista. */
   private asegurar(existe: boolean, id: number, nombre: string): void {
     if (!existe) throw new NotFoundException(`${nombre} ${id} no existe`);
+  }
+
+  /** Determina tipo automático (entrada/salida): primer registro del día → entrada, segundo → salida. */
+  private async determinarTipoAutomatico(
+    usuarioId: number,
+    fechaBase: Date,
+  ): Promise<TipoAsistencia> {
+    const inicio = new Date(fechaBase);
+    inicio.setHours(0, 0, 0, 0);
+    const fin = new Date(fechaBase);
+    fin.setHours(23, 59, 59, 999);
+    const ultimo = await this.asistenciaRepo.findOne({
+      where: {
+        usuarioId,
+        fecha: Between(inicio, fin),
+      },
+      order: { fecha: 'DESC', id: 'DESC' },
+    });
+    if (!ultimo) return 'entrada';
+    if (ultimo.tipo === 'entrada') return 'salida';
+    return 'entrada';
+  }
+
+  /** Verifica rostro → reconoce y registra marcaje automático o devuelve candidatos. */
+  async check(
+    file: Express.Multer.File,
+    tipo?: TipoAsistencia,
+    locationId?: number | null,
+  ) {
+    const embedding = await this.faceService.embeddingDeFoto(file);
+    const candidatos = await this.faceService.buscar(embedding, 5);
+    if (!candidatos.length) {
+      return {
+        reconocido: false,
+        umbral: UMBRAL_CONFIANZA_FACIAL,
+        candidatos: [],
+      };
+    }
+    const mejor = candidatos[0];
+    if (mejor.similitud >= UMBRAL_CONFIANZA_FACIAL) {
+      const usuario = await this.usuariosRepo.findOne({
+        where: { id: mejor.usuarioId, activo: true },
+      });
+      if (!usuario) {
+        return {
+          reconocido: false,
+          umbral: UMBRAL_CONFIANZA_FACIAL,
+          candidatos,
+        };
+      }
+      const fecha = new Date();
+      const tipoFinal = tipo ?? (await this.determinarTipoAutomatico(usuario.id, fecha));
+      const asistencia = this.asistenciaRepo.create({
+        usuarioId: usuario.id,
+        locationId: locationId ?? null,
+        fecha,
+        tipo: tipoFinal,
+        metodo: 'automatico',
+        confianza: mejor.similitud,
+      });
+      const guardada = await this.asistenciaRepo.save(asistencia);
+      const completa = await this.findOne(guardada.id);
+      return {
+        reconocido: true,
+        requiereConfirmacion: false,
+        umbral: UMBRAL_CONFIANZA_FACIAL,
+        candidato: {
+          usuarioId: usuario.id,
+          nombreCompleto: [usuario.nombre, usuario.apellido].filter(Boolean).join(' '),
+          similitud: mejor.similitud,
+        },
+        asistencia: completa,
+      };
+    }
+    return {
+      reconocido: false,
+      requiereConfirmacion: true,
+      umbral: UMBRAL_CONFIANZA_FACIAL,
+      candidatos,
+    };
+  }
+
+  /** Confirmación manual cuando el reconocimiento es bajo umbral. */
+  async confirmarManual(id: number, actorId: number) {
+    const asistencia = await this.asistenciaRepo.findOne({ where: { id } });
+    if (!asistencia) throw new NotFoundException(`Asistencia ${id} no encontrada`);
+    asistencia.metodo = 'manual';
+    asistencia.confianza = null;
+    asistencia.confirmadoPorId = actorId;
+    await this.asistenciaRepo.save(asistencia);
+    return this.findOne(id);
   }
 
   /** `apellido` es nullable (Hito 3), así que el nombre completo se arma acá. */

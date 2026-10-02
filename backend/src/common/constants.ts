@@ -35,7 +35,7 @@ export type MetodoAsistencia = (typeof METODOS_ASISTENCIA)[number];
  * este valor provisional da falsos negativos. Se recalibra en B4 con los rostros
  * reales de R5 (ver la nota de calibración de `Plan Hito 3.md`).
  */
-export const UMBRAL_CONFIANZA_FACIAL = 0.55;
+export const UMBRAL_CONFIANZA_FACIAL = 0.35;
 
 /** Registro facial: cuántas fotos del rostro se aceptan y cuántas se recomiendan. */
 export const FOTOS_MINIMO_REGISTRO = 1;
