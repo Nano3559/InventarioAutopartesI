@@ -16,6 +16,7 @@ import { DevolucionesModule } from './devoluciones/devoluciones.module';
 import { PreciosModule } from './precios/precios.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { FaceModule } from './face/face.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AttendanceModule } from './attendance/attendance.module';
     PreciosModule,
     ReportesModule,
     AttendanceModule,
+    FaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

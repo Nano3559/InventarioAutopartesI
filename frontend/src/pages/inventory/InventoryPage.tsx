@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Car,
+  Barcode,
 } from 'lucide-react';
 import { productsService } from '../../services/products.service';
 import { locationsService } from '../../services/locations.service';
@@ -20,6 +21,8 @@ import { StockBreakdownModal } from '../../components/inventory/StockBreakdownMo
 import { ProductFormModal } from '../../components/inventory/ProductFormModal';
 import { DeleteConfirmModal } from '../../components/inventory/DeleteConfirmModal';
 import { AddStockModal } from '../../components/inventory/AddStockModal';
+import { BarcodeModal } from '../../components/inventory/BarcodeModal';
+import { BulkBarcodePrintModal } from '../../components/inventory/BulkBarcodePrintModal';
 import '../../styles/inventory.css';
 
 export function InventoryPage() {
@@ -35,6 +38,8 @@ export function InventoryPage() {
   const [formModalOpen, setFormModalOpen] = useState<boolean>(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [deleteModalProduct, setDeleteModalProduct] = useState<Product | null>(null);
+  const [barcodeModalProduct, setBarcodeModalProduct] = useState<Product | null>(null);
+  const [bulkBarcodeModalOpen, setBulkBarcodeModalOpen] = useState<boolean>(false);
 
   // Toast feedback
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
@@ -160,7 +165,17 @@ export function InventoryPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setBulkBarcodeModalOpen(true)}
+            title="Abrir hoja de impresión masiva A4 de etiquetas de código de barras"
+          >
+            <Barcode size={15} color="#38bdf8" />
+            <span>Impresión Masiva (A4)</span>
+          </button>
+
           <button
             type="button"
             className="btn-secondary"
@@ -241,6 +256,7 @@ export function InventoryPage() {
           setFormModalOpen(true);
         }}
         onOpenDeleteModal={(product) => setDeleteModalProduct(product)}
+        onOpenBarcodeModal={(product) => setBarcodeModalProduct(product)}
         onToggleActive={handleToggleActive}
       />
 
@@ -271,6 +287,21 @@ export function InventoryPage() {
         onClose={() => setAddStockModalProduct(null)}
         onStockUpdated={handleRefresh}
       />
+
+      {/* Modal de Etiqueta Individual Code128 */}
+      <BarcodeModal
+        product={barcodeModalProduct}
+        onClose={() => setBarcodeModalProduct(null)}
+      />
+
+      {/* Modal de Impresión Masiva A4 */}
+      {bulkBarcodeModalOpen && (
+        <BulkBarcodePrintModal
+          products={products}
+          onClose={() => setBulkBarcodeModalOpen(false)}
+          onRefreshCatalog={handleRefresh}
+        />
+      )}
     </div>
   );
 }

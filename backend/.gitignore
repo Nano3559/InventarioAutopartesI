@@ -46,6 +46,9 @@ lerna-debug.log*
 # Archivos subidos en runtime (imágenes de producto, facturas)
 /uploads
 
+# Spike Hito 3: modelo ArcFace int8 (63 MB, se descarga aparte)
+/spike/models
+
 # Runtime data
 pids
 *.pid

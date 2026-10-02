@@ -56,21 +56,25 @@ Plan día a día en `Plan Hito 3.md` (8 días, 3 personas, 1 tarea diaria por pe
 - En Nest, `@Get('by-barcode/:codigo')` debe declararse **antes** de `@Get(':id')`, si no responde 400.
 - `npx tsc --noEmit` en `mobile/` requiere `npm install`: `node_modules` puede quedar desactualizado respecto a `package.json`.
 - El bucket `faces` es **privado** (URLs firmadas); datos biométricos → consentimiento explícito (Ley 26935 Bolivia).
+- Un `.ts` **fuera de `src/`** (ej. `backend/spike/`) entra en `nest build` si no está en el `exclude` de `tsconfig.build.json`: eso baja el `rootDir` y `dist/main.js` pasa a `dist/src/main.js`, rompiendo `npm run start:prod` **sin error de build**.
+- `leftJoinAndSelect('a.usuario', 'u')` filtra **todas** las columnas de `users`, incluido `password` y `embedding`. Para joins de solo lectura usar `leftJoin(...)` + `addSelect([...])` con las columnas explícitas.
+- **`onnxruntime-node` no corre dentro de Jest**: su binding nativo valida los typed arrays con `instanceof Float32Array` de su propio realm y el sandbox de Jest usa otro, así que *toda* inferencia muere con `A float32 tensor's data must be type of function Float32Array()`. Por eso el contrato de ArcFace se verifica con `npm run face:check` (script) y no con un spec.
 
 ## Backend (`backend/`)
 
-Módulos NestJS: `auth`, `users`, `products`, `locations`, `sales`, `movimientos`, `solicitudes`, `proveedores`, `costos`, `devoluciones`, `precios`, `reportes`, `attendance`. 14 entidades TypeORM en `src/entities/` (más `Asistencia`, del Hito 3). `schema.sql` = esquema PostgreSQL de referencia (ojo: no define `factura_items`, que sí existe como entidad).
+Módulos NestJS: `auth`, `users`, `products`, `locations`, `sales`, `movimientos`, `solicitudes`, `proveedores`, `costos`, `devoluciones`, `precios`, `reportes`, `attendance`, `face` (`src/face/`: reconocimiento facial in-process con ArcFace). 14 entidades TypeORM en `src/entities/` (más `Asistencia`, del Hito 3). `schema.sql` = esquema PostgreSQL de referencia (ojo: no define `factura_items`, que sí existe como entidad).
 
 ### Comandos
 - `npm run start:dev` — dev con hot-reload (`nest start --watch`).
 - `npm run build` — `nest build` (typecheck + compila a `dist/`).
 - `npm run lint` — ESLint con `--fix`.
 - `npm run seed` — `ts-node src/seed.ts` (siembra datos reales: 7 ubicaciones, productos, etc.). Requiere PostgreSQL arriba y `.env` configurado.
-- `npm test` — Jest unitario (specs en `src/`).
+- `npm test` — Jest unitario (specs en `src/`). No cubre la inferencia de ArcFace (ver trampa arriba).
+- `npm run face:check` — verifica el contrato real de ArcFace (512 dims, normalización, orden de similitud) fuera de Jest.
 - `npm run test:e2e` — tests e2e (specs en `test/`, requiere `test/jest-e2e.json` y la app/db).
 
 ### Entorno (`backend/.env`; variables en `docs/entornos.md`)
-`DB_HOST`, `DB_PORT`, `DB_NAME` (AutopartesDB), `DB_USER`, `DB_PASSWORD`, `PORT` (3000), `JWT_SECRET`, `DB_SYNC` (true en dev, sincroniza esquema automáticamente). TypeORM con `ssl: { rejectUnauthorized: false }` y `autoLoadEntities`. `POST /api/auth/login` devuelve el JWT.
+`DB_HOST`, `DB_PORT`, `DB_NAME` (AutopartesDB), `DB_USER`, `DB_PASSWORD`, `PORT` (3000), `JWT_SECRET`, `DB_SYNC` (true en dev, sincroniza esquema automáticamente), `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_BUCKET`, `FACE_BUCKET` (`faces`, privado) y `ARCFACE_MODEL` (ruta al modelo ONNX). TypeORM con `ssl: { rejectUnauthorized: false }` y `autoLoadEntities`. `POST /api/auth/login` devuelve el JWT.
 
 ## Frontend (`frontend/`)
 

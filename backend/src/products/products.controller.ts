@@ -15,30 +15,14 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { multerImagenes } from '../common/image-upload';
 import { ProductsService } from './products.service';
 import type { ProductFilters } from './products.service';
 
-const imageFileFilter = (
-  _req: Express.Request,
-  file: Express.Multer.File,
-  cb: (error: Error | null, acceptFile: boolean) => void,
-) => {
-  if (!file.mimetype.startsWith('image/')) {
-    cb(new Error('Solo se permiten archivos de imagen'), false);
-  } else {
-    cb(null, true);
-  }
-};
-
-const multerOptions = {
-  storage: memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: imageFileFilter,
-};
+const multerOptions = multerImagenes();
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)

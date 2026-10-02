@@ -696,3 +696,211 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   Hito 3: Barcodes (Code128) & Bulk A4 Print Styles
+   ========================================================================== */
+
+/* Barcode table chips */
+.barcode-table-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.barcode-table-chip.pending {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.25);
+  color: #94a3b8;
+  font-style: italic;
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+
+/* Single Barcode Modal Render Box */
+.barcode-render-box {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 1.75rem 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.barcode-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+}
+
+.barcode-format-note {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-top: 0.75rem;
+  font-family: monospace;
+}
+
+/* Bulk Barcode A4 Print Layout */
+.a4-sheet-preview {
+  background: #ffffff;
+  color: #0f172a;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  min-height: 100%;
+}
+
+.bulk-barcodes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .bulk-barcodes-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.bulk-barcode-item {
+  background: #ffffff;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 0.65rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.bulk-barcode-header {
+  text-align: center;
+  margin-bottom: 0.35rem;
+  width: 100%;
+}
+
+.bulk-barcode-title {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.bulk-barcode-sub {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bulk-barcode-canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 0.25rem 0;
+}
+
+.bulk-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.bulk-barcode-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dotted #e2e8f0;
+  padding-top: 0.25rem;
+  font-family: monospace;
+}
+
+.bulk-code-text {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.bulk-fabrica-text {
+  font-size: 0.65rem;
+  color: #64748b;
+}
+
+/* Print Media Styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* Printable A4 Area */
+  .printable-a4-area,
+  .printable-a4-area * {
+    visibility: visible;
+  }
+
+  .printable-a4-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #ffffff !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .bulk-barcodes-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .bulk-barcode-item {
+    border: 1px dashed #94a3b8 !important;
+    padding: 5mm 3mm !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Single Printable Barcode Area */
+  .printable-barcode-area,
+  .printable-barcode-area * {
+    visibility: visible;
+  }
+
+  .printable-barcode-area {
+    position: absolute;
+    left: 50%;
+    top: 20%;
+    transform: translateX(-50%);
+    box-shadow: none !important;
+    border: 1px solid #000000 !important;
+  }
+}

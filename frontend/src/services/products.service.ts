@@ -19,6 +19,7 @@ export const productsService = {
         anio: filters.anio,
         codigoOem: filters.codigoOem,
         codigoFabrica: filters.codigoFabrica,
+        codigo: filters.codigo,
         activo: filters.activo,
       },
     });
@@ -117,6 +118,28 @@ export const productsService = {
     }
 
     return res.json();
+  },
+
+  async getProductByBarcode(codigo: string): Promise<Product> {
+    return api.get<Product>(`/products/by-barcode/${encodeURIComponent(codigo)}`);
+  },
+
+  async getBarcodeBlob(productId: number): Promise<Blob> {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE_URL}/products/${productId}/barcode`, {
+      method: 'GET',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Error al obtener etiqueta de código de barras (${res.status})`);
+    }
+    return res.blob();
+  },
+
+  async generateAllBarcodes(): Promise<{ generados: number; total: number; codigos: Array<{ id: number; codigo: string }> }> {
+    return api.post('/products/barcode/generate-all');
   },
 };
 
