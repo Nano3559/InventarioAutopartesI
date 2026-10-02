@@ -18,12 +18,51 @@ Base local: `http://localhost:3000/api` — Producción: `https://inventarioauto
 
 ## Users
 
+Solo rol `admin` (el `@Roles('admin')` es de clase, así que también cubre las rutas
+de rostro).
+
 | Método | Ruta | Descripción |
 | :--- | :--- | :--- |
-| GET | `/users` | Listar usuarios |
+| GET | `/users` | Listar usuarios (sin `password` ni `embedding`) |
+| GET | `/users/rostros` | Personal con rostro registrado, con **URL firmada** de la foto |
+| POST | `/users/face/register` | **Registro facial** (multipart `nombre`, `apellido`, `fotos[]`) |
 | POST | `/users` | Crear usuario |
 | PATCH | `/users/:id` | Actualizar usuario |
 | DELETE | `/users/:id` | Eliminar usuario |
+
+**`POST /users/face/register`** —asocia un rostro a un `users` **que ya existe**: no crea
+personal (el requerimiento dice "conforme a la base de datos").
+
+| Campo | Notas |
+| :--- | :--- |
+| `nombre` | Texto, mínimo 2 caracteres. Se busca sin distinguir mayúsculas |
+| `apellido` | Texto, mínimo 2 caracteres |
+| `fotos[]` | 1 a 10 imágenes (`image/*`, 10 MB c/u). Se recomiendan 5 |
+
+| Situación | Respuesta |
+| :--- | :--- |
+| Nadie con ese nombre + apellido | **404** con el nombre buscado |
+| Más de un usuario con ese nombre | **409** con `candidatos` (`id`, `nombreCompleto`, `email`, `rol`, `tieneRostro`, `activo`) para que el operador elija |
+| Usuario con `activo = false` | **409**: está dado de baja |
+| Sin fotos / más de 10 / nombre muy corto | **400** |
+| Bucket `faces` inexistente o sin `SUPABASE_*` | **400** con el motivo (no se guarda el embedding) |
+
+Devuelve `{ id, nombre, apellido, nombreCompleto, email, rol, faceRegisteredAt,
+facePhoto, fotoUrl, fotosRegistradas, embeddingDimension: 512, reconoce, avisos[] }`.
+`facePhoto` es la **ruta** del objeto en el bucket, no una URL: `fotoUrl` es la URL firmada
+que expira en 1 h. `avisos` avisa si se registraron menos de 5 fotos, si el nombre
+coincidió solo parcialmente o si se reemplazó un rostro anterior.
+
+Flujo: recorta cada foto a 112×112 `(x-127.5)/128`, corre ArcFace int8
+(`onnxruntime-node`, in-process), **promedia y normaliza** los N embeddings a
+`users.embedding`, sube **1** foto a `faces` y actualiza el índice en memoria.
+
+**`PATCH /users/:id`** acepta además `apellido`, `activo` y `eliminarEmbedding: true`
+(derecho de baja biométrico: borra `embedding`, `facePhoto`, la foto del bucket y saca al
+usuario del índice). Un `activo: false` **impide el login** (`401`).
+
+> ⚠️ El bucket **`faces`** tiene que existir en Supabase Storage (privado, policies solo
+> `service_role`). Sin él el registro responde 400 y no guarda nada.
 
 ## Products
 
@@ -169,6 +208,18 @@ editó. Los ids se validan antes de tocar la BD: tipo inválido → `400`, id in
 > 512 MB de Render) a **246.8 ms** por embedding; el límite real es la latencia, no la memoria.
 > Se descartó el fallback a MobileFaceNet. Script reproducible en `backend/spike/`
 > (`npm run spike:arcface`). Las rutas de historial, en [Attendance](#attendance).
+>
+> **Implementado (01/10/2026, tarea B3 del `Plan Hito 3.md`):** el **registro facial** —
+> `POST /users/face/register` y `GET /users/rostros`, documentados en [Users](#users). El
+> reconocimiento corre **in-process**: `backend/src/face/` carga ArcFace int8 con
+> `onnxruntime-node` (perezoso, en la primera inferencia), promedia y normaliza los N
+> embeddings, sube 1 foto al bucket privado `faces` y rehidrata el índice en memoria
+> (`SELECT id, embedding FROM users WHERE embedding IS NOT NULL AND activo = true`).
+> `PATCH /users/:id` acepta `apellido`, `activo` y `eliminarEmbedding`; el login rechaza
+> `activo = false`; ni el `embedding` ni una URL pública de la foto salen nunca al cliente.
+> El marcaje en vivo (`POST /attendance/check`) es la tarea B4.
+> El contrato del modelo se verifica con `npm run face:check` (fuera de Jest: el binding
+> nativo de `onnxruntime-node` no funciona dentro del sandbox de Jest).
 >
 > **Descartado: conteo de piezas con IA/YOLO.** No hay modelo detector, ni dataset, ni
 > microservicio de inferencia, ni `POST /inference/detect` en este proyecto. Si algún día se

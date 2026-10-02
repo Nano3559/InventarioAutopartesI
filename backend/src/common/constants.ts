@@ -28,5 +28,16 @@ export type TipoAsistencia = (typeof TIPOS_ASISTENCIA)[number];
 export const METODOS_ASISTENCIA = ['automatico', 'manual'] as const;
 export type MetodoAsistencia = (typeof METODOS_ASISTENCIA)[number];
 
-/** Umbral de similitud para dar por válido un marcaje automático. */
+/**
+ * Umbral de similitud para dar por válido un marcaje automático.
+ * ⚠️ 0.55 venía del scoring de InsightFace: con **similitud coseno sobre embeddings
+ * ArcFace normalizados** el rango típico de "misma persona" es 0.28-0.45, así que
+ * este valor provisional da falsos negativos. Se recalibra en B4 con los rostros
+ * reales de R5 (ver la nota de calibración de `Plan Hito 3.md`).
+ */
 export const UMBRAL_CONFIANZA_FACIAL = 0.55;
+
+/** Registro facial: cuántas fotos del rostro se aceptan y cuántas se recomiendan. */
+export const FOTOS_MINIMO_REGISTRO = 1;
+export const FOTOS_MAXIMO_REGISTRO = 10;
+export const FOTOS_RECOMENDADAS_REGISTRO = 5;
