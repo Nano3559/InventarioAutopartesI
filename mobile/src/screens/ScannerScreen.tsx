@@ -1,15 +1,22 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import {
+  CameraView,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+  type BarcodeType,
+} from 'expo-camera';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { getProductByBarcode } from '../api/products';
 import { ApiError } from '../api/client';
@@ -22,7 +29,9 @@ import {
   radius,
   fontFamily,
   fontSize,
+  lineHeight,
   button,
+  opacity,
   iconSize,
   a11y,
 } from '../theme';
@@ -31,6 +40,28 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 /** Ventana durante la cual se ignora una relectura del mismo código. */
 const REPEAT_WINDOW_MS = 2500;
+
+/**
+ * Simbologías 1D que el móvil decodifica.
+ *
+ * Las etiquetas internas son Code128 (`AP-<id>-<codigoFabrica>`), pero los repuestos y los
+ * proveedores traen otros formatos: EAN-13/UPC en las cajas y Code39/ITF en etiquetas de
+ * repuesto. Si el filtro se limita a `code128`, el móvil **no decodifica nada** al apuntar a
+ * un EAN y el operador se queda sin ningún aviso, que es la peor salida posible: en una app
+ * de venta, el silencio se lee como "se escaneó" y el producto termina en el carrito.
+ * Prefiere leerse y avisar que el código no está registrado.
+ */
+const SIMBOLOGIAS: BarcodeType[] = [
+  'code128',
+  'ean13',
+  'ean8',
+  'upc_a',
+  'upc_e',
+  'code39',
+  'code93',
+  'itf14',
+  'codabar',
+];
 
 interface ScanResult {
   key: string;
@@ -55,10 +86,16 @@ export default function ScannerScreen() {
   const [results, setResults] = useState<ScanResult[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [manualCode, setManualCode] = useState('');
   const lastScan = useRef<{ codigo: string; at: number } | null>(null);
+  /** Códigos sin registro ya avisados, para no repetir el diálogo nativo. */
+  const alertedCodes = useRef(new Set<string>());
   const counter = useRef(0);
 
   const selected = results.find((r) => r.key === selectedKey) ?? results[0] ?? null;
+
+  /** Escaneo que la base de datos no reconoce, para avisar sobre la cámara. */
+  const notFoundResult = selected?.notFound ? selected : null;
 
   const upsert = useCallback((entry: ScanResult) => {
     setResults((prev) => {
@@ -70,20 +107,13 @@ export default function ScannerScreen() {
     });
   }, []);
 
-  const handleBarcodeScanned = useCallback(
-    async (result: BarcodeScanningResult) => {
-      const codigo = result.data?.trim();
+  /**
+   * Consulta un código contra la API. Es el camino único tanto para la cámara como
+   * para el ingreso manual, para que ambos produzcan exactamente el mismo aviso.
+   */
+  const runLookup = useCallback(
+    async (codigo: string) => {
       if (!codigo || busy) return;
-
-      const now = Date.now();
-      if (
-        lastScan.current &&
-        lastScan.current.codigo === codigo &&
-        now - lastScan.current.at < REPEAT_WINDOW_MS
-      ) {
-        return;
-      }
-      lastScan.current = { codigo, at: now };
 
       const key = `scan-${(counter.current += 1)}`;
       setBusy(true);
@@ -100,11 +130,26 @@ export default function ScannerScreen() {
           scannedAt: new Date(),
           notFound,
           error: notFound
-            ? 'Código no registrado en el sistema.'
+            ? 'Ese producto no está registrado en el sistema, por lo que no se puede consultar su precio ni su stock.'
             : err instanceof ApiError
               ? err.message
               : 'No se pudo consultar el producto.',
         });
+
+        // Diálogo nativo, una vez por código: `onBarcodeScanned` dispara muchas
+        // veces por segundo y sin esto se abriría en bucle sobre la misma etiqueta.
+        if (notFound && !alertedCodes.current.has(codigo)) {
+          alertedCodes.current.add(codigo);
+          Alert.alert(
+            'Producto no registrado',
+            `El código ${codigo} no está registrado en el sistema.\n\n` +
+              'No se puede consultar su precio ni su stock. Verificá que sea la etiqueta ' +
+              'correcta o pedí al encargado de inventario que registre el producto. Si el ' +
+              'código es de proveedor (EAN o UPC), puede que el repuesto todavía no lo tenga ' +
+              'cargado.',
+            [{ text: 'Entendido' }],
+          );
+        }
       } finally {
         setBusy(false);
       }
@@ -112,9 +157,38 @@ export default function ScannerScreen() {
     [busy, upsert],
   );
 
+  const handleBarcodeScanned = useCallback(
+    (result: BarcodeScanningResult) => {
+      const codigo = result.data?.trim();
+      if (!codigo || busy) return;
+
+      const now = Date.now();
+      if (
+        lastScan.current &&
+        lastScan.current.codigo === codigo &&
+        now - lastScan.current.at < REPEAT_WINDOW_MS
+      ) {
+        return;
+      }
+      lastScan.current = { codigo, at: now };
+      void runLookup(codigo);
+    },
+    [busy, runLookup],
+  );
+
+  const handleManualSubmit = useCallback(() => {
+    const codigo = manualCode.trim();
+    if (!codigo || busy) return;
+    lastScan.current = { codigo, at: Date.now() };
+    setManualCode('');
+    void runLookup(codigo);
+  }, [busy, manualCode, runLookup]);
+
   const handleClear = () => {
     setResults([]);
     setSelectedKey(null);
+    setManualCode('');
+    alertedCodes.current.clear();
   };
 
   if (!permission) {
@@ -179,12 +253,40 @@ export default function ScannerScreen() {
         }
       />
 
+      {notFoundResult ? (
+        <View
+          style={styles.notFoundAlert}
+          accessibilityRole={a11y.alert}
+          accessibilityLiveRegion="polite"
+        >
+          <View style={styles.notFoundAlertHead}>
+            <Ionicons name="help-circle" size={iconSize.md} color={colors.warning} />
+            <Text style={styles.notFoundAlertTitle}>Producto no registrado</Text>
+          </View>
+          <Text style={styles.notFoundAlertBody}>
+            Ese producto no está registrado en el sistema, por lo que no se puede consultar su
+            precio ni su stock.
+          </Text>
+          <View style={styles.notFoundAlertCode}>
+            <Text style={styles.notFoundAlertCodeLabel}>Código leído</Text>
+            <Text style={styles.notFoundAlertCodeValue} selectable>
+              {notFoundResult.codigo}
+            </Text>
+          </View>
+          <Text style={styles.notFoundAlertHint}>
+            Verificá que sea la etiqueta correcta o pedí al encargado de inventario que registre
+            el producto. Si el código es de proveedor (EAN o UPC), puede que el repuesto todavía
+            no tenga ese código cargado.
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.cameraBox}>
         <CameraView
           style={styles.camera}
           facing="back"
           enableTorch={torch}
-          barcodeScannerSettings={{ barcodeTypes: ['code128'] }}
+          barcodeScannerSettings={{ barcodeTypes: SIMBOLOGIAS }}
           onBarcodeScanned={busy ? undefined : handleBarcodeScanned}
           onMountError={(event) => setCameraError(event.message)}
         />
@@ -211,16 +313,58 @@ export default function ScannerScreen() {
           />
         </Pressable>
 
-        <View style={styles.statusPill} pointerEvents="none">
+        <View
+          style={[styles.statusPill, notFoundResult && styles.statusPillWarning]}
+          pointerEvents="none"
+        >
           {busy ? (
             <>
               <ActivityIndicator size="small" color={colors.white} />
               <Text style={styles.statusPillText}>Consultando...</Text>
             </>
+          ) : notFoundResult ? (
+            <>
+              <Ionicons name="alert-circle" size={iconSize.xs} color={colors.white} />
+              <Text style={styles.statusPillText}>Código no reconocido</Text>
+            </>
           ) : (
             <Text style={styles.statusPillText}>Buscando código de barras</Text>
           )}
         </View>
+      </View>
+
+      <View style={styles.manualBox}>
+        <TextInput
+          style={styles.manualInput}
+          value={manualCode}
+          onChangeText={setManualCode}
+          placeholder="O escribí el código a mano"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          returnKeyType="search"
+          onSubmitEditing={handleManualSubmit}
+          editable={!busy}
+          accessibilityLabel="Ingresar código de barras manualmente"
+        />
+        <Pressable
+          style={({ pressed }) => [
+            styles.manualBtn,
+            (!manualCode.trim() || busy) && styles.manualBtnDisabled,
+            pressed && styles.btnPressed,
+          ]}
+          onPress={handleManualSubmit}
+          disabled={!manualCode.trim() || busy}
+          accessibilityRole={a11y.button}
+          accessibilityLabel="Consultar código"
+        >
+          {busy ? (
+            <ActivityIndicator size="small" color={colors.textOnPrimary} />
+          ) : (
+            <Ionicons name="search" size={iconSize.sm} color={colors.textOnPrimary} />
+          )}
+        </Pressable>
       </View>
 
       <ScrollView
@@ -241,7 +385,8 @@ export default function ScannerScreen() {
             <Ionicons name="barcode-outline" size={40} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>Sin escaneos</Text>
             <Text style={styles.emptyHint}>
-              Encuadre la etiqueta para ver el nombre, el precio y el stock del repuesto.
+              Encuadre la etiqueta para ver el nombre, el precio y el stock del repuesto. Lee
+              Code128, EAN/UPC y Code39.
             </Text>
           </View>
         ) : (
@@ -309,9 +454,13 @@ function ResultCard({ result }: { result: ScanResult }) {
           />
           <View style={styles.cardHeaderText}>
             <Text style={styles.cardTitle}>
-              {result.notFound ? 'Código no registrado' : 'No se pudo consultar'}
+              {result.notFound ? 'Producto no registrado' : 'No se pudo consultar'}
             </Text>
-            <Text style={styles.cardSubtitle}>{result.error}</Text>
+            <Text style={styles.cardSubtitle}>
+              {result.notFound
+                ? 'Ese producto no está registrado en el sistema, por lo que no se puede consultar su precio ni su stock.'
+                : result.error}
+            </Text>
           </View>
         </View>
         <View style={styles.codeRow}>
@@ -553,6 +702,96 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: radius.full,
     backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  manualBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+  },
+  manualInput: {
+    flex: 1,
+    height: button.height.md,
+    paddingHorizontal: space.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    color: colors.text,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.monoMedium,
+  },
+  manualBtn: {
+    width: button.height.md,
+    height: button.height.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
+  manualBtnDisabled: {
+    opacity: opacity.disabled,
+  },
+  statusPillWarning: {
+    backgroundColor: colors.warning,
+  },
+  notFoundAlert: {
+    margin: space.md,
+    marginBottom: 0,
+    padding: space.md,
+    gap: space.sm,
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.md,
+  },
+  notFoundAlertHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  notFoundAlertTitle: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+  },
+  notFoundAlertBody: {
+    color: colors.text,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    // `lineHeight.relaxed` es un multiplicador (1.5) y en RN `lineHeight` es absoluto.
+    lineHeight: fontSize.caption * lineHeight.relaxed,
+  },
+  notFoundAlertCode: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.md,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+  },
+  notFoundAlertCodeLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+  },
+  notFoundAlertCodeValue: {
+    flexShrink: 1,
+    color: colors.text,
+    fontSize: fontSize.captionStrong,
+    fontFamily: fontFamily.monoBold,
+  },
+  notFoundAlertHint: {
+    color: colors.textMuted,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    lineHeight: fontSize.caption * lineHeight.relaxed,
   },
   statusPillText: {
     color: colors.white,
