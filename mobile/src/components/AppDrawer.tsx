@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DrawerContentScrollView, type DrawerContentComponentProps } from '@react-navigation/drawer';
+import { DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import {
   colors,
@@ -82,6 +83,11 @@ export default function AppDrawer(props: DrawerContentComponentProps) {
         : inventarioItems;
 
   const handleNav = (route: string) => {
+    // Con `drawerType: 'front'` el panel queda superpuesto a la escena, y en React
+    // Navigation 7 el drawer NO se cierra solo al cambiar de ruta: el autocierre del
+    // navigator solo ocurre con el gesto/botón de back. Hay que cerrarlo a mano, y antes
+    // de navegar para que la pantalla destino no asome detrás del panel.
+    navigation.dispatch(DrawerActions.closeDrawer());
     navigation.navigate(route);
   };
 
