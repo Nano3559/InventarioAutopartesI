@@ -12,6 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "prestart:prod": "node scripts/ensure-arcface-model.mjs",
     "seed": "ts-node -r dotenv/config src/seed.ts",
     "spike:arcface": "node --expose-gc -r ts-node/register/transpile-only spike/arcface-spike.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",

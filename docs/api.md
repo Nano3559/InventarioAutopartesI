@@ -164,12 +164,15 @@ usuario del índice). Un `activo: false` **impide el login** (`401`).
 
 ## Attendance
 
-Solo rol `admin` (datos de personal). Es el módulo que B2 del `Plan Hito 3.md` abriu rutas; el
-marcaje en sí (`POST /attendance/check`) llega en B4.
+Solo rol `admin` (datos de personal). Módulo abierto en B2 del `Plan Hito 3.md`, con el
+marcaje por rostro en B4 y el dashboard de B5.
 
 | Método | Ruta | Descripción |
 | :--- | :--- | :--- |
 | GET | `/attendance` | Historial paginado con filtros (ver abajo) |
+| GET | `/attendance/dashboard` | Presentes/ausentes por tienda para un día (ver abajo) |
+| POST | `/attendance/check` | Marcaje por rostro (multipart `foto`) |
+| POST | `/attendance/:id/confirm` | Pasa un marcaje a `metodo: 'manual'` |
 | PATCH | `/attendance/:id` | Corregir un marcaje: `usuarioId`, `locationId`, `fecha`, `tipo`, `metodo`, `confianza`, `confirmadoPorId` |
 
 **`GET /attendance`** — query params:
@@ -192,6 +195,103 @@ respuesta nunca incluye `users.password` ni `users.embedding`.
 **`PATCH /attendance/:id`** — al dejar `metodo: 'manual'` el servicio anula `confianza` (un
 marcaje manual no viene de `/face/match`) y, si no se pasó `confirmadoPorId`, sella al admin que
 editó. Los ids se validan antes de tocar la BD: tipo inválido → `400`, id inexistente → `404`.
+
+### `GET /attendance/dashboard` (B5)
+
+Query: `fecha=YYYY-MM-DD` (opcional; sin valor, el **día local del servidor**). Se parsesa como
+día local a propósito: `new Date('2026-10-03')` es medianoche **UTC** y en Bolivia (UTC-4)
+caería en el día anterior. Un `fecha` con formato o fecha imposible (`2026-13-01`, `2026-02-31`)
+→ `400`.
+
+Respuesta:
+
+```jsonc
+{
+  "fecha": "2026-10-03",          // día local del servidor
+  "desde": "2026-10-03T03:00:00.000Z",
+  "hasta": "2026-10-04T02:59:59.999Z",
+  "totales": {
+    "personal": 7, "presentes": 4, "ausentes": 3, "dentro": 2, "fuera": 2,
+    "marcajes": 9, "entradas": 5, "salidas": 4, "rostrosRegistrados": 4
+  },
+  "porTienda": [
+    {
+      "locationId": 5, "codigo": "TDA-CEN", "nombre": "Tienda Centro", "tipo": "tienda",
+      "totalPersonal": 4, "totalMarcajes": 6,
+      "presentes": [
+        {
+          "usuarioId": 3, "nombre": "Ana", "apellido": "Paz", "nombreCompleto": "Ana Paz",
+          "email": "ana@…", "rol": "tienda", "presencia": "presente", "dentro": true,
+          "horaEntrada": "2026-10-03T13:02:00.000Z",  // primer `entrada` del día
+          "horaSalida": "2026-10-03T17:10:00.000Z",   // última `salida` si vino después
+          "ultimaMarca": { "asistenciaId": 42, "tipo": "entrada", "fecha": "…", "metodo": "automatico", "confianza": 0.81 },
+          "marcajes": 3, "rostroRegistrado": true
+        }
+      ],
+      "ausentes": [
+        { "usuarioId": 7, "nombre": "Luis", "apellido": "Sosa", "nombreCompleto": "Luis Sosa",
+          "email": "luis@…", "rol": "tienda", "rostroRegistrado": false }
+      ]
+    }
+  ],
+  "sinTienda": { /* mismo shape, personal sin `users.tiendaId` */ },
+  "ultimosMarcajes": [ /* los 10 últimos del día, con `nombreCompleto` */ ]
+}
+```
+
+Criterios: **presente** = tiene al menos un marcaje ese día; **dentro** = el último marcaje del
+día fue `entrada`. La tienda del presente es la del **último marcaje**, y si ese marcaje no trae
+tienda se usa la asignada en `users.tiendaId` (si tampoco tiene, va a `sinTienda`); los
+**ausentes** se cuentan sobre el personal activo de cada tienda, para que ambos grupos sean
+comparables. `porTienda` viene ordenado por `codigo`. Los datos de usuario entran por columnas
+explícitas: nunca `password` ni `embedding`.
+
+### `POST /attendance/check` (B4 + B5)
+
+`multipart/form-data` con `foto` (obligatoria, JPEG/PNG/WebP ≤ 8 MB), más:
+
+| Campo | Notas |
+| :--- | :--- |
+| `tipo` | `entrada` \| `salida`. Opcional: si falta, se alterna según el último marcaje del día |
+| `locationId` | Tienda del marcaje. Se valida: inexistente o que no sea tipo `tienda` → `404` |
+| `usuarioId` | **B5.** Fuerza el marcaje manual: el operador ya eligió a quién pertenece la foto |
+
+Sin `usuarioId` el servicio recorta 112×112 con guía oval, corre ArcFace y compara por
+similitud coseno contra el índice en memoria (umbral `UMBRAL_CONFIANZA_FACIAL` = 0.35):
+
+```jsonc
+// índice vacío (nadie tiene rostro): no se crea nada
+{ "reconocido": false, "requiereConfirmacion": false, "umbral": 0.35, "candidatos": [] }
+
+// coincidencias por debajo del umbral: el admin elige a mano (o descarta)
+{ "reconocido": false, "requiereConfirmacion": true, "umbral": 0.35, "similitud": 0.21,
+  "candidatos": [ /* top 5: `{ usuarioId, similitud }`, de más a menos similar */ ] }
+
+// por encima del umbral: se registra el marcaje
+{ "reconocido": true, "manual": false, "requiereConfirmacion": false, "umbral": 0.35,
+  "candidato": { "usuarioId": 3, "nombreCompleto": "Ana Paz", "similitud": 0.82 },
+  "asistencia": { /* la fila de GET /attendance */ } }
+
+// con usuarioId (manual): sin ArcFace, metodo "manual", confianza null y confirmada por el admin
+{ "reconocido": true, "manual": true, "requiereConfirmacion": false, "umbral": 0.35,
+  "candidato": { "usuarioId": 3, "nombreCompleto": "Ana Paz", "similitud": null },
+  "asistencia": { "metodo": "manual", "confirmadoPorId": 1, "confianza": null, … } }
+```
+
+Errores: sin `foto` → `400`; `tipo` inválido → `400`; `locationId`/`usuarioId` inexistente o que
+no sea tienda → `404`; modelo ArcFace ausente en el servidor → `503`.
+
+### Diagnóstico del reconocimiento (B6, solo `admin`)
+
+| Método | Ruta | Descripción |
+| :--- | :--- | :--- |
+| GET | `/face/status` | Estado del reconocimiento: umbral, rostros en BD, índice en memoria, bucket y disponibilidad del modelo |
+| POST | `/face/warmup` | Carga la `InferenceSession` de ArcFace a pedido y devuelve los ms |
+
+No aceptan foto ni registran nada: sirven para verificar un despliegue y medir el cold start de
+Render (ver `docs/despliegue.md`). `indiceEnMemoria === rostrosEnBase` prueba que el
+`onModuleInit` rehidrató el índice tras un spin-down; `modelo.cargada` es `false` hasta el
+primer `warmup` o inferencia porque la sesión es perezosa.
 
 ## Hito 3 — Códigos de barras, asistencia facial y conteo por lotes
 
@@ -217,9 +317,19 @@ editó. Los ids se validan antes de tocar la BD: tipo inválido → `400`, id in
 > (`SELECT id, embedding FROM users WHERE embedding IS NOT NULL AND activo = true`).
 > `PATCH /users/:id` acepta `apellido`, `activo` y `eliminarEmbedding`; el login rechaza
 > `activo = false`; ni el `embedding` ni una URL pública de la foto salen nunca al cliente.
-> El marcaje en vivo (`POST /attendance/check`) es la tarea B4.
 > El contrato del modelo se verifica con `npm run face:check` (fuera de Jest: el binding
 > nativo de `onnxruntime-node` no funciona dentro del sandbox de Jest).
+>
+> **Implementado (03/10/2026, tareas B4 y B5 del `Plan Hito 3.md`):** el **marcaje en vivo** —
+> `POST /attendance/check` (reconocimiento por ArcFace, tipo alternado automático, validación
+> de `tipo`/`locationId` y marcaje manual con `usuarioId` cuando el rostro no pasa el umbral) y
+> `GET /attendance/dashboard?fecha=`, ambos en [Attendance](#attendance).
+>
+> **Implementado (04/10/2026, tarea B6 del `Plan Hito 3.md`):** despliegue en Render con el
+> modelo ArcFace disponible en el servidor — `prestart:prod` →
+> `scripts/ensure-arcface-model.mjs` lo baja si falta (63 MB, Apache-2.0) — más
+> `GET /face/status` y `POST /face/warmup` para verificar la rehidratación del índice y medir
+> el cold start del plan free. Ver `docs/despliegue.md` §1.1.
 >
 > **Descartado: conteo de piezas con IA/YOLO.** No hay modelo detector, ni dataset, ni
 > microservicio de inferencia, ni `POST /inference/detect` en este proyecto. Si algún día se

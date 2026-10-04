@@ -49,6 +49,9 @@ lerna-debug.log*
 # Spike Hito 3: modelo ArcFace int8 (63 MB, se descarga aparte)
 /spike/models
 
+# Hito 3: modelo ArcFace en el servidor (lo baja scripts/ensure-arcface-model.mjs)
+/models
+
 # Runtime data
 pids
 *.pid
