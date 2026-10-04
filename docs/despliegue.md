@@ -55,6 +55,21 @@ curl -w "\n%{time_total}s\n" -o /dev/null -s https://inventarioautopartesi.onren
 salvo después de un `warmup` o una inferencia: la `InferenceSession` es perezosa a
 propósito para no pagar 92 MB de RAM y ~0.5 s si nadie marca asistencia.
 
+**Medido el 04/10/2026 contra el servicio real** (`npm run spike:rehidratacion`, que mete
+un embedding sintético en un usuario temporal, espera el apagado y lo borra al final):
+
+| Medida | Valor |
+| :--- | :--- |
+| Descarga del modelo en el arranque (`prestart:prod`) | ~8 s, 62.7 MB, en `models/` |
+| Primer request tras 17 min sin tráfico | **52.7 s** |
+| Carga del modelo con la sesión fría (`warmup`) | **2.2 s** (561 ms en local) |
+| Rehidratación | `rostrosEnBase=1, indiceEnMemoria=1, indiceCompleto=true` |
+
+> ⚠️ **Los 52.7 s son el riesgo operativo del plan free**, no del código: la app móvil y la
+> web tienen que avisar "despertando el servidor…" en el primer request tras un rato de
+> inactividad, y para la demo hay que dejar Render con tráfico reciente (o despertarlo un
+> par de minutos antes).
+
 ## 2. Frontend (Vercel)
 
 1. `frontend/.env.production` debe apuntar al backend desplegado

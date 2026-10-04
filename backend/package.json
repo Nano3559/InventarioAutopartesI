@@ -15,6 +15,7 @@
     "prestart:prod": "node scripts/ensure-arcface-model.mjs",
     "seed": "ts-node -r dotenv/config src/seed.ts",
     "spike:arcface": "node --expose-gc -r ts-node/register/transpile-only spike/arcface-spike.ts",
+    "spike:rehidratacion": "node spike/probar-rehidratacion.mjs",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
