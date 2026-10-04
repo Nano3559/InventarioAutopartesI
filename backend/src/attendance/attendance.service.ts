@@ -30,6 +30,11 @@ export interface AttendanceFilters {
   search?: string;
 }
 
+export interface AttendanceDashboardFilters {
+  /** `YYYY-MM-DD`. Sin valor: el día local del servidor. */
+  fecha?: string;
+}
+
 export interface AttendanceUpdate {
   usuarioId?: number;
   locationId?: number | null;
@@ -61,6 +66,50 @@ function enteroPositivo(valor: unknown, nombre: string): number {
     throw new BadRequestException(`${nombre} debe ser un entero positivo`);
   }
   return n;
+}
+
+/**
+ * Día local (00:00:00.000 → 23:59:59.999) a partir de `YYYY-MM-DD`.
+ * Se arma con `new Date(y, m-1, d)` y no con `new Date('2026-10-03')` a propósito:
+ * la forma ISO se parsea como **medianoche UTC**, que en Bolivia (UTC-4) es el día
+ * anterior y dejaría el dashboard corrido un día.
+ */
+function rangoDelDia(fecha?: string): {
+  inicio: Date;
+  fin: Date;
+  etiqueta: string;
+} {
+  const hoy = new Date();
+  const iso = fecha?.trim();
+  let dia: Date;
+  if (!iso) {
+    dia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  } else {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      throw new BadRequestException(
+        `fecha inválida: "${iso}". Se espera YYYY-MM-DD`,
+      );
+    }
+    const [anio, mes, diaNumero] = iso.split('-').map(Number);
+    dia = new Date(anio, mes - 1, diaNumero);
+    // `new Date(2026, 12, 1)` no falla: rueda a enero de 2027. El round-trip
+    // detecta eso y el 31 de febrero, que JS normaliza al 3 de marzo.
+    if (
+      dia.getFullYear() !== anio ||
+      dia.getMonth() !== mes - 1 ||
+      dia.getDate() !== diaNumero
+    ) {
+      throw new BadRequestException(`fecha inválida: ${iso}`);
+    }
+  }
+  const fin = new Date(dia);
+  fin.setDate(fin.getDate() + 1);
+  fin.setTime(fin.getTime() - 1);
+  return {
+    inicio: dia,
+    fin,
+    etiqueta: `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`,
+  };
 }
 
 @Injectable()
@@ -151,6 +200,205 @@ export class AttendanceService {
       page,
       limit,
       pages: Math.max(Math.ceil(total / limit), 1),
+    };
+  }
+
+  /**
+   * Presentes / ausentes por tienda para un día (tarea B5, la pantalla de M5).
+   *
+   * - `presentes`: quienes tengan **al menos un marcaje** ese día.
+   * - `dentro`: el último marcaje del día fue `entrada` (o sea, siguen en el local).
+   * - La tienda del presente es la del **último marcaje**; si ese marcaje no trae
+   *   tienda se usa la asignada en `users.tiendaId`. Los ausentes se cuentan sobre
+   *   el personal activo asignado a cada tienda, así ambos grupos son comparables.
+   *
+   * El rango es el **día local** del servidor, igual que `determinarTipoAutomatico`.
+   */
+  async dashboard(filters: AttendanceDashboardFilters) {
+    const { inicio, fin, etiqueta } = rangoDelDia(
+      filters.fecha?.trim() || undefined,
+    );
+
+    const [marcajes, usuarios, locations, filasConRostro] = await Promise.all([
+      this.baseQuery()
+        .where('a.fecha BETWEEN :inicio AND :fin', { inicio, fin })
+        .orderBy('a.fecha', 'ASC')
+        .addOrderBy('a.id', 'ASC')
+        .getMany(),
+      // Columnas explícitas: `find()` traería `password` y el `embedding` (512 floats
+      // de dato biométrico) a la memoria del proceso sin ningún uso.
+      this.usuariosRepo
+        .createQueryBuilder('u')
+        .select([
+          'u.id',
+          'u.nombre',
+          'u.apellido',
+          'u.email',
+          'u.rol',
+          'u.tiendaId',
+        ])
+        .where('u.activo = true')
+        .orderBy('u.id', 'ASC')
+        .getMany(),
+      this.locationsRepo.find({ order: { numero: 'ASC' } }),
+      this.usuariosRepo
+        .createQueryBuilder('u')
+        .select(['u.id'])
+        .where('u.embedding IS NOT NULL')
+        .andWhere('u.activo = true')
+        .getMany(),
+    ]);
+    const conRostro = new Set(filasConRostro.map((u) => u.id));
+
+    const porUsuario = new Map<number, Asistencia[]>();
+    for (const m of marcajes) {
+      const lista = porUsuario.get(m.usuarioId) ?? [];
+      lista.push(m);
+      porUsuario.set(m.usuarioId, lista);
+    }
+
+    type FilaPresente = Record<string, unknown> & { usuarioId: number };
+    type FilaAusente = {
+      usuarioId: number;
+      nombre: string | null;
+      apellido: string | null;
+      nombreCompleto: string;
+      email: string;
+      rol: string;
+      rostroRegistrado: boolean;
+    };
+    type Grupo = {
+      locationId: number | null;
+      codigo: string | null;
+      nombre: string;
+      tipo: string | null;
+      totalPersonal: number;
+      totalMarcajes: number;
+      presentes: FilaPresente[];
+      ausentes: FilaAusente[];
+    };
+
+    const grupos = new Map<number | null, Grupo>();
+    const grupoDe = (locationId: number | null): Grupo => {
+      let grupo = grupos.get(locationId);
+      if (!grupo) {
+        const location = locations.find((l) => l.id === locationId);
+        grupo = {
+          locationId,
+          codigo: location?.codigo ?? null,
+          nombre: location?.nombre ?? 'Sin tienda asignada',
+          tipo: location?.tipo ?? null,
+          totalPersonal: 0,
+          totalMarcajes: 0,
+          presentes: [],
+          ausentes: [],
+        };
+        grupos.set(locationId, grupo);
+      }
+      return grupo;
+    };
+
+    const resumen = (u: {
+      id: number;
+      nombre: string;
+      apellido: string | null;
+      email: string;
+      rol: string;
+    }) => ({
+      usuarioId: u.id,
+      nombre: u.nombre,
+      apellido: u.apellido,
+      nombreCompleto: [u.nombre, u.apellido].filter(Boolean).join(' '),
+      email: u.email,
+      rol: u.rol,
+    });
+
+    let presentes = 0;
+    let dentro = 0;
+
+    for (const u of usuarios) {
+      const filas = porUsuario.get(u.id) ?? [];
+      if (!filas.length) {
+        const grupo = grupoDe(u.tiendaId ?? null);
+        grupo.ausentes.push({
+          ...resumen(u),
+          rostroRegistrado: conRostro.has(u.id),
+        });
+        grupo.totalPersonal++;
+        continue;
+      }
+      presentes++;
+      const ultima = filas[filas.length - 1];
+      const estaDentro = ultima.tipo === 'entrada';
+      if (estaDentro) dentro++;
+
+      const iEntrada = filas.findIndex((f) => f.tipo === 'entrada');
+      const iUltimaEntrada = filas.map((f) => f.tipo).lastIndexOf('entrada');
+      const iUltimaSalida = filas.map((f) => f.tipo).lastIndexOf('salida');
+      const ultimaSalida =
+        iUltimaSalida > iUltimaEntrada ? filas[iUltimaSalida] : null;
+
+      const grupo = grupoDe(ultima.locationId ?? u.tiendaId ?? null);
+      grupo.presentes.push({
+        ...resumen(u),
+        presencia: 'presente',
+        dentro: estaDentro,
+        horaEntrada: iEntrada >= 0 ? filas[iEntrada].fecha.toISOString() : null,
+        horaSalida: ultimaSalida ? ultimaSalida.fecha.toISOString() : null,
+        ultimaMarca: {
+          asistenciaId: ultima.id,
+          tipo: ultima.tipo,
+          fecha: ultima.fecha.toISOString(),
+          metodo: ultima.metodo,
+          confianza: ultima.confianza,
+        },
+        marcajes: filas.length,
+        rostroRegistrado: conRostro.has(u.id),
+      });
+      grupo.totalPersonal++;
+    }
+
+    const porTienda: Grupo[] = [...grupos.values()]
+      .filter((g) => g.locationId !== null)
+      .sort((a, b) => (a.codigo ?? '').localeCompare(b.codigo ?? ''));
+    const sinTienda = grupos.get(null) ?? {
+      locationId: null,
+      codigo: null,
+      nombre: 'Sin tienda asignada',
+      tipo: null,
+      totalPersonal: 0,
+      totalMarcajes: 0,
+      presentes: [],
+      ausentes: [],
+    };
+    for (const grupo of grupos.values()) {
+      grupo.totalMarcajes = grupo.presentes.reduce(
+        (n, p) => n + (p.marcajes as number),
+        0,
+      );
+    }
+
+    return {
+      fecha: etiqueta,
+      desde: inicio.toISOString(),
+      hasta: fin.toISOString(),
+      totales: {
+        personal: usuarios.length,
+        presentes,
+        ausentes: usuarios.length - presentes,
+        dentro,
+        fuera: presentes - dentro,
+        marcajes: marcajes.length,
+        entradas: marcajes.filter((m) => m.tipo === 'entrada').length,
+        salidas: marcajes.filter((m) => m.tipo === 'salida').length,
+        rostrosRegistrados: conRostro.size,
+      },
+      porTienda,
+      sinTienda,
+      ultimosMarcajes: marcajes
+        .slice(-10)
+        .reverse()
+        .map((m) => this.presentar(m)),
     };
   }
 
@@ -276,17 +524,45 @@ export class AttendanceService {
     return 'entrada';
   }
 
-  /** Verifica rostro → reconoce y registra marcaje automático o devuelve candidatos. */
+  /**
+   * Verifica rostro → reconoce y registra marcaje automático o devuelve candidatos.
+   *
+   * Con `usuarioId` se **salta el reconocimiento**: el operador ya eligió a quién
+   * pertenece la foto (es el camino de "no reconocido" → elegir el nombre a mano,
+   * la UX de R4). Se registra `metodo: 'manual'`, sin confianza, con el admin que
+   * confirma en `confirmadoPorId`, y sin correr ArcFace: la foto se ignora.
+   */
   async check(
     file: Express.Multer.File,
     tipo?: TipoAsistencia,
     locationId?: number | null,
+    usuarioId?: number | null,
+    actorId?: number | null,
   ) {
+    if (tipo !== undefined && !TIPOS_ASISTENCIA.includes(tipo)) {
+      throw new BadRequestException(
+        `tipo inválido: ${tipo}. Valores: ${TIPOS_ASISTENCIA.join(', ')}`,
+      );
+    }
+    if (locationId !== null && locationId !== undefined) {
+      enteroPositivo(locationId, 'locationId');
+      this.asegurar(
+        await this.locationsRepo.existsBy({ id: locationId }),
+        locationId,
+        'locationId',
+      );
+    }
+
+    if (usuarioId !== null && usuarioId !== undefined) {
+      return this.registrarManual(usuarioId, tipo, locationId, actorId);
+    }
+
     const embedding = await this.faceService.embeddingDeFoto(file);
     const candidatos = await this.faceService.buscar(embedding, 5);
     if (!candidatos.length) {
       return {
         reconocido: false,
+        requiereConfirmacion: false,
         umbral: UMBRAL_CONFIANZA_FACIAL,
         candidatos: [],
       };
@@ -299,6 +575,7 @@ export class AttendanceService {
       if (!usuario) {
         return {
           reconocido: false,
+          requiereConfirmacion: false,
           umbral: UMBRAL_CONFIANZA_FACIAL,
           candidatos,
         };
@@ -318,6 +595,7 @@ export class AttendanceService {
       const completa = await this.findOne(guardada.id);
       return {
         reconocido: true,
+        manual: false,
         requiereConfirmacion: false,
         umbral: UMBRAL_CONFIANZA_FACIAL,
         candidato: {
@@ -335,6 +613,55 @@ export class AttendanceService {
       requiereConfirmacion: true,
       umbral: UMBRAL_CONFIANZA_FACIAL,
       candidatos,
+    };
+  }
+
+  /**
+   * Marcaje que el operador asignó a mano (reconocimiento por debajo del umbral o
+   * ninguna coincidencia). Mismo tipo automático que el camino automático.
+   */
+  private async registrarManual(
+    usuarioId: number,
+    tipo: TipoAsistencia | undefined,
+    locationId: number | null | undefined,
+    actorId: number | null | undefined,
+  ) {
+    enteroPositivo(usuarioId, 'usuarioId');
+    const usuario = await this.usuariosRepo.findOne({
+      where: { id: usuarioId, activo: true },
+    });
+    if (!usuario) {
+      throw new NotFoundException(
+        `usuarioId ${usuarioId} no existe o está dado de baja (activo = false)`,
+      );
+    }
+    const fecha = new Date();
+    const tipoFinal =
+      tipo ?? (await this.determinarTipoAutomatico(usuario.id, fecha));
+    const guardada = await this.asistenciaRepo.save(
+      this.asistenciaRepo.create({
+        usuarioId: usuario.id,
+        locationId: locationId ?? null,
+        fecha,
+        tipo: tipoFinal,
+        metodo: 'manual',
+        confianza: null,
+        confirmadoPorId: actorId ?? null,
+      }),
+    );
+    return {
+      reconocido: true,
+      manual: true,
+      requiereConfirmacion: false,
+      umbral: UMBRAL_CONFIANZA_FACIAL,
+      candidato: {
+        usuarioId: usuario.id,
+        nombreCompleto: [usuario.nombre, usuario.apellido]
+          .filter(Boolean)
+          .join(' '),
+        similitud: null,
+      },
+      asistencia: await this.findOne(guardada.id),
     };
   }
 

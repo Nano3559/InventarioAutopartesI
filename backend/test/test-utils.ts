@@ -3,11 +3,19 @@ import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { FaceService } from '../src/face/face.service';
 
-export async function createApp(): Promise<INestApplication> {
-  const moduleFixture = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
+/**
+ * `rostroFalso` reemplaza el `FaceService` real por un doble: `onnxruntime-node`
+ * no corre dentro de Jest (su binding valida los typed arrays con `instanceof`
+ * de su propio realm). Es el patrón que permite probar `/attendance/check`.
+ */
+export async function createApp(
+  rostroFalso?: unknown,
+): Promise<INestApplication> {
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  if (rostroFalso) builder.overrideProvider(FaceService).useValue(rostroFalso);
+  const moduleFixture = await builder.compile();
   const app = moduleFixture.createNestApplication();
   app.setGlobalPrefix('api');
   await app.init();

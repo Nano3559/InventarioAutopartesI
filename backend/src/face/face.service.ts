@@ -7,13 +7,14 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import { User } from '../entities/user.entity';
+import { UMBRAL_CONFIANZA_FACIAL } from '../common/constants';
 import {
   ARCFACE_DIMENSION,
   ARCFACE_ENTRADA,
@@ -282,6 +283,79 @@ export class FaceService implements OnModuleInit {
   /** Promedia y normaliza las N fotos en un único vector de identidad. */
   embeddingConsolidado(embeddings: number[][]): number[] {
     return aNumero(promediarYNormalizar(embeddings));
+  }
+
+  // ------------------------------------------------------------- diagnóstico
+
+  /**
+   * Estado del reconocimiento, para verificar un despliegue sin registrar rostros:
+   * `indiceEnMemoria === rostrosEnBase` es la prueba de que **la rehidratación
+   * del `onModuleInit` funcionó** (importa después de un spin-down de Render, que
+   * borra la RAM con el índice).
+   *
+   * `modelo.cargada` es `false` casi siempre: la `InferenceSession` es perezosa a
+   * propósito (92 MB y ~0.5 s que no se pagan si nadie marca asistencia).
+   */
+  async estado() {
+    let modelo: {
+      ruta: string | null;
+      disponible: boolean;
+      cargada: boolean;
+      detalle: string | null;
+    };
+    try {
+      modelo = {
+        ruta: this.rutaModelo(),
+        disponible: true,
+        cargada: this.sesion !== undefined,
+        detalle: null,
+      };
+    } catch (err) {
+      modelo = {
+        ruta: null,
+        disponible: false,
+        cargada: false,
+        detalle: (err as Error).message,
+      };
+    }
+
+    const rostrosEnBase = await this.usersRepo.count({
+      where: { embedding: Not(IsNull()), activo: true },
+    });
+
+    return {
+      umbral: UMBRAL_CONFIANZA_FACIAL,
+      umbralCriterio:
+        'similitud coseno sobre embeddings ArcFace normalizados (512 dims)',
+      rostrosEnBase,
+      indiceEnMemoria: this.indice.size,
+      indiceCompleto: this.indice.size === rostrosEnBase,
+      bucket: this.bucket(),
+      modelo: {
+        ...modelo,
+        nombre: NOMBRE_MODELO,
+        entrada: `${ARCFACE_ENTRADA}x${ARCFACE_ENTRADA}`,
+        dimension: ARCFACE_DIMENSION,
+      },
+    };
+  }
+
+  /**
+   * Carga la `InferenceSession` a pedido y devuelve cuánto tardó. Sirve para
+   * medir el cold start con el modelo cargado (tarea B6) y para dejar la
+   * instancia caliente antes de la demo, sin necesidad de una foto real.
+   */
+  async warmup() {
+    const ruta = this.rutaModelo();
+    const yaEstabaCargada = this.sesion !== undefined;
+    const t0 = Date.now();
+    await this.obtenerSesion();
+    return {
+      ruta,
+      yaEstabaCargada,
+      ms: Date.now() - t0,
+      rostrosEnIndice: this.indice.size,
+    };
   }
 
   // ------------------------------------------------------- fotos (privadas)
