@@ -304,7 +304,8 @@ export class AttendanceService {
         };
       }
       const fecha = new Date();
-      const tipoFinal = tipo ?? (await this.determinarTipoAutomatico(usuario.id, fecha));
+      const tipoFinal =
+        tipo ?? (await this.determinarTipoAutomatico(usuario.id, fecha));
       const asistencia = this.asistenciaRepo.create({
         usuarioId: usuario.id,
         locationId: locationId ?? null,
@@ -321,7 +322,9 @@ export class AttendanceService {
         umbral: UMBRAL_CONFIANZA_FACIAL,
         candidato: {
           usuarioId: usuario.id,
-          nombreCompleto: [usuario.nombre, usuario.apellido].filter(Boolean).join(' '),
+          nombreCompleto: [usuario.nombre, usuario.apellido]
+            .filter(Boolean)
+            .join(' '),
           similitud: mejor.similitud,
         },
         asistencia: completa,
@@ -338,7 +341,8 @@ export class AttendanceService {
   /** Confirmación manual cuando el reconocimiento es bajo umbral. */
   async confirmarManual(id: number, actorId: number) {
     const asistencia = await this.asistenciaRepo.findOne({ where: { id } });
-    if (!asistencia) throw new NotFoundException(`Asistencia ${id} no encontrada`);
+    if (!asistencia)
+      throw new NotFoundException(`Asistencia ${id} no encontrada`);
     asistencia.metodo = 'manual';
     asistencia.confianza = null;
     asistencia.confirmadoPorId = actorId;
