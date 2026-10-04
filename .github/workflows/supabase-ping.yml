@@ -6,11 +6,38 @@ name: Supabase ping diario
 #
 # Secretos requeridos en el repositorio (Settings → Secrets and variables → Actions):
 #   SUPABASE_URL  → https://<project-ref>.supabase.co
-#   SUPABASE_KEY  → service_role key (o anon, si la tabla no tiene RLS)
+#   SUPABASE_KEY  → service_role key
+#
+# ── Por qué este workflow ya no consulta `products` ────────────────────────────
+# La versión anterior falló 4 de 4 veces (2026-09-30 → 2026-10-03) en el paso
+# "Consultar products". La causa NO eran los secrets: a `service_role` le faltan
+# los privilegios GRANT sobre las tablas de `public`, así que PostgREST responde
+#   403 {"code":"42501","message":"permission denied for table products"}
+# El liveness usa ahora `GET /rest/v1/` (raíz de PostgREST), que responde 200 con
+# cualquier service_role y no depende de permisos sobre tablas.
+#
+# Para que el conteo de productos sin código funcione hay que aplicar esto una
+# vez en el SQL Editor de Supabase (idempotente):
+#
+#   grant usage on schema public to service_role;
+#   grant select on all tables in schema public to service_role;
+#
+# ── Índice único de products.codigo ────────────────────────────────────────────
+# NO se puede verificar por HTTP: `pg_indexes` es un catálogo del motor y PostgREST
+# solo expone el schema `public`. Queda como paso manual en el SQL Editor:
+#
+#   select indexname, indexdef from pg_indexes
+#    where schemaname = 'public' and tablename = 'products' and indexdef like '%codigo%';
+#
+# El paso que antes hacía esto solo imprimía esa instrucción con `echo` (nunca
+# verificaba nada) y además salía `skipped` porque fallaba el paso anterior.
 
 on:
   schedule:
     # 13:17 UTC, fuera de la hora punta de los runners de GitHub.
+    # Ojo: en las corridas de set-oct 2026 el trigger llegó ~5 h tarde
+    # (18:17-18:53 UTC). Para un job antipausa el desfase no molesta, pero si
+    # llegara a acumular 7 días conviene mover el cron a una hora más temprana.
     - cron: '17 13 * * *'
   workflow_dispatch:
 
@@ -24,56 +51,113 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Consultar products
-        id: ping
+      - name: Validar secrets
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           set -euo pipefail
-
           if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
-            echo "::error::Faltan los secretos SUPABASE_URL o SUPABASE_KEY en el repositorio."
+            echo "::error::Faltan SUPABASE_URL o SUPABASE_KEY en el repositorio (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          echo "Secrets presentes."
+
+      - name: Ping de actividad (PostgREST)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          base="${SUPABASE_URL%/}"
+
+          # La raíz de PostgREST devuelve el OpenAPI del proyecto, así que la
+          # petición obliga al proyecto a resolver el schema: eso ya cuenta como
+          # actividad y es lo que evita la pausa de los 7 días.
+          response="$(curl -sS -D - -o /tmp/openapi.json \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            "${base}/rest/v1/")"
+
+          echo "$response" | sed -n '1,10p'
+
+          if echo "$response" | grep -qi '^HTTP/.* 200'; then
+            tablas="$(grep -o '"/[a-z_]*"' /tmp/openapi.json | sort -u | wc -l | tr -d ' ')"
+            echo "Ping OK. Rutas de tabla expuestas en el schema public: ${tablas}"
+          else
+            echo "::error::PostgREST no respondió 200. El proyecto puede haberse pausado o el secreto cambió."
+            cat /tmp/openapi.json || true
             exit 1
           fi
 
-          # count=exact devuelve la cabecera Content-Range con el total de filas
-          # que aún no tienen código de barras asignado.
-          url="${SUPABASE_URL%/}/rest/v1/products?select=id,codigo&codigo=is.null"
+      - name: Verificar bucket faces (privado)
+        # R2 exige que `faces` sea privado: guarda datos biométricos (Ley 26935
+        # Bolivia) y solo debe accesible por URL firmada. Este paso convierte esa
+        # condición en algo que se chequea solo todos los días.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          base="${SUPABASE_URL%/}"
+
+          buckets="$(curl -sS \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            "${base}/storage/v1/bucket")"
+
+          faces="$(printf '%s' "$buckets" | tr '{' '\n' | grep '"name":"faces"' | head -n1 || true)"
+
+          if [ -z "$faces" ]; then
+            echo "::error::El bucket 'faces' no existe. Sin él, POST /users/face/register responde 400 y R2/R3 quedan bloqueados."
+            printf '%s' "$buckets" | grep -o '"name":"[^"]*"' | cut -d: -f2 | tr -d '"' | sed 's/^/  bucket encontrado: /' || true
+            exit 1
+          fi
+
+          publico="$(printf '%s' "$faces" | grep -o '"public":[a-z]*' | head -n1 | cut -d: -f2 || true)"
+          limite="$(printf '%s' "$faces" | grep -o '"file_size_limit":[0-9a-z]*' | head -n1 | cut -d: -f2 || true)"
+          mimes="$(printf '%s' "$faces" | grep -o '"allowed_mime_types":\[[^]]*\]' | head -n1 | cut -d: -f2- || true)"
+
+          echo "Bucket 'faces' presente. public=${publico} file_size_limit=${limite} allowed_mime_types=${mimes}"
+
+          if [ "$publico" != "false" ]; then
+            echo "::error::El bucket 'faces' NO es privado (public=${publico}). Son datos biométricos: debe ser privado y solo accesible con URL firmada."
+            exit 1
+          fi
+
+          echo "faces OK: privado."
+
+      - name: "Aviso: productos sin código de barras"
+        # No bloqueante a propósito: depende de los GRANT de service_role que
+        # todavía no están aplicados en el proyecto. Mientras falten, avisa y
+        # deja que el job termine en verde.
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -uo pipefail
+          base="${SUPABASE_URL%/}"
+          url="${base}/rest/v1/products?select=id,codigo&codigo=is.null"
+
           response="$(curl -sS -D - -o /tmp/body.json \
             -H "apikey: ${SUPABASE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_KEY}" \
             -H "Prefer: count=exact" \
             -H "Range: 0-0" \
-            "${url}")"
+            "${url}" || true)"
 
-          echo "$response" | sed -n '1,20p'
+          estado="$(echo "$response" | grep -i '^HTTP/' | tail -n1 | awk '{print $2}' || true)"
 
-          if echo "$response" | grep -qi '^HTTP/.* 200'; then
+          if [ "$estado" = "200" ]; then
             pendientes="$(echo "$response" | grep -i '^content-range:' | sed -E 's#.*/([0-9]+|\*).*#\1#' || true)"
-            echo "Ping OK. Productos sin código de barras: ${pendientes:-0}"
+            echo "Productos sin código de barras: ${pendientes:-0}"
             if [ "${pendientes:-0}" != "0" ] && [ "${pendientes:-0}" != "*" ]; then
-              echo "::warning::Hay ${pendientes} producto(s) sin código de barras. Ejecuta POST /api/products/barcode/generate-all (admin) en el backend."
+              echo "::warning::Hay ${pendientes} producto(s) sin código. Ejecuta POST /api/products/barcode/generate-all (admin) en el backend."
             fi
+          elif [ "$estado" = "401" ] || [ "$estado" = "403" ]; then
+            echo "::warning::No se pudo leer products (HTTP ${estado}): a service_role le faltan los GRANT sobre el schema public. El conteo se omite; el ping de actividad ya se hizo bien."
           else
-            echo "::error::Supabase respondió con un estado distinto de 200."
-            cat /tmp/body.json || true
-            exit 1
+            echo "::warning::products respondió HTTP ${estado:-sin estado}. Se omite el conteo."
+            cat /tmp/body.json 2>/dev/null || true
           fi
-
-      - name: Verificar índice único de products.codigo
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: |
-          set -euo pipefail
-          # Un índice único es la garantía de que un código de barras identifica
-          # un solo producto. La definición idempotente vive en
-          # backend/sql/hito3.sql (CREATE UNIQUE INDEX IF NOT EXISTS "UQ_products_codigo").
-          # Esta consulta informa si está aplicado; se lee en el SQL Editor de Supabase:
-          #
-          #   select indexname, indexdef
-          #   from pg_indexes
-          #   where schemaname = 'public' and tablename = 'products' and indexdef like '%codigo%';
-          #
-          echo "Índice único de products.codigo: verificar con la consulta de arriba en el SQL Editor."
