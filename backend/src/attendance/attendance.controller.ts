@@ -58,11 +58,18 @@ export class AttendanceController {
       throw new Error('Se requiere el archivo "foto"');
     }
     const loc = locationId ? Number(locationId) : null;
-    return this.attendanceService.check(foto, tipo, Number.isNaN(loc) ? null : loc);
+    return this.attendanceService.check(
+      foto,
+      tipo,
+      Number.isNaN(loc) ? null : loc,
+    );
   }
 
   @Post(':id/confirm')
-  confirmar(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+  confirmar(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.attendanceService.confirmarManual(id, user.id);
   }
 
