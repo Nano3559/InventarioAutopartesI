@@ -33,6 +33,9 @@ const adminItems: NavItem[] = [
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
   { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
   { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
+  // Solo admin: `POST /users/face/register` hereda el `@Roles('admin')` de la clase en
+  // `users.controller.ts`, así que en los otros roles la pantalla solo daría 403.
+  { label: 'Registro Facial', icon: 'person-add', route: 'FaceRegister' },
 ];
 
 const tiendaItems: NavItem[] = [
