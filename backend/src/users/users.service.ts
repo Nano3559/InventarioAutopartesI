@@ -148,28 +148,26 @@ export class UsersService {
     apellido: string,
   ): Promise<{ usuario: User; exacto: boolean }> {
     const repo = this.repo();
-    const comun = (qb: ReturnType<typeof repo.createQueryBuilder>) =>
-      qb.where('u.nombre ILIKE :nombre', { nombre });
 
-    const exactos = await comun(
-      repo
-        .createQueryBuilder('u')
-        .andWhere('u.apellido ILIKE :apellido', { apellido }),
-    ).getMany();
+    const exactos = await repo
+      .createQueryBuilder('u')
+      .where('u.nombre ILIKE :nombre', { nombre })
+      .andWhere('u.apellido ILIKE :apellido', { apellido })
+      .getMany();
     if (exactos.length === 1) return { usuario: exactos[0], exacto: true };
     if (exactos.length > 1) this.ambiguos(exactos);
 
     // Segundo intento, más tolerante: parcial ("Mar" en vez de "María") y usuarios
     // que aún no tienen `apellido` cargado en la BD (los del seed, por ejemplo).
-    const candidatos = await comun(
-      repo
-        .createQueryBuilder('u')
-        .andWhere('(u.apellido ILIKE :apellido OR u.apellido IS NULL)', {
-          apellido: `%${escaparLike(apellido)}%`,
-        }),
-    )
-      .andWhere('u.nombre ILIKE :parcial', {
+    // Ojo: acá el `nombre` va con comodines. Reusar la condición exacta del primer
+    // intento dejaba esta búsqueda muerta, porque 'Brian Admin' ILIKE 'Brian' es falso.
+    const candidatos = await repo
+      .createQueryBuilder('u')
+      .where('u.nombre ILIKE :parcial', {
         parcial: `%${escaparLike(nombre)}%`,
+      })
+      .andWhere('(u.apellido ILIKE :apellido OR u.apellido IS NULL)', {
+        apellido: `%${escaparLike(apellido)}%`,
       })
       .getMany();
 
@@ -177,25 +175,50 @@ export class UsersService {
       return { usuario: candidatos[0], exacto: false };
     if (candidatos.length > 1) this.ambiguos(candidatos);
 
-    throw new NotFoundException(
-      `No existe un usuario con nombre "${nombre}" y apellido "${apellido}". ` +
+    throw new NotFoundException({
+      message:
+        `No existe un usuario con nombre "${nombre}" y apellido "${apellido}". ` +
         'El registro facial solo funciona con personal ya creado en users.',
-    );
+      sugerencias: await this.sugerenciasSimilares(nombre, apellido),
+    });
   }
 
   private ambiguos(candidatos: User[]): never {
     throw new ConflictException({
       message:
         'Hay más de un usuario con ese nombre: indicá cuál es antes de registrar el rostro',
-      candidatos: candidatos.map((u) => ({
-        id: u.id,
-        nombreCompleto: nombreCompleto(u),
-        email: u.email,
-        rol: u.rol,
-        tieneRostro: Boolean(u.embedding),
-        activo: u.activo,
-      })),
+      candidatos: candidatos.map((u) => this.resumen(u)),
     });
+  }
+
+  /**
+   * Aproximaciones al nombre escrito, para el 404. Sin esto, el operador que
+   * escribió "Marcos Salinas" y tiene en la BD a "Marco Antonio Salinas" se queda
+   * con un texto genérico y tiene que ir a buscar el usuario a mano.
+   */
+  private async sugerenciasSimilares(nombre: string, apellido: string) {
+    const coincidencias = await this.repo()
+      .createQueryBuilder('u')
+      .where('(u.nombre ILIKE :nombre OR u.apellido ILIKE :apellido)', {
+        nombre: `%${escaparLike(nombre)}%`,
+        apellido: `%${escaparLike(apellido)}%`,
+      })
+      .orderBy('u.nombre', 'ASC')
+      .addOrderBy('u.apellido', 'ASC')
+      .take(5)
+      .getMany();
+    return coincidencias.map((u) => this.resumen(u));
+  }
+
+  private resumen(u: User) {
+    return {
+      id: u.id,
+      nombreCompleto: nombreCompleto(u),
+      email: u.email,
+      rol: u.rol,
+      tieneRostro: Boolean(u.embedding),
+      activo: u.activo,
+    };
   }
 
   /**
