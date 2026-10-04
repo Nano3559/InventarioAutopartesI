@@ -13,4 +13,7 @@ export type RootStackParamList = {
   VentaMayor: undefined;
   Reportes: undefined;
   Scanner: undefined;
+  FaceRegister: undefined;
+  SalesHistory: undefined;
+  SearchByImage: undefined;
 };

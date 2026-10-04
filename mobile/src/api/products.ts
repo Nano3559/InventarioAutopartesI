@@ -1,5 +1,4 @@
-import { request, ApiError } from './client';
-import { config } from '../config';
+import { request, requestForm, appendFile } from './client';
 import type { Product, ProductFilters } from '../types/product';
 
 export interface ImageSearchResult {
@@ -89,44 +88,13 @@ export async function uploadProductImage(
   mimeType: string,
   token?: string,
 ): Promise<{ imagen: string }> {
-  const formData = new FormData();
-  formData.append('file', {
-    uri: fileUri,
-    name: fileName,
-    type: mimeType,
-  } as any);
-
-  let response: Response;
-  try {
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    response = await fetch(`${config.apiUrl}/products/${id}/image`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-  } catch {
-    throw new ApiError('No se pudo conectar con el servidor. Verifique su conexión.', 0);
-  }
-
-  if (!response.ok) {
-    let message = `Error ${response.status}`;
-    try {
-      const payload = (await response.json()) as { message?: string | string[] };
-      if (Array.isArray(payload.message)) {
-        message = payload.message.join(', ');
-      } else if (payload.message) {
-        message = payload.message;
-      }
-    } catch {
-      // respuesta sin cuerpo JSON
-    }
-    throw new ApiError(message, response.status);
-  }
-
-  return (await response.json()) as { imagen: string };
+  const form = new FormData();
+  appendFile(form, 'file', { uri: fileUri, name: fileName, type: mimeType });
+  return requestForm<{ imagen: string }>(
+    `/products/${id}/image`,
+    form,
+    token,
+  );
 }
 
 export async function searchByImage(
@@ -136,43 +104,12 @@ export async function searchByImage(
   token?: string,
   limit = 5,
 ): Promise<ImageSearchResult[]> {
-  const formData = new FormData();
-  formData.append('file', {
-    uri: fileUri,
-    name: fileName,
-    type: mimeType,
-  } as any);
-  formData.append('limit', String(limit));
-
-  let response: Response;
-  try {
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    response = await fetch(`${config.apiUrl}/products/search-by-image`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-  } catch {
-    throw new ApiError('No se pudo conectar con el servidor. Verifique su conexión.', 0);
-  }
-
-  if (!response.ok) {
-    let message = `Error ${response.status}`;
-    try {
-      const payload = (await response.json()) as { message?: string | string[] };
-      if (Array.isArray(payload.message)) {
-        message = payload.message.join(', ');
-      } else if (payload.message) {
-        message = payload.message;
-      }
-    } catch {
-      // respuesta sin cuerpo JSON
-    }
-    throw new ApiError(message, response.status);
-  }
-
-  return (await response.json()) as ImageSearchResult[];
+  const form = new FormData();
+  appendFile(form, 'file', { uri: fileUri, name: fileName, type: mimeType });
+  form.append('limit', String(limit));
+  return requestForm<ImageSearchResult[]>(
+    '/products/search-by-image',
+    form,
+    token,
+  );
 }
