@@ -11,23 +11,27 @@ export interface ArchivoLocal {
   type?: string;
 }
 
+/** Datos mínimos de un usuario para las listas de elección de la pantalla. */
+export interface ResumenUsuario {
+  id: number;
+  nombreCompleto: string;
+  email: string;
+  rol: string;
+  tieneRostro: boolean;
+  activo: boolean;
+}
+
 /**
  * Cuerpo extra de un error del backend, además del `message`.
  *
  * `users.controller.ts` responde 409 con `{ message, candidatos[] }` cuando hay
  * homónimos, y el `request()` se quedó solo con el texto. Sin esto la pantalla de
  * registro facial no podría mostrarle al operador a cuál de los varios "Marcos" se
- * está asociando el rostro.
+ * está asociando el rostro. El 404 trae `sugerencias[]` por el mismo motivo.
  */
 export interface ApiErrorExtras {
-  candidatos?: Array<{
-    id: number;
-    nombreCompleto: string;
-    email: string;
-    rol: string;
-    tieneRostro: boolean;
-    activo: boolean;
-  }>;
+  candidatos?: ResumenUsuario[];
+  sugerencias?: ResumenUsuario[];
   [clave: string]: unknown;
 }
 
@@ -41,6 +45,19 @@ export class ApiError extends Error {
     this.status = status;
     this.extras = extras;
   }
+}
+
+/** Arma el `ApiError` con el `message` del backend y todo lo demás como `extras`. */
+function apiErrorDesde(
+  status: number,
+  payload?: ErrorPayload & ApiErrorExtras,
+): ApiError {
+  if (!payload) return new ApiError(`Error ${status}`, status);
+  const { message, ...extras } = payload;
+  const texto = Array.isArray(message)
+    ? message.join(', ')
+    : (message ?? `Error ${status}`);
+  return new ApiError(texto, status, extras);
 }
 
 export async function request<T>(
@@ -70,21 +87,13 @@ export async function request<T>(
   }
 
   if (!response.ok) {
-    let message = `Error ${response.status}`;
-    let extras: ApiErrorExtras = {};
+    let payload: (ErrorPayload & ApiErrorExtras) | undefined;
     try {
-      const payload = (await response.json()) as ErrorPayload & ApiErrorExtras;
-      if (Array.isArray(payload.message)) {
-        message = payload.message.join(', ');
-      } else if (payload.message) {
-        message = payload.message;
-      }
-      const { message: _omitido, ...resto } = payload;
-      extras = resto;
+      payload = (await response.json()) as ErrorPayload & ApiErrorExtras;
     } catch {
       // respuesta sin cuerpo JSON
     }
-    throw new ApiError(message, response.status, extras);
+    throw apiErrorDesde(response.status, payload);
   }
 
   return (await response.json()) as T;
@@ -119,4 +128,74 @@ export function requestForm<T>(
   token?: string | null,
 ): Promise<T> {
   return request<T>(path, { method: 'POST', body: form }, token);
+}
+
+export interface ProgresoSubida {
+  /** Bytes enviados sobre el total del cuerpo multipart, de 0 a 1. */
+  fraccion: number;
+  /** Foto estimada en curso, contando desde 1. */
+  foto: number;
+  totalFotos: number;
+}
+
+export type AlSubir = (progreso: ProgresoSubida) => void;
+
+/**
+ * `POST` multipart con progreso de subida real, vía `XMLHttpRequest`.
+ *
+ * `fetch` no expone el progreso de subida. En el registro facial eso importa: son
+ * varios MB de fotos y, sin señal, el operador asume que la app se colgó y vuelve
+ * a apretar el botón.
+ *
+ * `foto` es una aproximación. Los bytes del cuerpo incluyen los campos de texto y
+ * los `boundary` del multipart, así que no caen justo en el corte entre una foto y
+ * la siguiente; `fraccion` sí es la fracción real de bytes enviados.
+ */
+export function requestFormConProgreso<T>(
+  path: string,
+  form: FormData,
+  archivos: ArchivoLocal[],
+  alSubir: AlSubir,
+  token?: string | null,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${config.apiUrl}${path}`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.upload.onprogress = (evento: ProgressEvent) => {
+      if (!evento.lengthComputable || !evento.total) return;
+      const fraccion = Math.min(evento.loaded / evento.total, 1);
+      const foto = archivos.length
+        ? Math.min(Math.max(Math.ceil(fraccion * archivos.length), 1), archivos.length)
+        : 0;
+      alSubir({ fraccion, foto, totalFotos: archivos.length });
+    };
+
+    xhr.onload = () => {
+      let payload: (ErrorPayload & ApiErrorExtras) | undefined;
+      try {
+        payload = JSON.parse(xhr.responseText) as ErrorPayload &
+          ApiErrorExtras;
+      } catch {
+        payload = undefined;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as T);
+        return;
+      }
+      reject(apiErrorDesde(xhr.status, payload));
+    };
+
+    xhr.onerror = () => {
+      reject(
+        new ApiError(
+          'No se pudo conectar con el servidor. Verifique su conexión.',
+          0,
+        ),
+      );
+    };
+
+    xhr.send(form);
+  });
 }

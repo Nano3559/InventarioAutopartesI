@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  type DimensionValue,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,7 +25,12 @@ import {
   FOTOS_RECOMENDADAS,
   type RostroRegistrado,
 } from '../api/users';
-import { ApiError, type ArchivoLocal } from '../api/client';
+import {
+  ApiError,
+  type ArchivoLocal,
+  type ProgresoSubida,
+  type ResumenUsuario,
+} from '../api/client';
 import { getToken } from '../storage/token';
 import {
   colors,
@@ -63,9 +69,9 @@ export default function FaceRegisterScreen() {
   const [consentido, setConsentido] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState<Aviso>(null);
-  const [candidatos, setCandidatos] = useState<
-    NonNullable<ApiError['extras']['candidatos']>
-  >([]);
+  const [candidatos, setCandidatos] = useState<ResumenUsuario[]>([]);
+  const [sugerencias, setSugerencias] = useState<ResumenUsuario[]>([]);
+  const [progreso, setProgreso] = useState<ProgresoSubida | null>(null);
   const [resultado, setResultado] = useState<RostroRegistrado | null>(null);
 
   const completa =
@@ -118,6 +124,7 @@ export default function FaceRegisterScreen() {
     setNombre(partes[0] ?? '');
     setApellido(partes.slice(1).join(' '));
     setCandidatos([]);
+    setSugerencias([]);
     setAviso({
       tono: 'info',
       titulo: 'Nombre actualizado',
@@ -130,6 +137,8 @@ export default function FaceRegisterScreen() {
     setEnviando(true);
     setAviso(null);
     setCandidatos([]);
+    setSugerencias([]);
+    setProgreso(null);
     try {
       const token = await getToken();
       if (!token) {
@@ -140,7 +149,9 @@ export default function FaceRegisterScreen() {
         });
         return;
       }
-      const data = await registrarRostro(nombre, apellido, fotos, token);
+      const data = await registrarRostro(nombre, apellido, fotos, token, (p) =>
+        setProgreso(p),
+      );
       setResultado(data);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -156,12 +167,15 @@ export default function FaceRegisterScreen() {
           return;
         }
         if (err.status === 404) {
+          setSugerencias(err.extras.sugerencias ?? []);
           setAviso({
             tono: 'error',
             titulo: 'Usuario no encontrado',
-            texto:
-              'El registro facial solo funciona con personal ya creado. Verificá el ' +
-              'nombre y el apellido, o pedí al administrador que cree el usuario.',
+            texto: err.extras.sugerencias?.length
+              ? 'Revisá el nombre: estos son los usuarios más parecidos. Tocá uno para ' +
+                'usarlo, o pedí al administrador que cree el usuario.'
+              : 'El registro facial solo funciona con personal ya creado. Verificá el ' +
+                'nombre y el apellido, o pedí al administrador que cree el usuario.',
           });
           return;
         }
@@ -183,6 +197,7 @@ export default function FaceRegisterScreen() {
       });
     } finally {
       setEnviando(false);
+      setProgreso(null);
     }
   }, [apellido, completa, enviando, fotos, nombre]);
 
@@ -194,9 +209,51 @@ export default function FaceRegisterScreen() {
     setConsentido(false);
     setAviso(null);
     setCandidatos([]);
+    setSugerencias([]);
   }, []);
 
+  /**
+   * Lista de personas para que el operador elija a cuál se le asocia el rostro.
+   * Sirve para los homónimos (409, `candidatos`) y para las sugerencias del 404.
+   */
+  const listaUsuarios = (titulo: string, items: ResumenUsuario[]) =>
+    items.length ? (
+      <View style={styles.candidatosBox}>
+        <Text style={styles.candidatosTitulo}>{titulo}</Text>
+        {items.map((c) => (
+          <Pressable
+            key={c.id}
+            style={({ pressed }) => [
+              styles.candidato,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => elegirCandidato(c.nombreCompleto)}
+            accessibilityRole={a11y.button}
+            accessibilityLabel={`Elegir a ${c.nombreCompleto}`}
+          >
+            <View style={styles.candidatoTexto}>
+              <Text style={styles.candidatoNombre}>{c.nombreCompleto}</Text>
+              <Text style={styles.candidatoDetalle}>
+                {c.email} · {c.rol}
+                {c.tieneRostro ? ' · ya tiene rostro' : ''}
+                {c.activo ? '' : ' · dado de baja'}
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={iconSize.md}
+              color={colors.textMuted}
+            />
+          </Pressable>
+        ))}
+      </View>
+    ) : null;
+
   const Ciclo = resultado ? 'resultado' : 'captura';
+
+  // Subida 0→100% y después ArcFace en el servidor, que ya no manda bytes.
+  const porcentaje = Math.round((progreso?.fraccion ?? 0) * 100);
+  const procesando = enviando && porcentaje >= 100;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -334,37 +391,9 @@ export default function FaceRegisterScreen() {
               </View>
             ) : null}
 
-            {candidatos.length ? (
-              <View style={styles.candidatosBox}>
-                <Text style={styles.candidatosTitulo}>¿A cuál corresponde?</Text>
-                {candidatos.map((c) => (
-                  <Pressable
-                    key={c.id}
-                    style={({ pressed }) => [
-                      styles.candidato,
-                      pressed && styles.pressed,
-                    ]}
-                    onPress={() => elegirCandidato(c.nombreCompleto)}
-                    accessibilityRole={a11y.button}
-                    accessibilityLabel={`Elegir a ${c.nombreCompleto}`}
-                  >
-                    <View style={styles.candidatoTexto}>
-                      <Text style={styles.candidatoNombre}>{c.nombreCompleto}</Text>
-                      <Text style={styles.candidatoDetalle}>
-                        {c.email} · {c.rol}
-                        {c.tieneRostro ? ' · ya tiene rostro' : ''}
-                        {c.activo ? '' : ' · dado de baja'}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={iconSize.md}
-                      color={colors.textMuted}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
+            {listaUsuarios('¿A cuál corresponde?', candidatos)}
+
+            {listaUsuarios('¿Querías decir alguno de estos?', sugerencias)}
 
             {consentido ? (
               <>
@@ -430,11 +459,30 @@ export default function FaceRegisterScreen() {
 
             {enviando ? (
               <View style={styles.enviandoBox} accessibilityLiveRegion="polite">
-                <ActivityIndicator color={colors.primary} />
-                <Text style={styles.enviandoText}>
-                  Procesando {fotos.length}{' '}
-                  {fotos.length === 1 ? 'foto' : 'fotos'} con el modelo de reconocimiento…
-                </Text>
+                <View style={styles.progresoHead}>
+                  <Text style={styles.enviandoText}>
+                    {procesando
+                      ? 'Subida lista. Procesando con el modelo de reconocimiento…'
+                      : `Subiendo foto ${progreso?.foto ?? 1} de ${fotos.length}…`}
+                  </Text>
+                  {procesando ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <Text style={styles.progresoPct}>{porcentaje}%</Text>
+                  )}
+                </View>
+                <View
+                  style={styles.progresoTrack}
+                  accessibilityRole="progressbar"
+                  accessibilityValue={{ min: 0, max: 100, now: porcentaje }}
+                >
+                  <View
+                    style={[
+                      styles.progresoBar,
+                      { width: `${porcentaje}%` as DimensionValue },
+                    ]}
+                  />
+                </View>
               </View>
             ) : null}
 
@@ -693,16 +741,36 @@ const styles = StyleSheet.create({
   },
 
   enviandoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
     marginHorizontal: space.lg,
     marginTop: space.md,
     padding: space.md,
+    gap: space.sm,
     borderRadius: radius.md,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  progresoHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  progresoPct: {
+    color: colors.primary,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    fontWeight: '700',
+  },
+  progresoTrack: {
+    height: 6,
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
+    overflow: 'hidden',
+  },
+  progresoBar: {
+    height: '100%',
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
   },
   enviandoText: {
     flex: 1,
