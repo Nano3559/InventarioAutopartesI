@@ -63,17 +63,26 @@ porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 
 | Variable | Default | Descripción |
 | :--- | :--- | :--- |
-| `ARCFACE_MODEL` | busca en `spike/models/` y `models/` | Ruta al modelo ONNX (63 MB, Apache-2.0, **no** se versiona) |
+| `ARCFACE_MODEL` | `models/arcfaceresnet100-11-int8.onnx` | Ruta al modelo ONNX (63 MB, Apache-2.0, **no** se versiona) |
 
-El modelo **no** se descarga solo: hay que bajarlo de
+El modelo no se versiona (63 MB) y **en Render tampoco viene en el repo**, así que
+`npm run start:prod` ejecuta antes `prestart:prod` →
+`scripts/ensure-arcface-model.mjs`, que lo baja de
 `https://huggingface.co/onnxmodelzoo/arcfaceresnet100-11-int8/resolve/main/arcfaceresnet100-11-int8.onnx`
-a `backend/spike/models/`, o definir `ARCFACE_MODEL` apuntando a donde esté en el
-servidor. Si el archivo no está, el registro facial responde **503** con un mensaje que
-dice exactamente eso; el resto de la API sigue funcionando (la `InferenceSession` se
-carga en la primera inferencia, no al arrancar).
+si no está en el servidor. El script es idempotente, baja a un `.descargando` y solo
+renombra cuando el tamaño es el esperado (63 MB ± 5 %, así un HTML de error no cuela) y,
+si falla la red, avisa y **no** tumba el arranque: el resto de la API funciona igual.
 
-En Render el modelo hay que dejarlo en el build o bajarlo en el start command: es la
-tarea de B6. Para verificar el contrato del modelo en local: `npm run face:check`.
+En local basta con `node scripts/ensure-arcface-model.mjs` (o bajar el archivo a mano
+a `backend/spike/models/`). Si el archivo no está, el registro facial y el marcaje por
+rostro responden **503** con un mensaje que lo dice; el resto de la API sigue
+funcionando (la `InferenceSession` se carga en la primera inferencia, no al arrancar).
+
+- `POST /face/warmup` (admin) fuerza esa carga y devuelve los ms: sirve para medir el
+  cold start de Render con el modelo en RAM.
+- `GET /face/status` (admin) dice si el modelo está disponible y si el índice en
+  memoria coincide con los rostros de la BD (rehidratación tras un spin-down).
+- Contrato del modelo en local: `npm run face:check`.
 
 ## 3. Frontend (`frontend/.env.local` y `.env.production`)
 

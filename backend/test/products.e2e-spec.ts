@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Product } from '../src/entities/product.entity';
 import { Inventory } from '../src/entities/inventory.entity';
+import { buildCodigoBarras } from '../src/common/barcode';
 import { createApp, db, login, bearer, TEST_USERS } from './test-utils';
 
 const PNG_1PX = Buffer.from(
@@ -261,6 +262,90 @@ describe('Products (e2e)', () => {
     uploadedImagePath = res.body.imagen as string;
   });
 
+  describe('código de barras (Hito 3)', () => {
+    it('GET /api/products/:id/barcode devuelve el PNG y persiste el código', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/products/${createdProductId}/barcode`)
+        .set(bearer(adminToken))
+        .expect(200)
+        .expect('Content-Type', /image\/png/);
+
+      expect(res.body.length).toBeGreaterThan(100);
+      expect(res.headers['content-disposition']).toContain('etiqueta-');
+
+      const codigo = buildCodigoBarras(createdProductId!, codigoFabrica);
+      expect(res.headers['content-disposition']).toContain(codigo);
+
+      const guardado = await ds.getRepository(Product).findOneByOrFail({
+        id: createdProductId as number,
+      });
+      expect(guardado.codigo).toBe(codigo);
+    });
+
+    it('GET /api/products/by-barcode/:codigo devuelve precio y stock', async () => {
+      const codigo = buildCodigoBarras(createdProductId!, codigoFabrica);
+      const res = await request(app.getHttpServer())
+        .get(`/api/products/by-barcode/${codigo}`)
+        .set(bearer(adminToken))
+        .expect(200);
+
+      expect(res.body.id).toBe(createdProductId);
+      expect(res.body.codigo).toBe(codigo);
+      expect(res.body.precio1).toBe(220);
+      expect(res.body.stockTotal).toBe(25);
+      expect(res.body.stockByLocation[tiendaId]).toBe(15);
+      expect(res.body.stockByLocation[almacenId]).toBe(10);
+      expect(Array.isArray(res.body.stock)).toBe(true);
+    });
+
+    it('GET /api/products/by-barcode con código inexistente devuelve 404', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/products/by-barcode/AP-0000-NOEXISTE')
+        .set(bearer(adminToken))
+        .expect(404);
+      expect(String(res.body.message)).toContain('no registrado');
+    });
+
+    it('GET /api/products/by-barcode de un producto sin código devuelve 404', async () => {
+      const otro = await request(app.getHttpServer())
+        .post('/api/products')
+        .set(bearer(adminToken))
+        .send({
+          producto: 'Producto sin código',
+          fabricante: 'Toyota',
+          marca: 'Toyota',
+          modelo: 'Hilux',
+          codigoFabrica: `E2E-${suffix}-SINCODE`,
+        })
+        .expect(201);
+
+      expect(otro.body.codigo).toBeNull();
+      await request(app.getHttpServer())
+        .get(`/api/products/by-barcode/${otro.body.codigo ?? ''}`)
+        .set(bearer(adminToken))
+        .expect(400);
+
+      await ds.getRepository(Product).delete({ id: otro.body.id as number });
+    });
+
+    it('POST /api/products/barcode/generate-all rotula lo que falta (solo admin)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/products/barcode/generate-all')
+        .set(bearer(adminToken))
+        .expect(201);
+
+      expect(typeof res.body.pendientes).toBe('number');
+      expect(res.body.codigos.every((c: string) => /^AP-\d{4}-/.test(c))).toBe(
+        true,
+      );
+
+      await request(app.getHttpServer())
+        .post('/api/products/barcode/generate-all')
+        .set(bearer(inventarioToken))
+        .expect(403);
+    });
+  });
+
   it('DELETE /api/products/:id desactiva (soft delete) el producto', async () => {
     await request(app.getHttpServer())
       .delete(`/api/products/${createdProductId}`)
@@ -278,5 +363,14 @@ describe('Products (e2e)', () => {
       .set(bearer(adminToken))
       .expect(200);
     expect((byId.body as { activo: boolean }).activo).toBe(false);
+  });
+
+  it('GET /api/products/by-barcode ignora el producto desactivado', async () => {
+    const codigo = buildCodigoBarras(createdProductId!, codigoFabrica);
+    const res = await request(app.getHttpServer())
+      .get(`/api/products/by-barcode/${codigo}`)
+      .set(bearer(adminToken))
+      .expect(404);
+    expect(String(res.body.message)).toContain('no registrado');
   });
 });

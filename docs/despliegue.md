@@ -10,11 +10,50 @@ Guía de publicación de los tres frentes. Entorno de producción actual:
 
 ## 1. Backend (Render)
 
-1. Configurar variables en el dashboard de Render (ver `docs/entornos.md` §Backend).
+Configuración real del servicio (`srv-dabk6b2d0e5s739lkgr0`, root dir `backend`,
+plan free, región Oregon):
+
+| Ajuste | Valor |
+| :--- | :--- |
+| Build command | `npm install && npm run build` |
+| Start command | `npm run start:prod` |
+| Health check path | `/api` |
+| Auto deploy | sí, desde `main` |
+
+1. Variables en el dashboard de Render (ver `docs/entornos.md` §Backend). Además de
+   las de base de datos: `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_BUCKET` (imágenes de
+   producto), `FACE_BUCKET=faces` (bucket privado de rostros) y `ARCFACE_MODEL` si se
+   quiere una ruta distinta a `models/arcfaceresnet100-11-int8.onnx`.
 2. `DB_SYNC=false` en producción (migraciones controladas; no `synchronize`).
-3. Build command: `npm run build` (NestJS compila a `dist/`).
-4. Start command: `npm run start:prod` (`node dist/main`).
-5. Verificar salud: `GET https://inventarioautopartesi.onrender.com/api` responde.
+3. El modelo ArcFace (63 MB) **no está en el repo**: `npm run start:prod` dispara antes
+   `prestart:prod` → `scripts/ensure-arcface-model.mjs`, que lo descarga si falta. El
+   disco de Render persiste entre spin-down, pero **cada deploy borra el filesystem**,
+   así que el archivo se baja en el primer arranque de cada despliegue (~8 s).
+4. Verificar salud: `GET https://inventarioautopartesi.onrender.com/api` responde 200.
+
+### 1.1 Plan free: spin-down y cold start
+
+El plan free apaga la instancia tras 15 min sin tráfico. Al primer request el arranque
+tarda (Nest + TypeORM contra Supabase con TLS). Para medirlo y comprobar que el
+reconocimiento facial se rehidrata:
+
+```bash
+# 1. Estado del servicio y del índice en memoria (admin)
+curl -H "Authorization: Bearer $TOKEN" \
+  https://inventarioautopartesi.onrender.com/api/face/status
+
+# 2. Cargar el modelo ArcFace a mano y ver cuánto tarda
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  https://inventarioautopartesi.onrender.com/api/face/warmup
+
+# 3. Cold start: sin tráfico, el primer request tarda; medirlo con cronometro
+curl -w "\n%{time_total}s\n" -o /dev/null -s https://inventarioautopartesi.onrender.com/api
+```
+
+`indiceEnMemoria === rostrosEnBase` en `/face/status` es la prueba de que el
+`onModuleInit` rehidrató los embeddings tras el spin-down. `modelo.cargada` es `false`
+salvo después de un `warmup` o una inferencia: la `InferenceSession` es perezosa a
+propósito para no pagar 92 MB de RAM y ~0.5 s si nadie marca asistencia.
 
 ## 2. Frontend (Vercel)
 
@@ -53,6 +92,12 @@ npx eas build --platform android --profile preview
 
 - [ ] `GET /api` responde 200 en el backend.
 - [ ] Login con un usuario admin, tienda e inventario funcionan.
+- [ ] `GET /api/face/status` (admin): `modelo.disponible: true` e `indiceCompleto: true`.
+- [ ] `POST /api/face/warmup` (admin): devuelve `ms` y deja `modelo.cargada: true`.
+- [ ] `GET /api/attendance/dashboard?fecha=YYYY-MM-DD` (admin) responde 200.
+- [ ] `GET /api/products/by-barcode/AP-<id>-<codigoFabrica>` responde 200.
+- [ ] Primer request tras 15 min sin tráfico responde (cold start) y el log muestra
+      el reinicio del índice facial.
 - [ ] Web: Vercel sirve la SPA y hace `fetch` a la API de Render (CORS ok).
 - [ ] Móvil: app compilada inicia sesión y descarga imágenes de Supabase + `/api`.
 - [ ] `docs/entornos.md` refleja las URL finales.
