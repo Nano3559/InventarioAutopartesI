@@ -16,4 +16,6 @@ export type RootStackParamList = {
   FaceRegister: undefined;
   SalesHistory: undefined;
   SearchByImage: undefined;
+  Attendance: undefined;
+  AttendanceHistory: undefined;
 };

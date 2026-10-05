@@ -27,6 +27,8 @@ import SearchByImageScreen from './src/screens/SearchByImageScreen';
 import ProductDetailScreen from './src/screens/ProductDetailScreen';
 import ScannerScreen from './src/screens/ScannerScreen';
 import FaceRegisterScreen from './src/screens/FaceRegisterScreen';
+import AttendanceScreen from './src/screens/AttendanceScreen';
+import AttendanceHistoryScreen from './src/screens/AttendanceHistoryScreen';
 import {
   colors,
 } from './src/theme';
@@ -60,6 +62,8 @@ function AdminDrawer() {
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
       <Drawer.Screen name="Scanner" component={ScannerScreen} />
       <Drawer.Screen name="FaceRegister" component={FaceRegisterScreen} />
+      <Drawer.Screen name="Attendance" component={AttendanceScreen} />
+      <Drawer.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
       <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
     </Drawer.Navigator>
   );
