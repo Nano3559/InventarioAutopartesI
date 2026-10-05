@@ -32,6 +32,11 @@ const adminItems: NavItem[] = [
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
   { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
+  // Asistencia e historial son solo admin: `AttendanceController` tiene
+  // `@Roles('admin')` a nivel de clase (`attendance.controller.ts`), así que en
+  // `tienda` e `inventario` toda llamada a `/attendance` responde 403.
+  { label: 'Asistencia Facial', icon: 'finger-print', route: 'Attendance' },
+  { label: 'Historial Asistencia', icon: 'time', route: 'AttendanceHistory' },
   { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
   // Solo admin: `POST /users/face/register` hereda el `@Roles('admin')` de la clase en
   // `users.controller.ts`, así que en los otros roles la pantalla solo daría 403.
