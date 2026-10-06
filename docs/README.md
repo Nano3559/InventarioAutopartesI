@@ -14,6 +14,7 @@ entender, correr, mantener y desplegar el proyecto.
 | [Variables de Entorno](entornos.md) | `.env` por subproyecto: variables, defaults y cómo cargarlas | Al configurar un entorno local o de producción |
 | [Despliegue](despliegue.md) | Publicación en Vercel, Render y EAS para la app móvil | En tareas de release/deploy |
 | [API Reference](api.md) | Endpoints REST del backend con prefijo, método y ruta | Al consumir la API desde web o móvil |
+| [E2E Asistencia](e2e-asistencia.md) | Protocolo R5: registro facial, escáner y marcaje en dispositivo físico + tabla de scores | Al probar el flujo facial en el celular |
 
 ## Documentos de negocio (raíz)
 
