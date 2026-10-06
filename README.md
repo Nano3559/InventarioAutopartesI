@@ -1,23 +1,27 @@
-# AutoParts Pro · Sistema de Inventario y Ventas
+# AutoParts Pro · Sistema de Inventario, Ventas y Asistencia Biométrica
 
-> Plataforma para 7 importadoras de autopartes (4 almacenes + 3 tiendas) con más de
-> 10.000 productos en stock. Gestiona inventario por ubicación, venta al detalle y
-> por mayor, pagos multi-método, devoluciones, traslados, costos, precios y reportes.
+> Plataforma integral para 7 importadoras de autopartes (4 almacenes + 3 tiendas) con más de
+> 10.000 productos en catálogo. Gestiona inventario distribuido, ventas al detalle y al por mayor,
+> pagos multi-método, traslados, devoluciones, costos, precios, reportes gerenciales, **identificación
+> por códigos de barras Code128** y **control de asistencia mediante reconocimiento facial con IA**.
 
-**Proyecto de Programación Avanzada — Unifranz** · Entregado el 01/09/2026.
+**Proyecto de Programación Avanzada — Unifranz** · Hito 3 entregado el 06/10/2026.
 
-| | |
-| :--- | :--- |
-| **Backend** | NestJS 11 + TypeORM + PostgreSQL |
-| **Web** | React 19 + Vite 8 (admin y tienda) |
-| **Móvil** | Expo 57 / React Native 0.86 |
-| **Despliegue** | Web → Vercel · API → Render · App → Expo EAS |
+| Capa | Tecnologías | Despliegue |
+| :--- | :--- | :--- |
+| **Backend** | NestJS 11 + TypeORM + PostgreSQL + `onnxruntime-node` (ArcFace IA) | Render (`inventarioautopartesi.onrender.com`) |
+| **Web Admin** | React 19 + Vite 8 + TypeScript + `@bwip-js/browser` | Vercel |
+| **App Móvil** | Expo 57 / React Native 0.86 + `expo-camera` | Expo EAS |
+| **Almacenamiento** | Supabase Storage (`products` público, `faces` privado) | Supabase Cloud |
 
 ---
 
 ## Tabla de contenidos
 
-- [Características](#características)
+- [Características principales](#características-principales)
+  - [Inventario y Catálogo](#inventario-y-catálogo)
+  - [Ventas y Facturación](#ventas-y-facturación)
+  - [Flujo de Visión Asistida (Hito 3)](#flujo-de-visión-asistida-hito-3)
 - [Stack tecnológico](#stack-tecnológico)
 - [Estructura del repositorio](#estructura-del-repositorio)
 - [Roles del sistema](#roles-del-sistema)
@@ -25,55 +29,58 @@
 - [Scripts útiles](#scripts-útiles)
 - [Variables de entorno](#variables-de-entorno)
 - [Documentación técnica](#documentación-técnica)
-- [Convención de trabajo](#convención-de-trabajo)
 - [Despliegue](#despliegue)
 - [Estado del proyecto](#estado-del-proyecto)
 
 ---
 
-## Características
+## Características principales
 
-**Inventario** — Catálogo completo con buscador y filtros (marca, fabricante,
-modelo, año, código OEM/fábrica). Stock distribuido en 7 ubicaciones con control
-por almacén/tienda, stock mínimo y reposición automática al llegar a 0.
+### Inventario y Catálogo
+- **Control multi-ubicación**: Stock desagregado en 7 sucursales (4 almacenes y 3 tiendas físicas).
+- **Filtros avanzados**: Búsqueda por marca, modelo, año, fabricante y código OEM.
+- **Movimientos y logística**: Registro de traslados entre sucursales y gestión de solicitudes de reposición.
+- **Búsqueda por imagen**: Búsqueda asistida de repuestos mediante comparación fotográfica (web y móvil).
 
-**Ventas** — POS con carrito, subtotales y totales automáticos. Pago en un solo
-método o combinado (efectivo, transferencia, QR, crédito). Registro de datos para
-factura (CI/NIT, nombre, celular) y nota de venta imprimible.
+### Ventas y Facturación
+- **Punto de Venta (POS)**: Carrito ágil, cálculo automático de impuestos y emisión de notas de venta.
+- **Pagos multi-método**: Pagos simples o combinados en efectivo, transferencia bancaria, QR y crédito.
+- **Venta por mayor**: Carga manual o ingesta masiva desde hojas de cálculo Excel validando stock disponible.
+- **Costos y precios**: Gestión de facturas de proveedores y reglas de margen de ganancia (+20% a +80%).
 
-**Venta por mayor** — Ingesta manual (Opción A) o por importación de Excel
-(Opción B) validando stock disponible, con datos de cliente, entrega y pago.
+### Flujo de Visión Asistida (Hito 3)
 
-**Movimientos y solicitudes** — Traslados entre ubicaciones con histórico, y
-solicitudes de las tiendas al almacén con estados controlados por el encargado de
-inventario.
+#### 1. Identificación por Códigos de Barras (Code128)
+- **Generación masiva y unitaria**: Algoritmo `AP-<id>-<codigoFabrica>` codificado exclusivamente en barras Code128 (`includetext: false`) mediante `@bwip-js/node` y `@bwip-js/browser`.
+- **Impresión masiva A4**: Generación de plantillas listas para impresión física de etiquetas para el catálogo completo.
+- **Escáner móvil**: Lectura instantánea con `expo-camera` en la app móvil que consulta en Render y muestra la ficha del repuesto (precio, stock total, stock por tienda e imagen).
 
-**Devoluciones** — Registro con motivo, cantidad, monto y método, actualizando el
-inventario correspondiente.
+#### 2. Control de Asistencia Facial con IA (ArcFace in-process)
+- **Modelo de IA embebido**: Inferencia *in-process* dentro de NestJS con `onnxruntime-node` utilizando **ArcFace int8** (`onnxmodelzoo/arcfaceresnet100-11-int8`, Apache-2.0, embedding de 512 dimensiones). Sin microservicios externos ni dependencias pesadas de GPU.
+- **Registro facial**: Formulario móvil con encuadre oval guiado (112×112) que extrae, promedia y normaliza el embedding, almacenando la fotografía de auditoría en el bucket privado `faces` de Supabase.
+- **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral calibrado en **0.35**. Registro automático de `entrada` o `salida` según el flujo diario del empleado.
+- **Privacidad y cumplimiento legal (Ley 26935 Bolivia)**: Fotografías servidas exclusivamente mediante URLs firmadas temporales (1 hora) y opción de supresión biométrica definitiva (`eliminarEmbedding: true`).
 
-**Costos y precios** — Facturas por proveedor (con subida de archivo) y cálculo de
-precios a partir del costo (+20% a +80%, precio por mayor manual). Export a Excel.
-
-**Reportes** — Dashboard con KPIs, ventas por tienda/marca/vehículo, reportes
-mensuales por tienda (con costo) y compras por proveedor.
-
-**Búsqueda por imagen** — Identificación de productos desde una fotografía (web y móvil).
+#### 3. Módulos Web de Gestión y Auditoría (Web Admin)
+- **Gestión de Personal (`/personal`)**: Administración de trabajadores de las 7 sucursales, visualización de foto firmada, estado de biometría y botón de baja biométrica.
+- **Historial de Asistencia (`/asistencia`)**: Tabla paginada con filtros por fecha, sucursal, empleado, tipo de marcaje y método (ArcFace IA vs Manual), con modal de corrección administrativa.
+- **Dashboard en Tiempo Real (`/asistencia/dashboard`)**: Métricas consolidadas del día, recuento de presentes y ausentes por tienda, control de personal dentro del local y registro de los últimos 10 marcajes en vivo.
+- **Modo Tiqueador Kiosco (Tablet Móvil)**: Bloqueo de la tablet en modo reloj biométrico con autenticación administrativa y tienda física persistida en `SecureStore`.
 
 ---
 
 ## Stack tecnológico
 
-| Capa | Tecnologías |
-| :--- | :--- |
-| **Base de datos** | PostgreSQL 16 · TypeORM (14 entidades) |
-| **Backend** | NestJS 11 · TypeScript 5.7 · Passport/JWT · bcryptjs |
-| **Frontend** | React 19 · Vite 8 · TypeScript 6 · react-router-dom 7 · lucide-react |
-| **Móvil** | Expo 57 (React Native 0.86) · React Navigation 7 · expo-print/secure-store |
-| **Archivos** | multer · sharp · Supabase (imágenes) |
-| **Excel** | xlsx (import/export) |
-| **Calidad** | oxlint (web) · ESLint+Prettier (backend) · Jest+supertest (backend e2e) |
+| Capa | Tecnologías | Notas |
+| :--- | :--- | :--- |
+| **Base de datos** | PostgreSQL 16 · TypeORM (15 entidades) | Alojadada en Supabase Cloud con SSL |
+| **Backend** | NestJS 11 · TypeScript 5.7 · Passport/JWT · `onnxruntime-node` · `@bwip-js/node` | Monolito modular en puerto 3000 |
+| **Frontend** | React 19 · Vite 8 · TypeScript · `react-router-dom` 7 · `lucide-react` · `@bwip-js/browser` | CSS plano modular, sin librerías pesadas |
+| **Móvil** | Expo 57 · React Native 0.86 · `expo-camera` · `@bwip-js/react-native` · `expo-secure-store` | Navegación nativa Stack + Drawer |
+| **Almacenamiento** | Supabase Storage · sharp · multer | Buckets `products` (público) y `faces` (privado) |
+| **Calidad** | oxlint (web) · ESLint + Prettier (backend) · Jest + Supertest (129 specs e2e) | 0 errores y 0 warnings en builds |
 
-Detalle con versiones y justificaciones: [docs/stack-tecnologico.md](docs/stack-tecnologico.md).
+Detalle técnico completo y justificaciones: [docs/stack-tecnologico.md](docs/stack-tecnologico.md).
 
 ---
 
@@ -83,101 +90,85 @@ Detalle con versiones y justificaciones: [docs/stack-tecnologico.md](docs/stack-
 ├── backend/            API NestJS (prefijo /api, puerto 3000)
 │   ├── src/
 │   │   ├── auth/          login JWT + guards RBAC
-│   │   ├── common/        constantes roles/pagos/estados + image-hash
-│   │   ├── entities/      14 entidades TypeORM
-│   │   ├── <modulo>/      products, sales, movimientos, costos, precios...
-│   │   └── seed.ts        siembra datos reales del negocio
-│   ├── schema.sql          esquema PostgreSQL de referencia
-│   └── test/              specs e2e (Jest + supertest)
-├── frontend/           SPA React (Vite) — admin + tienda
+│   │   ├── users/         CRUD de empleados + baja biométrica
+│   │   ├── products/      catálogo + generación y consulta Code128
+│   │   ├── attendance/    historial, dashboard y marcaje de asistencia
+│   │   ├── face/          inferencia ArcFace ONNX + índice de memoria
+│   │   ├── entities/      15 entidades TypeORM (incluye Asistencia)
+│   │   └── seed.ts        siembra de datos reales (7 sucursales, productos)
+│   ├── schema.sql         esquema PostgreSQL de referencia
+│   └── test/              129 tests e2e automatizados
+├── frontend/           SPA React (Vite) — admin y tienda
 │   └── src/
-│       ├── api/           cliente fetch + wrappers por dominio
-│       ├── services/      lógica de negocio sobre la API
-│       ├── context/       AuthContext (JWT) + NotificationContext
-│       ├── routes/        rutas protegidas por rol
-│       ├── layouts/       Sidebar por rol + Navbar
-│       ├── pages/         inventario, ventas, costos, precios, reportes...
-│       └── styles/        CSS plano por pantalla
+│       ├── services/      users, attendance, products, sales, locations...
+│       ├── components/    personal, attendance, inventory, ventas...
+│       ├── pages/
+│       │   ├── personal/      Gestión de Personal y Rostros (/personal)
+│       │   ├── attendance/    Historial (/asistencia) y Dashboard (/asistencia/dashboard)
+│       │   └── ...            inventario, ventas, costos, precios, reportes
+│       └── styles/        CSS plano modular con modo oscuro
 ├── mobile/             App Expo — admin, tienda e inventario
 │   └── src/
-│       ├── api/           misma arquitectura que web (Bearer + ApiError)
-│       ├── screens/       Login, POS, Venta Mayor, Inventario, Solicitudes...
-│       ├── components/    AppDrawer por rol, StatCard, Badge...
-│       └── theme.ts       design tokens (light/dark)
-├── docs/               Documentación técnica organizada
-├── Plan Hito 3.md      Plan día a día del Hito 3 (códigos de barras + asistencia facial)
-├── requerimientos.md   Ejercicio del cliente (requisitos del sistema)
-└── AGENTS.md           Instrucciones para el asistente de código
+│       ├── screens/       Scanner, FaceRegister, Attendance, Inventario, POS...
+│       ├── components/    FaceCamera, AdminPasswordGate, TiendaSelector...
+│       ├── context/       TiqueadorContext (kiosco para tablets)
+│       └── storage/       terminal.ts (persistencia de sucursal en SecureStore)
+├── docs/               Documentación técnica indexada
+├── Plan Hito 3.md      Plan día a día ejecutado del Hito 3
+├── requerimientos.md   Requisitos del sistema del cliente
+└── AGENTS.md           Instrucciones y contexto del proyecto
 ```
 
 ---
 
 ## Roles del sistema
 
-| Rol | Alcance |
+| Rol | Alcance en el sistema |
 | :--- | :--- |
-| **`admin`** | Acceso completo: inventario, precios, costos, ventas (menor/mayor), movimientos, reportes, usuarios |
-| **`tienda`** | Vender, registrar devoluciones, solicitar productos al almacén y consultar stock/reportes de su tienda |
-| **`inventario`** | Gestionar solicitudes de las tiendas, registrar traslados y control físico del stock |
-
-Roles definidos en `backend/src/common/constants.ts` y aplicados por JWT/RBAC en
-web (`ProtectedRoute`) y móvil (drawer por rol).
+| **`admin`** | Acceso total: inventario global, precios, costos, reportes, personal, auditoría de asistencia, dashboard en vivo y modo tiqueador. |
+| **`tienda`** | Operación de sucursal: Punto de Venta (POS), venta mayor, devoluciones, solicitudes al almacén y escáner de códigos de barras. |
+| **`inventario`** | Control de almacén: recepción de stock, traslados entre sucursales y escaneo de autopartes. |
 
 ---
 
 ## Puesta en marcha
 
-### Requisitos previos
-
+### 1. Requisitos previos
 - Node.js 20+ y npm
-- PostgreSQL en ejecución con una base `AutopartesDB`
-- (Opcional) Expo CLI / cuenta EAS para la app móvil
+- PostgreSQL 16 (local o Supabase)
+- Expo Go o build de desarrollo para la aplicación móvil
 
-### 1. Configurar variables de entorno
+### 2. Variables de entorno
+Configura los archivos `.env` según las especificaciones de [docs/entornos.md](docs/entornos.md):
+- `backend/.env`
+- `frontend/.env.local`
+- `mobile/.env`
 
-Las plantillas `.env.example` se mantienen fuera del repositorio (no se versionan).
-Si cuentas con la plantilla local, cópialas y rellena los valores:
-
-```bash
-cp backend\.env.example   backend\.env
-cp frontend\.env.example  frontend\.env.local
-cp mobile\.env.example    mobile\.env
-```
-
-Si no las tienes, crea cada archivo con las variables documentadas en
-[docs/entornos.md](docs/entornos.md).
-
-### 2. Backend
-
+### 3. Backend
 ```bash
 cd backend
 npm install
-npm run start:dev        # NestJS escucha en http://localhost:3000/api
+npm run start:dev        # API escuchando en http://localhost:3000/api
 ```
 
-Verifica: `GET http://localhost:3000/api` responde.
+Para verificar el contrato biométrico de ArcFace:
+```bash
+npm run face:check       # Valida el modelo ONNX int8 (512 dims, norma 1)
+```
 
-_(Opcional — requiere DB arriba y `.env` configurado: `npm run seed` siembra las
-7 importadoras, usuarios y el catálogo de productos.)_
-
-### 3. Frontend (web)
-
+### 4. Frontend Web
 ```bash
 cd frontend
 npm install
-npm run dev              # Vite escucha en http://localhost:5173
+npm run dev              # Vite escuchando en http://localhost:5173
 ```
 
-### 4. Mobile (Expo)
-
+### 5. Aplicación Móvil
 ```bash
 cd mobile
 npm install
-npm start                # expo start (QR / emulador)
+npm start                # Expo Metro Bundler
 ```
-
-En el emulador Android usa `EXPO_PUBLIC_API_URL=http://10.0.2.2:3000`; en un
-dispositivo físico, el IP de tu PC en la misma red WiFi.
 
 ---
 
@@ -185,85 +176,72 @@ dispositivo físico, el IP de tu PC en la misma red WiFi.
 
 | Comando | Módulo | Descripción |
 | :--- | :--- | :--- |
-| `npm run start:dev` | backend | Dev con hot-reload |
-| `npm run build` | backend | `nest build` (typecheck + compila) |
-| `npm run lint` | backend | ESLint con `--fix` |
-| `npm test` / `test:e2e` | backend | Tests unitarios / e2e |
-| `npm run seed` | backend | Siembra datos reales del negocio |
-| `npm run dev` | frontend | Servidor de desarrollo |
-| `npm run build` | frontend | `tsc -b && vite build` (typecheck) |
-| `npm run lint` | frontend | **oxlint** (no ESLint) |
-| `npm run preview` | frontend | Previsualizar build |
-| `npm start` | mobile | `expo start` |
-| `npx tsc --noEmit` | mobile | Typecheck |
-| `npx expo export` | mobile | Build web/prod de verificación |
+| `npm run start:dev` | backend | Servidor NestJS en modo desarrollo con hot-reload |
+| `npm run build` | backend | Compilación de producción (`nest build`) |
+| `npm run face:check` | backend | Validación del contrato real del modelo ArcFace ONNX |
+| `npm test` | backend | Tests unitarios con Jest |
+| `npm run test:e2e` | backend | 129 tests e2e automatizados de asistencia y catálogo |
+| `npm run seed` | backend | Población de datos reales en base de datos |
+| `npm run dev` | frontend | Servidor web de desarrollo (Vite) |
+| `npm run build` | frontend | Typecheck (`tsc -b`) y build de producción |
+| `npm run lint` | frontend | Auditoría rápida con **oxlint** |
+| `npx tsc --noEmit` | mobile | Typecheck de TypeScript en Expo |
+| `npx expo export` | mobile | Verificación de build de producción móvil |
 
 ---
 
 ## Variables de entorno
 
-Resumen rápido; detalle en [docs/entornos.md](docs/entornos.md).
+Resumen de variables esenciales ([docs/entornos.md](docs/entornos.md)):
 
-| Archivo | Variables clave |
-| :--- | :--- |
-| `backend/.env` | `DB_HOST`, `DB_PORT`, `DB_NAME` (AutopartesDB), `DB_USER`, `DB_PASSWORD`, `PORT` (3000), `JWT_SECRET`, `DB_SYNC` |
-| `frontend/.env.local` | `VITE_API_URL` (incluye `/api`) |
-| `frontend/.env.production` | `VITE_API_URL` de producción (Vercel) |
-| `mobile/.env` | `EXPO_PUBLIC_API_URL` (sin `/api`) |
+| Variable | Módulo | Descripción |
+| :--- | :--- | :--- |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Backend | Conexión a la base de datos PostgreSQL |
+| `JWT_SECRET` | Backend | Clave para firma de tokens Bearer |
+| `SUPABASE_URL`, `SUPABASE_KEY` | Backend | Conexión con Supabase Storage |
+| `SUPABASE_BUCKET` | Backend | Bucket para fotos de repuestos (`products`) |
+| `FACE_BUCKET` | Backend | Bucket privado para biometría (`faces`) |
+| `ARCFACE_MODEL` | Backend | Ruta al modelo ArcFace ONNX int8 |
+| `VITE_API_URL` | Frontend | URL base del backend (incluye `/api`) |
+| `EXPO_PUBLIC_API_URL` | Móvil | URL base del backend (sin `/api`) |
 
 ---
 
 ## Documentación técnica
 
-| Documento | Contenido |
+| Documento | Enfoque |
 | :--- | :--- |
-| [docs/README.md](docs/README.md) | Índice de la documentación |
-| [docs/arquitectura.md](docs/arquitectura.md) | Diagramas, entidades, módulos y flujos críticos |
-| [docs/stack-tecnologico.md](docs/stack-tecnologico.md) | Versiones y justificación de cada tecnología |
-| [docs/git-convention.md](docs/git-convention.md) | Ramas, commits y flujo de PR del equipo |
-| [docs/api.md](docs/api.md) | Referencia de endpoints REST |
-| [docs/entornos.md](docs/entornos.md) | Variables de entorno por entorno |
-| [docs/despliegue.md](docs/despliegue.md) | Guía de publicación (Vercel, Render, EAS) |
-
-Docs de negocio: [requerimientos.md](requerimientos.md) y [Plan Hito 3.md](Plan%20Hito%203.md).
-
----
-
-## Convención de trabajo
-
-- Git: ramas `feature/*` → `main` vía PR; mensajes **Conventional Commits** en español.
-  Reglas completas en [docs/git-convention.md](docs/git-convention.md).
-- Definition of Done: `build` + `lint` en verde en el módulo afectado antes de mergear.
-- Asistente de código: leer `AGENTS.md`; agentes/skills propios en `.opencode/`.
-  - **Skills**: `verificar-modulo` (lint+build antes de cerrar), `git-convencion` (ramas/commits/PR) e `impeccable` (diseño/UX de interfaces frontend).
+| [docs/README.md](docs/README.md) | Índice general de la documentación técnica |
+| [docs/api.md](docs/api.md) | Contrato completo de endpoints REST (asistencia, productos, ventas, usuarios) |
+| [docs/arquitectura.md](docs/arquitectura.md) | Arquitectura del sistema y §3.2 Modelo de reconocimiento facial sin detector |
+| [docs/stack-tecnologico.md](docs/stack-tecnologico.md) | Versiones exactas y justificación técnica de la arquitectura |
+| [docs/e2e-asistencia.md](docs/e2e-asistencia.md) | Pruebas e2e de asistencia biométrica |
+| [docs/git-convention.md](docs/git-convention.md) | Guía de ramas, commits convencionales y flujo de integración |
+| [docs/entornos.md](docs/entornos.md) | Tabla detallada de variables de configuración |
+| [docs/despliegue.md](docs/despliegue.md) | Guía de despliegue en Vercel, Render y Expo EAS |
+| [Plan Hito 3.md](Plan%20Hito%203.md) | Plan y bitácora de ejecución del Hito 3 |
 
 ---
 
 ## Despliegue
 
-| Superficie | Plataforma | Comando/config |
-| :--- | :--- | :--- |
-| Frontend | Vercel | `npm run build` + `vercel --prod` |
-| Backend | Render | build `nest build`, start `npm run start:prod` |
-| Móvil | Expo EAS | `npx eas build` |
-
-Guía paso a paso y checklist: [docs/despliegue.md](docs/despliegue.md).
+- **Frontend**: Alojado en [Vercel](https://vercel.com/) con redirecciones SPA (`vercel.json`).
+- **Backend**: Desplegado en [Render](https://render.com/) con script de pre-arranque (`scripts/ensure-arcface-model.mjs`) que garantiza la descarga del modelo ONNX int8 si no existe en el contenedor.
+- **Base de datos & Storage**: Alojados en Supabase Cloud con SSL forzado y bucket biométrico privado.
+- **Móvil**: Compilado mediante perfiles EAS (`eas.json`).
 
 ---
 
 ## Estado del proyecto
 
-**Entregado (01/09/2026).** Funcionalidades completas según [requerimientos.md](requerimientos.md).
-
-**Líneas de mejora conocidas:**
-
-- `schema.sql` no define la tabla `factura_items` (existe la entidad `FacturaItem`).
-- `frontend/.env.production` se versiona por necesidad de Vercel (contiene solo URL pública).
-- Frontend sin tests automatizados; móvil sin scripts de lint/test.
-- `uploads/` incluye artefactos del seed ya versionados.
+**Hito 3 Finalizado con Éxito (06/10/2026).**
+- Flujo de códigos de barras Code128 operativo en web y móvil.
+- Flujo de reconocimiento facial con IA ArcFace in-process verificado con 129 pruebas e2e verdes.
+- Módulos de Personal, Historial de Asistencia y Dashboard en tiempo real operativos en producción.
+- Modo Tiqueador Kiosco habilitado para tablets de sucursal.
 
 ---
 
 ## Licencia
 
-Proyecto académico — uso exclusivo del equipo de desarrollo (Unifranz). Sin licencia pública.
+Proyecto académico — Programación Avanzada (Unifranz). Uso exclusivo del equipo de desarrollo. Sin licencia pública.
