@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   type DimensionValue,
 } from 'react-native';
@@ -20,10 +21,13 @@ import { Header, PrimaryCTA, Badge } from '../components';
 import FaceCamera from '../components/FaceCamera';
 import {
   registrarRostro,
+  listarUsuarios,
+  usuariosSinRostro,
   FOTOS_MINIMO,
   FOTOS_MAXIMO,
   FOTOS_RECOMENDADAS,
   type RostroRegistrado,
+  type UsuarioListado,
 } from '../api/users';
 import {
   ApiError,
@@ -45,6 +49,7 @@ import {
   iconSize,
   a11y,
   opacity,
+  touchTarget,
 } from '../theme';
 
 type Aviso =
@@ -54,9 +59,16 @@ type Aviso =
 /**
  * Registro facial: asocia N fotos de un rostro a un usuario **ya creado** en `users`.
  *
- * No crea usuarios a propósito (decisión del plan): el backend resuelve nombre + apellido
- * contra la base y devuelve 404 si no encuentra a nadie. Por eso el formulario pide el
- * nombre exacto con apellido, y no un id.
+ * No crea usuarios a propósito (decisión del plan). Hay dos caminos para llegar
+ * al usuario, y el primero es el que se usa casi siempre:
+ *
+ * 1. **Elegirlo de la lista** de personal que todavía no tiene rostro. Es lo que
+ *    hace la pantalla al abrir: el operador ve a quién le falta y lo toca. No
+ *    hay nombres mal escritos ni homónimos, que son los dos 404/409 que
+ *    frenaban el registro. Se manda `usuarioId` y el backend lo resuelve por id.
+ * 2. **Escribir nombre + apellido** a mano, con el desplegable "No está en la
+ *    lista". Es el respaldo para cuando la lista es larga y uno ya sabe a quién
+ *    busca, y el camino del que vienen las sugerencias del 404.
  *
  * El consentimiento de la Ley 26935 va **antes** de la cámara y es obligatorio: sin el
  * tilde no se habilita la captura. Son datos biométricos y en Bolivia eso no es opcional.
@@ -65,6 +77,10 @@ export default function FaceRegisterScreen() {
   const navigation = useNavigation();
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
+  const [elegido, setElegido] = useState<UsuarioListado | null>(null);
+  const [modoManual, setModoManual] = useState(false);
+  const [pendientes, setPendientes] = useState<UsuarioListado[] | null>(null);
+  const [errorPendientes, setErrorPendientes] = useState<string | null>(null);
   const [fotos, setFotos] = useState<ArchivoLocal[]>([]);
   const [consentido, setConsentido] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -74,11 +90,34 @@ export default function FaceRegisterScreen() {
   const [progreso, setProgreso] = useState<ProgresoSubida | null>(null);
   const [resultado, setResultado] = useState<RostroRegistrado | null>(null);
 
+  /** A quién se le va a asociar el rostro: de la lista, o escrito a mano. */
+  const hayDestino =
+    elegido !== null || (nombre.trim().length > 0 && apellido.trim().length > 0);
+
   const completa =
-    fotos.length >= FOTOS_MINIMO &&
-    nombre.trim().length > 0 &&
-    apellido.trim().length > 0 &&
-    consentido;
+    fotos.length >= FOTOS_MINIMO && hayDestino && consentido;
+
+  /**
+   * El personal que todavía no tiene rostro. Se recarga después de cada registro
+   * para que la lista no ofrezca otra vez a quien ya quedó cargado.
+   */
+  const cargarPendientes = useCallback(async () => {
+    setErrorPendientes(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      setPendientes(usuariosSinRostro(await listarUsuarios(token)));
+    } catch {
+      setPendientes(null);
+      setErrorPendientes(
+        'No se pudo leer el personal. Podés escribir el nombre a mano.',
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    void cargarPendientes();
+  }, [cargarPendientes]);
 
   const agregarFoto = useCallback((foto: ArchivoLocal) => {
     setAviso(null);
@@ -119,10 +158,26 @@ export default function FaceRegisterScreen() {
     }
   }, [agregarFoto, fotos.length]);
 
+  /**
+   * Toca un usuario de la lista. Deja limpio el formulario a mano: son dos caminos
+   * excluyentes y el `enviar` manda el `usuarioId` si hay alguien elegido.
+   */
+  const elegirUsuario = useCallback((u: UsuarioListado) => {
+    setElegido(u);
+    setNombre('');
+    setApellido('');
+    setModoManual(false);
+    setCandidatos([]);
+    setSugerencias([]);
+    setAviso(null);
+  }, []);
+
   const elegirCandidato = useCallback((nombreCompleto: string) => {
     const partes = nombreCompleto.trim().split(/\s+/);
     setNombre(partes[0] ?? '');
     setApellido(partes.slice(1).join(' '));
+    setElegido(null);
+    setModoManual(true);
     setCandidatos([]);
     setSugerencias([]);
     setAviso({
@@ -149,10 +204,16 @@ export default function FaceRegisterScreen() {
         });
         return;
       }
-      const data = await registrarRostro(nombre, apellido, fotos, token, (p) =>
+      const destino = elegido
+        ? { usuarioId: elegido.id }
+        : { nombre, apellido };
+      const data = await registrarRostro(destino, fotos, token, (p) =>
         setProgreso(p),
       );
       setResultado(data);
+      setElegido(null);
+      setModoManual(false);
+      setFotos([]);
     } catch (err) {
       if (err instanceof ApiError) {
         // 409 con candidatos: hay homónimos y el registro NO se hizo, hay que elegir.
@@ -199,18 +260,22 @@ export default function FaceRegisterScreen() {
       setEnviando(false);
       setProgreso(null);
     }
-  }, [apellido, completa, enviando, fotos, nombre]);
+  }, [apellido, completa, elegido, enviando, fotos, nombre]);
 
   const reiniciar = useCallback(() => {
     setResultado(null);
     setFotos([]);
     setNombre('');
     setApellido('');
+    setElegido(null);
+    setModoManual(false);
     setConsentido(false);
     setAviso(null);
     setCandidatos([]);
     setSugerencias([]);
-  }, []);
+    // La persona recién registrada ya no tiene que aparecer en la lista.
+    void cargarPendientes();
+  }, [cargarPendientes]);
 
   /**
    * Lista de personas para que el operador elija a cuál se le asocia el rostro.
@@ -250,6 +315,19 @@ export default function FaceRegisterScreen() {
     ) : null;
 
   const Ciclo = resultado ? 'resultado' : 'captura';
+
+  /**
+   * La cámara vive dentro del scroll, así que no puede pedir `flex: 1`: en un
+   * contenido que crece no hay alto libre que repartir y el bloque se quedaba
+   * pegado empujando todo lo demás fuera de pantalla. El alto sale del ancho
+   * (retrato) con un techo, para que en horizontal la cámara no se lleve toda
+   * la altura disponible.
+   */
+  const { width: anchoPantalla } = useWindowDimensions();
+  const anchoCamara = Math.min(anchoPantalla - space.lg * 2, 480);
+  const altoCamara = Math.round(
+    Math.max(300, Math.min(anchoCamara * 1.2, 440)),
+  );
 
   // Subida 0→100% y después ArcFace en el servidor, que ya no manda bytes.
   const porcentaje = Math.round((progreso?.fraccion ?? 0) * 100);
@@ -324,36 +402,138 @@ export default function FaceRegisterScreen() {
             />
           </ScrollView>
         ) : (
-          <>
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollBare}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.formBox}>
-              <Text style={styles.fieldLabel}>Nombre</Text>
-              <TextInput
-                style={styles.field}
-                value={nombre}
-                onChangeText={setNombre}
-                placeholder="Ej. Marco"
-                placeholderTextColor={colors.textPlaceholder}
-                autoCapitalize="words"
-                autoCorrect={false}
-                editable={!enviando}
-                accessibilityLabel="Nombre"
-              />
+              <Text style={styles.fieldLabel}>¿A quién le tomás la foto?</Text>
 
-              <Text style={styles.fieldLabel}>Apellido</Text>
-              <TextInput
-                style={styles.field}
-                value={apellido}
-                onChangeText={setApellido}
-                placeholder="Ej. Salinas"
-                placeholderTextColor={colors.textPlaceholder}
-                autoCapitalize="words"
-                autoCorrect={false}
-                editable={!enviando}
-                accessibilityLabel="Apellido"
-              />
-              <Text style={styles.fieldHint}>
-                Debe coincidir con un usuario ya creado. Este registro no crea personal.
-              </Text>
+              {errorPendientes ? (
+                <View style={styles.pendingWarn} accessibilityRole={a11y.alert}>
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={iconSize.sm}
+                    color={colors.warning}
+                  />
+                  <Text style={styles.pendingWarnText}>{errorPendientes}</Text>
+                </View>
+              ) : pendientes === null ? (
+                <View style={styles.pendingCargando}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : pendientes.length === 0 ? (
+                <View style={styles.pendingVacio}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={iconSize.md}
+                    color={colors.success}
+                  />
+                  <Text style={styles.pendingVacioText}>
+                    Todo el personal activo ya tiene rostro registrado.
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView
+                  style={styles.pendingList}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                >
+                  {pendientes.map((u) => {
+                    const activo = elegido?.id === u.id;
+                    return (
+                      <Pressable
+                        key={u.id}
+                        style={({ pressed }) => [
+                          styles.pendingRow,
+                          activo && styles.pendingRowOn,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() => elegirUsuario(u)}
+                        disabled={enviando}
+                        accessibilityRole={a11y.button}
+                        accessibilityState={{ selected: activo }}
+                        accessibilityLabel={`Elegir a ${u.nombreCompleto}`}
+                      >
+                        <Ionicons
+                          name={activo ? 'radio-button-on' : 'person-outline'}
+                          size={iconSize.md}
+                          color={activo ? colors.primary : colors.textMuted}
+                        />
+                        <View style={styles.pendingRowInfo}>
+                          <Text style={styles.pendingRowNombre} numberOfLines={1}>
+                            {u.nombreCompleto}
+                          </Text>
+                          <Text style={styles.pendingRowMeta} numberOfLines={1}>
+                            {u.email} · {u.rol}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+
+              {/* Respaldo: el nombre a mano, con el riesgo de 404/409 que la lista
+                  evita. Se abre explícitamente para no competir con la lista. */}
+              <Pressable
+                style={({ pressed }) => [styles.manualToggle, pressed && styles.pressed]}
+                onPress={() => {
+                  setModoManual((v) => !v);
+                  setElegido(null);
+                  setCandidatos([]);
+                  setSugerencias([]);
+                  setAviso(null);
+                }}
+                disabled={enviando}
+                accessibilityRole={a11y.button}
+                accessibilityState={{ expanded: modoManual }}
+              >
+                <Text style={styles.manualToggleText}>
+                  {modoManual ? 'Ocultar' : 'No está en la lista, escribir el nombre'}
+                </Text>
+                <Ionicons
+                  name={modoManual ? 'chevron-up' : 'chevron-down'}
+                  size={iconSize.sm}
+                  color={colors.primary}
+                />
+              </Pressable>
+
+              {modoManual ? (
+                <>
+                  <Text style={styles.fieldLabel}>Nombre</Text>
+                  <TextInput
+                    style={styles.field}
+                    value={nombre}
+                    onChangeText={setNombre}
+                    placeholder="Ej. Marco"
+                    placeholderTextColor={colors.textPlaceholder}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    editable={!enviando}
+                    accessibilityLabel="Nombre"
+                  />
+
+                  <Text style={styles.fieldLabel}>Apellido</Text>
+                  <TextInput
+                    style={styles.field}
+                    value={apellido}
+                    onChangeText={setApellido}
+                    placeholder="Ej. Salinas"
+                    placeholderTextColor={colors.textPlaceholder}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    editable={!enviando}
+                    accessibilityLabel="Apellido"
+                  />
+                  <Text style={styles.fieldHint}>
+                    Debe coincidir con un usuario ya creado. Este registro no crea personal.
+                  </Text>
+                </>
+              ) : null}
 
               <Pressable
                 style={({ pressed }) => [styles.consentRow, pressed && styles.pressed]}
@@ -438,7 +618,7 @@ export default function FaceRegisterScreen() {
                   ) : null}
                 </View>
 
-                <View style={styles.camBox}>
+                <View style={[styles.camBox, { height: altoCamara }]}>
                   <FaceCamera
                     onCaptura={agregarFoto}
                     capturing={enviando}
@@ -487,6 +667,14 @@ export default function FaceRegisterScreen() {
             ) : null}
 
             <View style={styles.ctaBox}>
+              {/* Repite quién quedó elegido arriba de la acción: es la última
+                  pantalla antes de subir y evita registrar el rostro equivocado. */}
+              {elegido ? (
+                <Text style={styles.destinoHint} numberOfLines={2}>
+                  Rostro de{' '}
+                  <Text style={styles.negrita}>{elegido.nombreCompleto}</Text>
+                </Text>
+              ) : null}
               <PrimaryCTA
                 label={
                   enviando
@@ -505,7 +693,7 @@ export default function FaceRegisterScreen() {
                 </Text>
               ) : null}
             </View>
-          </>
+          </ScrollView>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -516,6 +704,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   scrollContent: { padding: space.lg, gap: space.lg, paddingBottom: space.xl },
+  // La rama de captura lleva sus propios márgenes horizontales (`formBox`,
+  // `noticeBox`, `camBox`, `ctaBox`), así que el scroll no agrega más.
+  scrollBare: { paddingBottom: space.xl },
   pressed: { opacity: opacity.pressed },
 
   formBox: {
@@ -552,6 +743,88 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     lineHeight: fontSize.caption * lineHeight.relaxed,
   },
+
+  // ── Lista de personal pendiente de rostro (tarea R9) ─────────────────────
+  pendingList: { maxHeight: 260 },
+  pendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: touchTarget.listRow,
+  },
+  pendingRowOn: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  pendingRowInfo: { flex: 1, minWidth: 0, gap: 2 },
+  pendingRowNombre: {
+    color: colors.text,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
+  },
+  pendingRowMeta: {
+    color: colors.textMuted,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+  },
+  pendingCargando: { paddingVertical: space.lg, alignItems: 'center' },
+  pendingVacio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.successSoft,
+  },
+  pendingVacioText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    lineHeight: fontSize.caption * lineHeight.relaxed,
+  },
+  pendingWarn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.warningSoft,
+  },
+  pendingWarnText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    lineHeight: fontSize.caption * lineHeight.relaxed,
+  },
+  manualToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.sm,
+    paddingVertical: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  manualToggleText: {
+    flex: 1,
+    color: colors.primary,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+  },
+  destinoHint: {
+    color: colors.textMuted,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    textAlign: 'center',
+  },
+  negrita: { fontFamily: fontFamily.sansSemiBold, color: colors.text },
 
   consentRow: {
     flexDirection: 'row',
@@ -718,20 +991,21 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.monoMedium,
   },
 
+  // Sin `flex: 1`: la altura la manda el padre con `height` calculado desde el
+  // ancho de la pantalla (el contenido está en un ScrollView).
   camBox: {
-    flex: 1,
-    minHeight: 320,
     marginHorizontal: space.lg,
     borderRadius: radius.md,
     overflow: 'hidden',
+    backgroundColor: '#000000',
   },
 
   consentAviso: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.sm,
-    padding: space.xl,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.xl,
   },
   consentAvisoText: {
     color: colors.textMuted,

@@ -25,7 +25,7 @@ de rostro).
 | :--- | :--- | :--- |
 | GET | `/users` | Listar usuarios (sin `password` ni `embedding`) |
 | GET | `/users/rostros` | Personal con rostro registrado, con **URL firmada** de la foto |
-| POST | `/users/face/register` | **Registro facial** (multipart `nombre`, `apellido`, `fotos[]`) |
+| POST | `/users/face/register` | **Registro facial** (multipart `usuarioId` **o** `nombre` + `apellido`, más `fotos[]`) |
 | POST | `/users` | Crear usuario |
 | PATCH | `/users/:id` | Actualizar usuario |
 | DELETE | `/users/:id` | Eliminar usuario |
@@ -33,18 +33,23 @@ de rostro).
 **`POST /users/face/register`** —asocia un rostro a un `users` **que ya existe**: no crea
 personal (el requerimiento dice "conforme a la base de datos").
 
+Hay dos formas de apuntar al usuario, y **`usuarioId` gana** si vienen las dos:
+
 | Campo | Notas |
 | :--- | :--- |
-| `nombre` | Texto, mínimo 2 caracteres. Se busca sin distinguir mayúsculas |
-| `apellido` | Texto, mínimo 2 caracteres |
+| `usuarioId` | El id del usuario elegido de la lista de personal. **Recomendado**: un id no tiene homónimos ni se puede escribir mal, e ignora `nombre`/`apellido` |
+| `nombre` | Formulario a mano. Texto, mínimo 2 caracteres. Se busca sin distinguir mayúsculas |
+| `apellido` | Formulario a mano. Texto, mínimo 2 caracteres |
 | `fotos[]` | 1 a 10 imágenes (`image/*`, 10 MB c/u). Se recomiendan 5 |
 
 | Situación | Respuesta |
 | :--- | :--- |
-| Nadie con ese nombre + apellido | **404** con el nombre buscado |
-| Más de un usuario con ese nombre | **409** con `candidatos` (`id`, `nombreCompleto`, `email`, `rol`, `tieneRostro`, `activo`) para que el operador elija |
+| `usuarioId` inexistente | **404** con ese id (el id no se busca por nombre: no intenta resolver nada) |
+| `usuarioId` que no es un número | **400** |
+| Sin `usuarioId` y nadie con ese nombre + apellido | **404** con el nombre buscado |
+| Sin `usuarioId` y más de un usuario con ese nombre | **409** con `candidatos` (`id`, `nombreCompleto`, `email`, `rol`, `tieneRostro`, `activo`) para que el operador elija |
 | Usuario con `activo = false` | **409**: está dado de baja |
-| Sin fotos / más de 10 / nombre muy corto | **400** |
+| Sin fotos / más de 10 / nombre muy corto | **400** (se valida antes de resolver al usuario) |
 | Bucket `faces` inexistente o sin `SUPABASE_*` | **400** con el motivo (no se guarda el embedding) |
 
 Devuelve `{ id, nombre, apellido, nombreCompleto, email, rol, faceRegisteredAt,

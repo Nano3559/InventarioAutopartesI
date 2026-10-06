@@ -10,6 +10,10 @@ const Inter_500Medium = require('@expo-google-fonts/inter/500Medium/Inter_500Med
 const Inter_600SemiBold = require('@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf');
 const Inter_700Bold = require('@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf');
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import {
+  TiqueadorProvider,
+  useTiqueador,
+} from './src/context/TiqueadorContext';
 import AppDrawer from './src/components/AppDrawer';
 import LoginScreen from './src/screens/LoginScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
@@ -107,6 +111,7 @@ function InventarioDrawer() {
 
 function RootNavigator() {
   const { user, loading } = useAuth();
+  const { activo: enTiqueador, listo: tiqueadorListo, salir } = useTiqueador();
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -114,7 +119,9 @@ function RootNavigator() {
     Inter_700Bold,
   });
 
-  if (loading || !fontsLoaded) {
+  // Se espera también al flag del kiosco: antes de saber si esta tablet está en
+  // modo tiqueador no se dibuja ninguna pantalla, ni un instante de la app admin.
+  if (loading || !fontsLoaded || !tiqueadorListo) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -128,6 +135,14 @@ function RootNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
       </Stack.Navigator>
     );
+  }
+
+  // Modo tiqueador (tarea R9): la tablet de la tienda deja de mostrar la app y
+  // queda solo con la pantalla de marcaje. Se cambia **el árbol entero**, no una
+  // ruta del drawer, para que no quede forma de volver atrás con el gesto: la
+  // única salida es el botón "Salir", que pide la contraseña del admin.
+  if (enTiqueador) {
+    return <AttendanceScreen modoTiqueador onSalir={salir} />;
   }
 
   return (
@@ -159,10 +174,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-          <StatusBar style="dark" animated />
-        </NavigationContainer>
+        <TiqueadorProvider>
+          <NavigationContainer>
+            <RootNavigator />
+            <StatusBar style="dark" animated />
+          </NavigationContainer>
+        </TiqueadorProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

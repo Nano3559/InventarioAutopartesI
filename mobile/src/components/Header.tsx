@@ -53,8 +53,14 @@ export default function Header({
           </Pressable>
         ) : null}
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+          {subtitle && (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          )}
         </View>
       </View>
       {rightAction && (
@@ -111,6 +117,9 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     flex: 1,
+    // Sin esto, un subtítulo largo (nombre de tienda, email) estira la fila y
+    // empuja el botón de la derecha fuera de la pantalla en horizontal.
+    minWidth: 0,
   },
   title: {
     fontSize: fontSize.headline,
@@ -123,6 +132,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
     marginTop: 1,
+    flexShrink: 1,
   },
   rightBtn: {
     flexDirection: 'row',
@@ -140,7 +150,7 @@ const styles = StyleSheet.create({
     opacity: opacity.pressed,
   },
   rightBtnIcon: {
-    marginRight: space.xs,
+    // El espaciado lo pone el `gap` de `rightBtn`; un margen extra lo duplicaba.
   },
   rightBtnText: {
     fontSize: fontSize.body,

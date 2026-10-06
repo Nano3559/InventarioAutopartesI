@@ -5,6 +5,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type LayoutChangeEvent,
+  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
@@ -38,7 +40,8 @@ interface FaceCameraProps {
   guideLabel?: string;
   /** Contador sobre la cámara, p. ej. "2 de 5". */
   contador?: string;
-  style?: ViewStyle;
+  /** Acepta un array de estilos: la altura de la cámara depende del ancho. */
+  style?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -65,8 +68,27 @@ export default function FaceCamera({
   const [torch, setTorch] = useState(false);
   const [mountError, setMountError] = useState<string | null>(null);
   const [tomando, setTomando] = useState(false);
+  const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
   const camaraRef = useRef<CameraView | null>(null);
   const ocupada = capturing || bloqueada || tomando;
+
+  /**
+   * El óvalo se dimensiona contra la caja real de la cámara y no con valores
+   * fijos: la misma pantalla se usa en vertical (cámara angosta y alta) y en
+   * horizontal sobre una tablet (cámara ancha y baja), y un óvalo de 220×280
+   * fijo tapaba el encuadre en la segunda.
+   */
+  const medir = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setCaja((prev) =>
+      Math.abs(prev.ancho - width) < 1 && Math.abs(prev.alto - height) < 1
+        ? prev
+        : { ancho: width, alto: height },
+    );
+  }, []);
+
+  const altoOvalo = Math.max(120, Math.min(320, Math.round(caja.alto * 0.66)));
+  const anchoOvalo = Math.round(altoOvalo * 0.79);
 
   const capture = useCallback(async () => {
     if (!camaraRef.current || ocupada) return;
@@ -117,7 +139,7 @@ export default function FaceCamera({
   }
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style]} onLayout={medir}>
       <CameraView
         ref={camaraRef}
         style={styles.camera}
@@ -128,8 +150,22 @@ export default function FaceCamera({
 
       <View style={styles.overlay} pointerEvents="none">
         <View style={styles.guideWrap}>
-          <View style={styles.guideOval} />
-          <Text style={styles.guideText}>{guideLabel}</Text>
+          <View
+            style={[
+              styles.guideOval,
+              { width: anchoOvalo, height: altoOvalo, borderRadius: anchoOvalo / 2 },
+            ]}
+          />
+          <Text
+            style={[
+              styles.guideText,
+              caja.ancho > 0
+                ? { maxWidth: Math.max(160, caja.ancho - space['4xl']) }
+                : null,
+            ]}
+          >
+            {guideLabel}
+          </Text>
         </View>
       </View>
 
@@ -209,9 +245,6 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   guideOval: {
-    width: 220,
-    height: 280,
-    borderRadius: 110,
     borderWidth: 2,
     borderColor: colors.white,
     borderStyle: 'dashed',

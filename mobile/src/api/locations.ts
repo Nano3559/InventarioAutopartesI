@@ -19,3 +19,14 @@ export async function getAlmacenes(token?: string) {
   const locations = await getLocations(token);
   return locations.filter((l) => l.tipo === 'almacen');
 }
+
+/**
+ * Tiendas (`locations.tipo = 'tienda'`). Es la lista que usa el selector del
+ * terminal de tiqueo (tarea R9) para preguntar a qué tienda pertenece la tablet.
+ * Filtra en el cliente a propósito: `GET /locations` no acepta filtros y son
+ * 7 filas.
+ */
+export async function getTiendas(token?: string) {
+  const locations = await getLocations(token);
+  return locations.filter((l) => l.tipo === 'tienda');
+}

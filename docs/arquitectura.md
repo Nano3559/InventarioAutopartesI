@@ -221,9 +221,11 @@ diseño ya decidido (botón + cámara en modal). Ver §3.2 para el lado de IA de
 
 ```
 UNA VEZ POR PERSONA
-FaceRegisterScreen (consentimiento + nombre + apellido + N fotos, guía oval)
+FaceRegisterScreen (consentimiento + lista de personal sin rostro → `usuarioId`,
+                    o nombre + apellido a mano, + N fotos, guía oval)
   → POST /users/face/register
-  → busca el users por nombre + apellido      404 si no existe · 409 si hay homónimos o baja
+  → con `usuarioId` resuelve el id directo (gana sobre nombre; 404 si no existe)
+     sin `usuarioId`, busca el users por nombre + apellido   404 si no existe · 409 si hay homónimos o baja
   → N embeddings ArcFace → promedio + L2 → users.embedding
   → 1 foto al bucket privado `faces` → users.facePhoto (ruta) · índice en RAM
 
