@@ -17,6 +17,7 @@ import { PreciosPage } from '../pages/precios/PreciosPage';
 import { ReportesPage } from '../pages/reportes/ReportesPage';
 import { SearchByImagePage } from '../pages/inventory/SearchByImagePage';
 import { PersonalPage } from '../pages/personal/PersonalPage';
+import { AttendancePage } from '../pages/attendance/AttendancePage';
 
 export function AppRoutes() {
   return (
@@ -61,6 +62,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <PersonalPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Módulo de Historial de Asistencia */}
+        <Route
+          path="asistencia"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AttendancePage />
             </ProtectedRoute>
           }
         />
