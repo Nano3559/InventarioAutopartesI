@@ -4,6 +4,8 @@ import type {
   AttendanceResponse,
   AttendanceItem,
   UpdateAttendanceDto,
+  DashboardFilters,
+  DashboardResponse,
 } from '../types/attendance.types';
 
 export const attendanceService = {
@@ -20,6 +22,13 @@ export const attendanceService = {
     if (filters.search) params.search = filters.search;
 
     return api.get<AttendanceResponse>('/attendance', { params });
+  },
+
+  async getDashboard(filters: DashboardFilters = {}): Promise<DashboardResponse> {
+    const params: Record<string, string | undefined> = {};
+    if (filters.fecha) params.fecha = filters.fecha;
+
+    return api.get<DashboardResponse>('/attendance/dashboard', { params });
   },
 
   async updateAttendance(id: number, data: UpdateAttendanceDto): Promise<AttendanceItem> {

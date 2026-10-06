@@ -65,3 +65,73 @@ export interface UpdateAttendanceDto {
   confianza?: number | null;
   confirmadoPorId?: number | null;
 }
+
+export interface DashboardTotales {
+  personal: number;
+  presentes: number;
+  ausentes: number;
+  dentro: number;
+  fuera: number;
+  marcajes: number;
+  entradas: number;
+  salidas: number;
+  rostrosRegistrados: number;
+}
+
+export interface DashboardPresente {
+  usuarioId: number;
+  nombre: string;
+  apellido: string | null;
+  nombreCompleto: string;
+  email: string;
+  rol: string;
+  presencia: 'presente';
+  dentro: boolean;
+  horaEntrada: string | null;
+  horaSalida: string | null;
+  ultimaMarca: {
+    asistenciaId: number;
+    tipo: TipoAsistencia;
+    fecha: string;
+    metodo: MetodoAsistencia;
+    confianza: number | null;
+  };
+  marcajes: number;
+  rostroRegistrado: boolean;
+}
+
+export interface DashboardAusente {
+  usuarioId: number;
+  nombre: string;
+  apellido: string | null;
+  nombreCompleto: string;
+  email: string;
+  rol: string;
+  rostroRegistrado: boolean;
+}
+
+export interface DashboardGrupo {
+  locationId: number | null;
+  codigo: string | null;
+  nombre: string;
+  tipo: string | null;
+  totalPersonal: number;
+  totalMarcajes: number;
+  presentes: DashboardPresente[];
+  ausentes: DashboardAusente[];
+}
+
+export interface DashboardResponse {
+  fecha: string;
+  desde: string;
+  hasta: string;
+  totales: DashboardTotales;
+  porTienda: DashboardGrupo[];
+  sinTienda: DashboardGrupo;
+  ultimosMarcajes: AttendanceItem[];
+}
+
+export interface DashboardFilters {
+  fecha?: string; // YYYY-MM-DD
+}
+

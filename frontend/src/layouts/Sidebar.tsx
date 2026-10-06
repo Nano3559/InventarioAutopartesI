@@ -18,6 +18,7 @@ import {
   History,
   Users,
   CalendarCheck,
+  Activity,
 } from 'lucide-react';
 import type { UserRole } from '../types/auth.types';
 
@@ -76,6 +77,12 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
           to: '/asistencia',
           label: 'Historial Asistencia',
           icon: <CalendarCheck size={18} />,
+          roles: ['admin'],
+        },
+        {
+          to: '/asistencia/dashboard',
+          label: 'Dashboard Asistencia',
+          icon: <Activity size={18} />,
           roles: ['admin'],
         },
         {
