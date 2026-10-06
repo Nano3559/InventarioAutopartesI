@@ -16,6 +16,7 @@ import { CostosPage } from '../pages/costos/CostosPage';
 import { PreciosPage } from '../pages/precios/PreciosPage';
 import { ReportesPage } from '../pages/reportes/ReportesPage';
 import { SearchByImagePage } from '../pages/inventory/SearchByImagePage';
+import { PersonalPage } from '../pages/personal/PersonalPage';
 
 export function AppRoutes() {
   return (
@@ -50,6 +51,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'tienda', 'inventario']}>
               <ProductDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Módulo de Personal y Registro Facial */}
+        <Route
+          path="personal"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <PersonalPage />
             </ProtectedRoute>
           }
         />
