@@ -24,7 +24,7 @@ export const PORCENTAJES = [20, 30, 40, 50, 60, 70, 80] as const;
 export const TIPOS_ASISTENCIA = ['entrada', 'salida'] as const;
 export type TipoAsistencia = (typeof TIPOS_ASISTENCIA)[number];
 
-/** 'automatico' si /face/match superó el umbral; 'manual' si un usuario confirmó el nombre. */
+/** 'automatico' si POST /attendance/check superó el umbral; 'manual' si un admin confirmó el nombre. */
 export const METODOS_ASISTENCIA = ['automatico', 'manual'] as const;
 export type MetodoAsistencia = (typeof METODOS_ASISTENCIA)[number];
 

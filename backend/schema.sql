@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS "asistencia" (
     "locationId"      integer REFERENCES "locations" ("id") ON DELETE SET NULL,
     "fecha"           timestamp NOT NULL DEFAULT now(),
     "tipo"            varchar NOT NULL,          -- 'entrada' | 'salida'
-    "confianza"       double precision,         -- similitud de /face/match (0-1)
+    "confianza"       double precision,         -- similitud coseno de POST /attendance/check (0-1)
     "metodo"          varchar NOT NULL DEFAULT 'automatico', -- 'automatico' | 'manual'
     "confirmadoPorId" integer REFERENCES "users" ("id") ON DELETE SET NULL
 );

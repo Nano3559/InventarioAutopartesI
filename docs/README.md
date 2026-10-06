@@ -10,7 +10,7 @@ entender, correr, mantener y desplegar el proyecto.
 | :--- | :--- | :--- |
 | [Git Convention](git-convention.md) | Ramas, mensajes de commit (Conventional Commits), flujo de PR y definición de "terminado" | Antes de crear una rama, commitear o mergear |
 | [Stack Tecnológico](stack-tecnologico.md) | Versiones exactas, dependencias clave y justificación de cada tecnología | Antes de agregar una dependencia nueva |
-| [Arquitectura](arquitectura.md) | Diagramas, entidades, módulos NestJS, RBAC y flujos críticos | Al tocar backend o referirse a modelos de datos |
+| [Arquitectura](arquitectura.md) | Diagramas, entidades, módulos NestJS, RBAC, flujos críticos y el reconocimiento facial del Hito 3 (ArcFace in-process, sin detector) | Al tocar backend o referirse a modelos de datos |
 | [Variables de Entorno](entornos.md) | `.env` por subproyecto: variables, defaults y cómo cargarlas | Al configurar un entorno local o de producción |
 | [Despliegue](despliegue.md) | Publicación en Vercel, Render y EAS para la app móvil | En tareas de release/deploy |
 | [API Reference](api.md) | Endpoints REST del backend con prefijo, método y ruta | Al consumir la API desde web o móvil |

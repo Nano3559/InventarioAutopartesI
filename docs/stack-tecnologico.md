@@ -25,12 +25,14 @@ Dependencias de runtime clave:
 
 | Paquete | Rol |
 | :--- | :--- |
-| `@nestjs/typeorm` + `typeorm` + `pg` | ORM sobre PostgreSQL (14 entidades) |
+| `@nestjs/typeorm` + `typeorm` + `pg` | ORM sobre PostgreSQL (15 entidades) |
 | `@nestjs/passport` + `passport-jwt` + `bcryptjs` | Auth JWT (expiración 8h) |
 | `@nestjs/config` | Lectura de `.env` |
 | `class-validator` + `class-transformer` | Validación de DTOs |
 | `multer` + `sharp` | Subida y procesamiento de imágenes |
-| `@supabase/supabase-js` | Persistencia de imágenes en la nube (hash) |
+| `@supabase/supabase-js` | Persistencia de imágenes en la nube (hash) + bucket privado de rostros |
+| `onnxruntime-node` | **Inferencia ArcFace int8 in-process** (Hito 3). Sin binding nativo extra ni servicio aparte; el modelo (63 MB, Apache-2.0) no se versiona |
+| `@bwip-js/node` | Generación de etiquetas **Code128** (`toBuffer()` → PNG). Sustituye a `jsbarcode` |
 | `xlsx` | Export/import de Excel (precios, venta mayor) |
 | `sqlite3` | Base local usada en tests |
 
@@ -41,6 +43,11 @@ Decisiones:
   (ojo: no define `factura_items`, que sí existe como entidad).
 - **Sin Swagger**: la API se documenta a mano en `api.md`.
 - **Prefijo global `/api`**, CORS habilitado, puerto 3000 por default.
+- **Una sola familia `@bwip-js` por plataforma**: `@bwip-js/node` (backend),
+  `@bwip-js/browser` (web), `@bwip-js/react-native` (móvil). Mismo proyecto en las 3, tipos
+  incluidos, sin dependencias nativas. **No** usar `jsbarcode` ni `bwip-js` v3.
+- **La IA corre dentro del backend**: un 2º servicio de inferencia no cabe cómodo en Render
+  Free (512 MB, 750 h/mes) y agrega un 2º cold start. Ver [arquitectura.md](arquitectura.md) §3.2.
 
 ## 3. Frontend (React 19 + Vite 8)
 
@@ -65,6 +72,7 @@ Decisiones:
 | `@react-navigation/native-stack` + `drawer` | Navegación stack + drawer por rol |
 | `expo-secure-store` | Token seguro (SecureStore nativo / localStorage en web) |
 | `expo-image-picker` + `expo-document-picker` | Cámara y archivos (búsqueda por imagen, Excel) |
+| `expo-camera` | Escáner de **códigos de barras** (Hito 3) y captura de rostro. `onBarcodeScanned` + multiscan, sin dependencia de render |
 | `expo-print` + `expo-sharing` | Nota de venta (impresión/export) |
 | `@expo-google-fonts/inter` + `@expo/vector-icons` | Tipografía e iconos |
 | `react-native-reanimated` + `gesture-handler` | Drawer/animaciones |
@@ -74,7 +82,8 @@ Decisiones:
 - **Expo 57** (SDK ~57.0.14). **Expo cambió bastante**: consultar
   `https://docs.expo.dev/versions/v57.0.0/` y `mobile/AGENTS.md` antes de escribir
   código móvil.
-- Drawer por rol: `admin` y `tienda` comparten 9 pantallas; `inventario` tiene 5.
+- Drawer por rol: `admin` (13 pantallas), `tienda` (10) e `inventario` (6). El escáner de
+  códigos de barras está en los tres; registro facial y marcaje, solo en `admin`.
 - API en `src/api/`: wrapper fetch con Bearer + `ApiError`; sesión en SecureStore.
 
 ## 5. Calidad y tooling

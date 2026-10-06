@@ -38,7 +38,7 @@ export class Asistencia {
   @Column({ type: 'varchar' })
   tipo: TipoAsistencia;
 
-  /** Similitud devuelta por /face/match (0-1). Null cuando el marcaje fue manual. */
+  /** Similitud del reconocimiento en POST /attendance/check (0-1). Null si fue manual. */
   @Column({ type: 'double precision', nullable: true })
   confianza: number | null;
 

@@ -164,16 +164,24 @@ usuario del índice). Un `activo: false` **impide el login** (`401`).
 
 ## Attendance
 
-Solo rol `admin` (datos de personal). Módulo abierto en B2 del `Plan Hito 3.md`, con el
-marcaje por rostro en B4 y el dashboard de B5.
+Las 5 rutas del Hito 3 que escriben o leen la tabla `asistencia`. Todas exigen **`admin`**
+(el `@Roles('admin')` es de clase) y `JwtAuthGuard` + `RolesGuard`. El reconocimiento por
+rostro ocurre **dentro de este mismo proceso** (ArcFace in-process, ver
+[arquitectura.md](arquitectura.md) §3.2); `/face` solo expone diagnóstico y la foto de
+registro se sube por `POST /users/face/register` ([Users](#users)).
 
 | Método | Ruta | Descripción |
 | :--- | :--- | :--- |
 | GET | `/attendance` | Historial paginado con filtros (ver abajo) |
 | GET | `/attendance/dashboard` | Presentes/ausentes por tienda para un día (ver abajo) |
 | POST | `/attendance/check` | Marcaje por rostro (multipart `foto`) |
-| POST | `/attendance/:id/confirm` | Pasa un marcaje a `metodo: 'manual'` |
+| POST | `/attendance/:id/confirm` | Pasa un marcaje existente a `metodo: 'manual'` |
 | PATCH | `/attendance/:id` | Corregir un marcaje: `usuarioId`, `locationId`, `fecha`, `tipo`, `metodo`, `confianza`, `confirmadoPorId` |
+
+> ℹ️ **Aquí no hay la trampa de orden de rutas** que sí existe en [Products](#products)
+> (`by-barcode/:codigo` antes de `:id`): el controller no expone un `@Get(':id')`, y
+> `@Post('check')` (1 segmento) nunca puede chocar con `@Post(':id/confirm')` (2 segmentos).
+> Aun así el orden es fijo (`check` primero) para no romperlo si mañana se agrega un `:id` suelto.
 
 **`GET /attendance`** — query params:
 
@@ -192,9 +200,38 @@ Responde `{ data, total, page, limit, pages }`, ordenado por `fecha` descendente
 `nombreCompleto` ya armado. Los datos del usuario se seleccionan **columna por columna**: la
 respuesta nunca incluye `users.password` ni `users.embedding`.
 
-**`PATCH /attendance/:id`** — al dejar `metodo: 'manual'` el servicio anula `confianza` (un
-marcaje manual no viene de `/face/match`) y, si no se pasó `confirmadoPorId`, sella al admin que
-editó. Los ids se validan antes de tocar la BD: tipo inválido → `400`, id inexistente → `404`.
+**`PATCH /attendance/:id`** — corrige un marcaje. Body `application/json`, todos los campos
+opcionales (lo que no se manda no se toca):
+
+| Campo | Tipo | Notas |
+| :--- | :--- | :--- |
+| `usuarioId` | number | Reasigna a otra persona. Debe existir → si no, `404` |
+| `locationId` | number \| null | Reasigna la tienda. `null` la borra; debe existir si no es `null` |
+| `fecha` | ISO | Corrige la hora del marcaje. Formato inválido → `400` |
+| `tipo` | `entrada` \| `salida` | Valor fuera del catálogo → `400` |
+| `metodo` | `automatico` \| `manual` | Valor fuera del catálogo → `400` |
+| `confianza` | number (0-1) \| null | Fuera de rango o `NaN` → `400` |
+| `confirmadoPorId` | number \| null | Quién confirmó. Debe existir si no es `null` |
+
+Al dejar `metodo: 'manual'` el servicio anula `confianza` (un marcaje manual no viene del
+reconocimiento de `POST /attendance/check`, no hay similitud que reportar) y, si no se pasó
+`confirmadoPorId`, sella al admin que editó. Los ids y los catálogos se validan **antes** de
+tocar la BD: así un tipo inválido con un id inexistente devuelve `400` y no el `500` de un
+`existsBy()` sobre datos ya modificados en memoria. Marcaje inexistente → `404`.
+Devuelve la fila ya presentada (igual shape que `GET /attendance`).
+
+### `POST /attendance/:id/confirm`
+
+Sin body. Es el camino corto de "el modelo no reconoce a nadie, pero el operador ya sabe de
+quién es la foto" **cuando el marcaje ya existe**: pasa la fila a `metodo: 'manual'`, anula
+`confianza` y sella `confirmadoPorId` con el admin que llama.
+
+Devuelve la fila actualizada (mismo shape que `GET /attendance`). Marcaje inexistente → `404`.
+No reescribe `usuarioId`, `tipo` ni `locationId`: para eso está `PATCH /attendance/:id`.
+
+> Cuando el marcaje **todavía no existe** (el caso normal de la UX de R4: se presidente en
+> vivo y sale `requiereConfirmacion`), se vuelve a llamar a `POST /attendance/check` con
+> `usuarioId`: ahí se crea la fila ya como manual y se salta ArcFace por completo.
 
 ### `GET /attendance/dashboard` (B5)
 
@@ -248,16 +285,19 @@ explícitas: nunca `password` ni `embedding`.
 
 ### `POST /attendance/check` (B4 + B5)
 
-`multipart/form-data` con `foto` (obligatoria, JPEG/PNG/WebP ≤ 8 MB), más:
+`multipart/form-data` con `foto` (obligatoria, `image/*` ≤ 10 MB, cualquier formato que
+`sharp` sepa abrir), más:
 
 | Campo | Notas |
 | :--- | :--- |
 | `tipo` | `entrada` \| `salida`. Opcional: si falta, se alterna según el último marcaje del día |
-| `locationId` | Tienda del marcaje. Se valida: inexistente o que no sea tipo `tienda` → `404` |
+| `locationId` | Tienda del marcaje. Se valida: debe existir → si no, `404` |
 | `usuarioId` | **B5.** Fuerza el marcaje manual: el operador ya eligió a quién pertenece la foto |
 
-Sin `usuarioId` el servicio recorta 112×112 con guía oval, corre ArcFace y compara por
-similitud coseno contra el índice en memoria (umbral `UMBRAL_CONFIANZA_FACIAL` = 0.35):
+Sin `usuarioId` el servicio normaliza la foto (`sharp`: EXIF, `112×112` con `fit: 'cover'`),
+corre ArcFace int8 y compara por similitud coseno contra el índice en memoria
+(umbral `UMBRAL_CONFIANZA_FACIAL` = 0.35). **La guía oval es de la app móvil**, no del
+backend: aquí solo llega el recorte cuadrado que la cámara ya encuadró.
 
 ```jsonc
 // índice vacío (nadie tiene rostro): no se crea nada
@@ -278,8 +318,13 @@ similitud coseno contra el índice en memoria (umbral `UMBRAL_CONFIANZA_FACIAL` 
   "asistencia": { "metodo": "manual", "confirmadoPorId": 1, "confianza": null, … } }
 ```
 
-Errores: sin `foto` → `400`; `tipo` inválido → `400`; `locationId`/`usuarioId` inexistente o que
-no sea tienda → `404`; modelo ArcFace ausente en el servidor → `503`.
+Errores: sin `foto` → `400`; `tipo` inválido → `400`; `locationId` inexistente → `404`;
+`usuarioId` inexistente o **dado de baja** (`activo = false`) → `404`; foto que `sharp` no
+puede abrir → `400`; modelo ArcFace ausente en el servidor → `503`.
+
+> En el camino automático (sin `usuarioId`) un `locationId` válido pero de **almacén** en
+> lugar de tienda se acepta: el marcaje guarda la ubicación tal cual. Lo refleja la fila, y
+> el dashboard agrupa por `codigo`.
 
 ### Diagnóstico del reconocimiento (B6, solo `admin`)
 
@@ -330,6 +375,13 @@ primer `warmup` o inferencia porque la sesión es perezosa.
 > `scripts/ensure-arcface-model.mjs` lo baja si falta (63 MB, Apache-2.0) — más
 > `GET /face/status` y `POST /face/warmup` para verificar la rehidratación del índice y medir
 > el cold start del plan free. Ver `docs/despliegue.md` §1.1.
+>
+> **Documentado (05/10/2026, tarea B7):** contrato completo de las **5 rutas** de
+> [Attendance](#attendance) (`GET /attendance`, `GET /attendance/dashboard`,
+> `POST /attendance/check`, `POST /attendance/:id/confirm`, `PATCH /attendance/:id`) con sus
+> parámetros, respuestas y errores, más la tabla `asistencia` y las columnas faciales de
+> `users`. La arquitectura del reconocimiento (ArcFace in-process, **sin modelo detector**)
+> está en [arquitectura.md](arquitectura.md) §3.2.
 >
 > **Descartado: conteo de piezas con IA/YOLO.** No hay modelo detector, ni dataset, ni
 > microservicio de inferencia, ni `POST /inference/detect` en este proyecto. Si algún día se
@@ -402,6 +454,39 @@ primer `warmup` o inferencia porque la sesión es perezosa.
 > `FACE_SERVICE_URL` / `FACE_API_KEY`. La única IA del proyecto es el reconocimiento facial
 > ArcFace, que corre **dentro de NestJS con `onnxruntime-node`** (módulo `attendance`).
 > Si alguien busca este endpoint, la referencia es `Plan Hito 3.md` línea 15, no este doc.
+
+### Tabla `asistencia` (nueva en el Hito 3)
+
+`asistencia.entity.ts` · DDL idempotente en `backend/sql/hito3.sql`. Una fila = un marcaje.
+
+| Columna | Tipo | Notas |
+| :--- | :--- | :--- |
+| `id` | serial PK | |
+| `usuarioId` | int NOT NULL → `users.id` | Persona a la que pertenece el marcaje |
+| `locationId` | int **nullable** → `locations.id` | Tienda del marcaje; `ON DELETE SET NULL` |
+| `fecha` | `timestamp` | Default `CURRENT_TIMESTAMP`. **Es el reloj del servidor**: el móvil no manda la hora |
+| `tipo` | `varchar` NOT NULL | `entrada` \| `salida` |
+| `metodo` | `varchar` DEFAULT `automatico` | `automatico` \| `manual` |
+| `confianza` | `double precision` nullable | Similitud coseno (0-1) que dio el reconocimiento; `null` en marcajes manuales |
+| `confirmadoPorId` | int nullable → `users.id` | Admin que confirmó; `ON DELETE SET NULL` |
+
+Índices: `IX_asistencia_fecha` (fecha) e `IX_asistencia_usuario_fecha` (usuarioId, fecha) —
+el segundo es el que usa `determinarTipoAutomatico` y el filtrado por persona.
+
+Relaciones (`usuario`, `location`, `confirmadoPor`) salen en la respuesta de la API, pero
+siempre con **columnas explícitas** (`id`, `nombre`, `apellido`, `email`, `rol`): un
+`leftJoinAndSelect` arrastraría `users.password` y el `embedding` (512 floats de dato
+biométrico) a la respuesta y a la memoria del proceso.
+
+### Columnas faciales en `users`
+
+| Columna | Tipo | Notas |
+| :--- | :--- | :--- |
+| `apellido` | `varchar` nullable | Antes el nombre completo era solo `nombre`; el registro facial busca `nombre` + `apellido` |
+| `embedding` | `jsonb` nullable | Vector de **512 floats** normalizado (L2) de ArcFace. `NULL` = sin rostro registrado. **Nunca sale al cliente** |
+| `facePhoto` | `text` nullable | **Ruta** del objeto en el bucket privado `faces` (`user-<id>.jpg`), no una URL |
+| `faceRegisteredAt` | `timestamp` nullable | Cuándo se hizo el registro; lo muestra la web |
+| `activo` | `boolean` DEFAULT `true` | `false` = dado de baja: no entra al índice de rostros y el login responde `401` |
 
 ### Entidades del Hito 3 (columnas nuevas)
 

@@ -36,11 +36,11 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   apellido: string | null;
 
-  /** Vector de identidad facial devuelto por el microservicio /face/embed. */
+  /** Vector de identidad facial (512 floats normalizados). Lo produce `FaceService` in-process; null = sin rostro registrado. */
   @Column({ type: 'jsonb', nullable: true })
   embedding: number[] | null;
 
-  /** URL de la foto de referencia en Supabase Storage. */
+  /** Ruta del objeto de la foto de referencia en el bucket privado `faces` (`user-<id>.jpg`), no una URL: las firmadas expiran. */
   @Column({ type: 'text', nullable: true })
   facePhoto: string | null;
 
