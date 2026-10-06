@@ -224,35 +224,52 @@ export class UsersService {
   /**
    * `POST /users/face/register` — registra el rostro de un usuario existente.
    *
-   * 1. Resuelve el usuario por nombre + apellido (404 si no existe).
+   * 1. Resuelve el usuario, por `usuarioId` si viene (elegido de la lista, sin
+   *    ambigüedad) o por nombre + apellido (formulario a mano; 404 / 409).
    * 2. Preprocesa cada foto a 112x112 y corre ArcFace.
    * 3. **Promedia y normaliza** los N embeddings → `users.embedding`.
    * 4. Sube 1 foto al bucket privado `faces` → `facePhoto` + `faceRegisteredAt`.
    * 5. Rehidrata el índice en memoria (sin reiniciar el proceso).
+   *
+   * `usuarioId` gana sobre nombre/apellido: si vienen ambos, manda el id.
    */
   async registrarRostro(
+    usuarioId: unknown,
     nombre: unknown,
     apellido: unknown,
     files: Express.Multer.File[] | undefined,
   ) {
-    const nombreLimpio = textoRequerido(nombre, 'nombre');
-    const apellidoLimpio = textoRequerido(apellido, 'apellido');
+    this.validarFotos(files);
 
-    if (!files?.length) {
-      throw new BadRequestException(
-        `Se requiere al menos ${FOTOS_MINIMO_REGISTRO} foto(s) del rostro en el campo "fotos"`,
-      );
-    }
-    if (files.length > FOTOS_MAXIMO_REGISTRO) {
-      throw new BadRequestException(
-        `Se aceptan hasta ${FOTOS_MAXIMO_REGISTRO} fotos (se recibieron ${files.length})`,
-      );
+    let usuario: User;
+    let apellidoLimpio: string | null = null;
+    let exacto = true;
+
+    const idTexto = textoOpcional(usuarioId);
+    if (idTexto !== null) {
+      if (!/^\d+$/.test(idTexto)) {
+        throw new BadRequestException(
+          `El campo "usuarioId" debe ser un número (se recibió "${idTexto}")`,
+        );
+      }
+      const encontrado = await this.repo().findOne({
+        where: { id: Number(idTexto) },
+      });
+      if (!encontrado) {
+        throw new NotFoundException(
+          `No existe el usuario #${idTexto}. El registro facial solo funciona con personal ya creado en users.`,
+        );
+      }
+      usuario = encontrado;
+    } else {
+      const nombreLimpio = textoRequerido(nombre, 'nombre');
+      apellidoLimpio = textoRequerido(apellido, 'apellido');
+      ({ usuario, exacto } = await this.resolverPorNombre(
+        nombreLimpio,
+        apellidoLimpio,
+      ));
     }
 
-    const { usuario, exacto } = await this.resolverPorNombre(
-      nombreLimpio,
-      apellidoLimpio,
-    );
     if (!usuario.activo) {
       throw new ConflictException(
         `El usuario ${usuario.email} está dado de baja (activo = false): no se puede registrar su rostro`,
@@ -268,8 +285,9 @@ export class UsersService {
     const fotoPrevia = usuario.facePhoto;
     const objeto = await this.face.subirFotoRostro(usuario.id, files[0]);
 
-    // El `apellido` del formulario completa el que faltaba en la BD.
-    if (!usuario.apellido) usuario.apellido = apellidoLimpio;
+    // El `apellido` del formulario completa el que faltaba en la BD. Con
+    // `usuarioId` no hay apellido escrito, así que no se toca.
+    if (apellidoLimpio && !usuario.apellido) usuario.apellido = apellidoLimpio;
     usuario.embedding = embedding;
     usuario.facePhoto = objeto;
     usuario.faceRegisteredAt = new Date();
@@ -313,6 +331,26 @@ export class UsersService {
   }
 
   /**
+   * Valida el `fotos[]` del multipart. Se comprueba **antes** de resolver el
+   * usuario para no gastar una búsqueda si el registro ya viene mal.
+   * La firma de aserción deja `files` tipado como no-nulo después de la llamada.
+   */
+  private validarFotos(
+    files: Express.Multer.File[] | undefined,
+  ): asserts files is Express.Multer.File[] {
+    if (!files?.length) {
+      throw new BadRequestException(
+        `Se requiere al menos ${FOTOS_MINIMO_REGISTRO} foto(s) del rostro en el campo "fotos"`,
+      );
+    }
+    if (files.length > FOTOS_MAXIMO_REGISTRO) {
+      throw new BadRequestException(
+        `Se aceptan hasta ${FOTOS_MAXIMO_REGISTRO} fotos (se recibieron ${files.length})`,
+      );
+    }
+  }
+
+  /**
    * Rostros registrados (para la pantalla web de personal). Devuelve la URL firmada
    * de cada foto: el bucket `faces` es privado y nunca se expone una URL pública.
    */
@@ -353,6 +391,17 @@ function textoRequerido(valor: unknown, campo: string): string {
     );
   }
   return limpio;
+}
+
+/**
+ * `usuarioId` viene como texto del multipart. `null` significa "no vino", que es
+ * distinto de un string vacío: un campo en blanco cae al camino nombre/apellido
+ * en vez de romper con un 400 de formato.
+ */
+function textoOpcional(valor: unknown): string | null {
+  if (typeof valor === 'number') return String(valor);
+  if (typeof valor !== 'string') return null;
+  return valor.trim() || null;
 }
 
 /**

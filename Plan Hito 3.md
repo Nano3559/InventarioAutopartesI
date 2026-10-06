@@ -113,6 +113,25 @@ Solo dos cosas, y ninguna puede quedar a medias:
 
 ---
 
+## Tarea R9 — modo tiqueador (agregada al plan, 06/10)
+
+No estaba en el cronograma original: salió de que **una tablet en el mostrador no debe poder vender, cambiar precios ni ver reportes**. Cada tablet es un kiosk que solo marca asistencia.
+
+| | |
+| --- | --- |
+| **Qué es** | Un item **Tiqueador** en el sidebar del admin que convierte la tablet en un kiosk: se entra y se sale con la contraseña del administrador, y mientras está activo la app **no renderiza el drawer ni el stack**, solo la pantalla de marcaje. |
+| **Un solo admin** | Las 3 tablets se loguean con la **misma** cuenta (Brian Barrientos, `admin@importadoras.com`). `/attendance` y `/users/face/register` son solo `admin`, así que el kiosk tiene que seguir siendo admin — de ahí el gate de contraseña en lugar de un usuario por tienda. |
+| **La tienda es del dispositivo** | No sale de `users.tiendaId`: si saliera del usuario, el admin tendría una sola tienda y las 3 tablets marcarían siempre en la misma. Vive en `storage/terminal.ts` (`SecureStore`, `localStorage` en web), se configura una vez por tablet y hay que reconfigurar si se desinstala la app. En producción el admin quedó con **`users.tiendaId = NULL`** (`PATCH /users/1`), así que la config del dispositivo es el único camino que puede asignar tienda. `user.tiendaId` queda solo como último recurso para el rol `tienda`. |
+| **Archivos** | `src/storage/terminal.ts` (config + flag), `src/context/TiqueadorContext.tsx`, `src/components/AdminPasswordGate.tsx` (valida con `POST /auth/login`, **descarta** el token nuevo y mantiene la sesión), `src/components/TiendaSelector.tsx`, más `App.tsx`, `AppDrawer.tsx` y `AttendanceScreen.tsx` (props `modoTiqueador` / `onSalir`). |
+| **Trampa: el kiosco hay que **persistirlo** | Un estado en memoria se pierde al reiniciar la app y el **token de admin sigue guardado** en esa tablet: cualquiera que la tome vería la app completa. Por eso el flag va a `SecureStore` y `RootNavigator` no dibuja **ninguna** pantalla hasta leerlo (`listo`), para que tampoco asome un instante. |
+| **Sin tienda no hay cámara** | `faltaTienda` impide montar `FaceCamera` y habilita el CTA, **en cualquier modo** (no solo en tiqueador): pedir una foto que después no se puede registrar solo confunde al operador. Si falta tienda y quien está en la app no es admin, la tarjeta lo dice en vez de ofrecer un botón inútil. Configurar o **cambiar** la tienda también pide la contraseña del admin (decide dónde caen todos los marcajes). |
+| **Horizontal en el tiqueador** | `app.json` pasó de `orientation: "portrait"` a **`"default"`**: la tablet del kiosco se apoya de lado y ahí la columna única de la pantalla de marcaje dejaba la cámara angosta con la mitad de la pantalla vacía. Con `useWindowDimensions` + `breakpoints.tablet` (768, el token del design system) la pantalla se **reestructura en dos paneles**: cámara a la izquierda ocupando el alto (`flex: 3`) y acciones/resultado a la derecha (`flex: 2`). Por debajo de 768 de ancho (teléfono rotado) se queda en una columna. Se usa el **ancho**, no el modelo del dispositivo ni un chequeo de plataforma. Consecuencia asumida: `default` es de **toda la app**, así que las demás pantallas también pueden rotar — seavisó y quedó pendiente decidir si se bloquean con `expo-screen-orientation`. |
+| **Textos que no se pisan** | Todo texto que va con `flex: 1` al lado de un badge, un chevron o un botón lleva `minWidth: 0` + `numberOfLines`, porque sin eso un nombre de tienda o un email largo **empuja el control vecino fuera de la fila** (y en horizontal era fácil: los paneles angostos lo disparaban siempre). Afectó a la barra de tienda, la fila de candidatos, el resultado del marcaje, los datos de la tarjeta, la nota, el `Header` (compartido) y el `TiendaSelector`. Además el óvalo de la guía de `FaceCamera` pasó de `220×280` fijos a medirse contra la caja real: en horizontal tapaba el encuadre. |
+| **Rostro desde la lista** | Registrar el rostro a mano (`nombre` + `apellido`) obligaba a escribir bien un nombre y a elegir entre 404 y 409 con homónimos. Ahora `FaceRegisterScreen` **lista primero** al personal con `GET /users` (rol admin, sin `password` ni `embedding`) y filtra en el cliente con `usuariosSinRostro()` (`activo && !facePhoto && !faceRegisteredAt`, porque el registro siempre escribe los dos campos): tocar una fila marca `usuarioId` y manda ese id en `POST /users/face/register`, que **gana sobre nombre/apellido** y no puede fallar por homónimos (404 solo si el id no existe). El formulario de nombre queda como alternativa colapsada ("No está en la lista") para seguir cubriendo a alguien dado de baja o no listado. Backend: `usuarioId` en el controller (valida formato antes de buscar) y en `users.service.ts`; mobile: `listarUsuarios` + `usuariosSinRostro` en `api/users.ts`. E2E nuevo `test/face-register.e2e-spec.ts` (7 casos, con `FaceService` dobleado: 201 por id, id gana sobre nombre, 404/400 por id, 400 sin fotos, 404 por nombre, 403 sin rol admin). |
+| **Verificación** | `npx tsc --noEmit` + `npx expo export` verdes, detector de Impeccable sin hallazgos; backend `lint` 0 errores + `build` + `npm test` 27 + `test:e2e` **136/136**. Falta la prueba en tablet **física en ambas orientaciones** (entrar/salir, reiniciar y confirmar que vuelve al tiqueador, y que nada se corte) y un registro facial real (necesita el bucket `faces`). |
+
+---
+
 ## Tarea pendiente — escanear desde el POS (no agendada en este hito)
 
 > **Estado: PENDIENTE, sin día asignado.** Quedó fuera de los 8 días a pedido del equipo
@@ -225,7 +244,7 @@ Lo mismo aplica en la práctica porque cada persona trabaja en un módulo y dire
 | GET | `/api/products/by-barcode/:codigo` | Identifica el producto por código de barras. **Antes de `:id`** |
 | GET | `/api/products/:id/barcode` | Genera la etiqueta PNG Code128; persiste `codigo` si era NULL |
 | POST | `/api/products/barcode/generate-all` | Genera los códigos de todo el catálogo sin etiquetar (**solo admin**) |
-| POST | `/api/users/face/register` | `multipart`: `nombre`, `apellido`, `fotos[]`. Asocia el rostro a un `users` existente |
+| POST | `/api/users/face/register` | `multipart`: `usuarioId` (elegido de la lista, gana) **o** `nombre` + `apellido`, más `fotos[]`. Asocia el rostro a un `users` existente |
 | POST | `/api/attendance/check` | `multipart`: `foto`, `tipo?`, `locationId?`. Reconoce y registra el marcaje |
 | POST | `/api/attendance/:id/confirm` | Confirmación manual cuando la confianza es baja |
 | GET | `/api/attendance` | Historial paginado (`fecha`, `usuarioId`, `locationId`) |

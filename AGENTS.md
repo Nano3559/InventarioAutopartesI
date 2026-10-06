@@ -48,7 +48,7 @@ Plan día a día en `Plan Hito 3.md` (8 días, 3 personas, 1 tarea diaria por pe
 - **Umbral de confianza:** `UMBRAL_CONFIANZA_FACIAL` se recalibra con **similitud coseno** (rango típico 0.28–0.45); el 0.55 inicial daba falsos negativos. **Quedó en 0.35** (`backend/src/common/constants.ts`) y se lee en `GET /face/status`.
 - **Descartado:** conteo de autopartes con YOLO (ya no es el alcance).
 - **Pendiente, sin agendar:** escaneo desde el POS (botón en `SalesScreen` + cámara en modal, decisión ya tomada) y conteo de recepción. El escáner del Hito 3 es **solo de consulta**. Ver "Tarea pendiente" en `Plan Hito 3.md`.
-- **Registro facial:** el nombre del formulario debe existir en `users` (`nombre` + `apellido`); si no, 404. El endpoint asocia un rostro a un usuario ya creado, no crea usuarios.
+- **Registro facial:** el endpoint asocia un rostro a un usuario **ya creado**, no crea usuarios. Apunta al usuario con **`usuarioId`** (elegido en la app desde la lista de personal sin rostro; un id no tiene homónimos) o, como alternativa, con `nombre` + `apellido` escritos a mano: si no existe nadie con ese nombre, 404. `usuarioId` gana si vienen los dos.
 
 **Ya está listo:** entidades `Product.codigo`, `User` extendida (5 campos) y `Asistencia`; constantes en `backend/src/common/constants.ts`; `backend/sql/hito3.sql`; `AttendanceModule` y `FaceModule` registrados. Las **5 rutas de asistencia** y las 2 de diagnóstico están documentadas en `docs/api.md` §Attendance; la arquitectura del reconocimiento, en `docs/arquitectura.md` §3.2.
 
@@ -94,6 +94,10 @@ SPA con layout (Sidebar por rol + Navbar), rutas protegidas por rol. Capas `api/
 ## Mobile (`mobile/`)
 
 App Expo con drawer por rol (admin 13 pantallas, tienda 10, inventario 6). Screens principales: Login, dashboards por rol, Inventario/Detalle, Venta (POS), Venta Mayor (import Excel), Historial, Ventas (edición), Devoluciones, Solicitudes, Reportes, Búsqueda por imagen, **Escáner** (códigos de barras, en los 3 roles), **Registro facial**, **Marcaje** e **Historial de asistencia** (solo admin; usan `expo-camera` y el componente `FaceCamera` con guía oval). API en `src/api/` (fetch wrapper con Bearer + ApiError), sesión en SecureStore/localStorage.
+
+**Modo tiqueador (R9):** un item **Tiqueador** en el sidebar del admin convierte la tablet en un kiosk de asistencia (una tablet por tienda, todas con la misma cuenta admin). Entra y sale con contraseña de admin (`AdminPasswordGate` valida contra `POST /auth/login` y **descarta** el token nuevo). Mientras está activo, `App.tsx` renderiza **solo** `AttendanceScreen` con `modoTiqueador`: sin drawer, sin stack, sin forma de salir con el gesto. Dos reglas que no hay que romper: (1) la tienda sale de `src/storage/terminal.ts` (**del dispositivo**, nunca de `users.tiendaId`, que el admin tiene en `NULL`) porque cambiar el usuario movería el marcaje de las otras tablets — `user.tiendaId` queda solo como último recurso para el rol `tienda`; (2) el flag de kiosco se **persiste** en SecureStore y `RootNavigator` espera `useTiqueador().listo` antes de dibujar nada — si fuera estado en memoria, reiniciar la app dejaría al descubierto la sesión de admin guardada en esa tablet.
+
+La pantalla de marcaje además funciona **en horizontal** (`app.json` usa `orientation: "default"`, ya no `"portrait"`): la tablet del kiosco se apoya de lado y `AttendanceScreen` se **reestructura en dos paneles** con `useWindowDimensions` + `breakpoints.tablet` (cámara `flex: 3` / acciones `flex: 2`), no una columna estirada. Y todo texto que va con `flex: 1` al lado de otro control lleva `minWidth: 0` + `numberOfLines`: sin eso un nombre de tienda o un email largo empuja el badge o el chevron fuera de la fila.
 
 ### Comandos
 - `npm start` — `expo start`.

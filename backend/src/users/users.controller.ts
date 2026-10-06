@@ -43,20 +43,33 @@ export class UsersController {
   }
 
   /**
-   * Registro facial (multipart): `nombre`, `apellido` y `fotos[]`.
-   * Asocia el rostro a un `users` existente: **404** si no hay nadie con ese
-   * nombre + apellido, y **409** si hay varios (el operador debe elegir).
+   * Registro facial (multipart): `fotos[]` + **una** de estas dos formas de
+   * apuntar al usuario:
+   *
+   * - `usuarioId` — cuando el operador lo elige de la lista de personal **sin
+   *   rostro**. Es el camino sin errores: un id no tiene homónimos ni se
+   *   puede escribir mal.
+   * - `nombre` + `apellido` — el formulario a mano, para cuando la lista es
+   *   larga. 404 si no existe nadie con ese nombre, 409 si hay varios.
+   *
+   * Nunca crea usuarios en los dos casos.
    */
   @Post('face/register')
   @UseInterceptors(
     FilesInterceptor('fotos', FOTOS_MAXIMO_REGISTRO, multerImagenes()),
   )
   registerFace(
-    @Body('nombre') nombre: string,
-    @Body('apellido') apellido: string,
+    @Body('usuarioId') usuarioId: string | undefined,
+    @Body('nombre') nombre: string | undefined,
+    @Body('apellido') apellido: string | undefined,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.usersService.registrarRostro(nombre, apellido, files);
+    return this.usersService.registrarRostro(
+      usuarioId,
+      nombre,
+      apellido,
+      files,
+    );
   }
 
   @Post()

@@ -3,6 +3,8 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DrawerContentScrollView, type DrawerContentComponentProps } from '@react-navigation/drawer';
 import { DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useTiqueador } from '../context/TiqueadorContext';
+import AdminPasswordGate from './AdminPasswordGate';
 import {
   colors,
   space,
@@ -79,9 +81,11 @@ const roleColors: Record<string, string> = {
 
 export default function AppDrawer(props: DrawerContentComponentProps) {
   const { user, signOut } = useAuth();
+  const { entrar } = useTiqueador();
   const { state, navigation } = props;
   const activeRoute = state.routes[state.index]?.name;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [pidiendoTiqueador, setPidiendoTiqueador] = useState(false);
 
   const items =
     user?.rol === 'admin'
@@ -118,7 +122,7 @@ export default function AppDrawer(props: DrawerContentComponentProps) {
             <Text style={[styles.userRole, { color: roleColors[user?.rol || 'admin'] }]}>
               {roleLabels[user?.rol || 'admin']}
             </Text>
-            {user?.tienda?.nombre && (
+            {user?.rol !== 'admin' && user?.tienda?.nombre && (
               <Text style={styles.userStore}>{user.tienda.nombre}</Text>
             )}
           </View>
@@ -154,6 +158,30 @@ export default function AppDrawer(props: DrawerContentComponentProps) {
               </Pressable>
             );
           })}
+
+          {/* Modo tiqueador (tarea R9): convierte la tablet de la tienda en un
+              kiosk de marcaje. No navega a ninguna ruta — entra al modo(context),
+              no a una pantalla — y por eso va fuera de `items`: no se marca activo
+              ni navega, solo abre el pedido de contraseña. */}
+          {user?.rol === 'admin' ? (
+            <Pressable
+              style={({ pressed }) => [styles.navItem, pressed && { opacity: 0.7 }]}
+              onPress={() => {
+                navigation.dispatch(DrawerActions.closeDrawer());
+                setPidiendoTiqueador(true);
+              }}
+              accessibilityRole={a11y.button}
+              accessibilityLabel="Tiqueador"
+              accessibilityHint="Abre el modo de marcado de asistencia de esta tablet"
+            >
+              <Ionicons
+                name="finger-print-outline"
+                size={iconSize.md}
+                color={colors.textMuted}
+              />
+              <Text style={styles.navLabel}>Tiqueador</Text>
+            </Pressable>
+          ) : null}
         </View>
       </DrawerContentScrollView>
 
@@ -171,9 +199,21 @@ export default function AppDrawer(props: DrawerContentComponentProps) {
         </Pressable>
       </View>
 
+      {/* Modo tiqueador: se entra con la contraseña del administrador. La tablet
+          queda con una sola pantalla de marcaje y sin acceso al resto de la app. */}
+      <AdminPasswordGate
+        visible={pidiendoTiqueador}
+        motivo="La tablet queda en modo tiqueador: solo se puede marcar asistencia. Para volver a la aplicación completa hay que pedir la contraseña otra vez."
+        confirmar="Entrar al tiqueador"
+        onCancel={() => setPidiendoTiqueador(false)}
+        onSuccess={() => {
+          setPidiendoTiqueador(false);
+          entrar();
+        }}
+      />
+
       {/* Confirm Logout Modal */}
-      <Modal visible={showLogoutModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+      <Modal visible={showLogoutModal} transparent animationType="fade">        <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalIconWrap}>
               <Ionicons name="log-out" size={28} color={colors.danger} />
