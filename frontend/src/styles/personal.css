@@ -100,3 +100,40 @@
   font-size: 0.82rem;
   color: var(--text-muted);
 }
+
+/* ==========================================================================
+   Responsive Breakpoints
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .personal-page-container .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .biometric-privacy-notice {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .personal-avatar-box {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (max-width: 480px) {
+  .personal-page-container {
+    gap: 1rem;
+  }
+
+  .role-badge,
+  .face-status-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+  }
+}
+
