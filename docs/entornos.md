@@ -58,6 +58,13 @@ porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 > Sin `SUPABASE_URL` / `SUPABASE_KEY` el backend arranca (el cliente se crea lazy) pero
 > `POST /products/:id/image` y `POST /users/face/register` responden **400**. El bucket
 > `faces` debe existir y ser privado: policies solo `service_role`.
+>
+> ⚠️ **`SUPABASE_KEY` tiene que ser la clave `service_role` en TODOS los lados** (`.env`
+> local, entorno de **Render** y secret de GitHub Actions). El bucket `products` funciona
+> con la clave `anon` porque tiene policy, pero `faces` es privado sin policies: con `anon`
+> la subida de un rostro falla con `new row violates row-level security policy (bucket:
+> faces)` (visto el 06/10 en Render, donde la env quedó en `anon`). `service_role` ignora
+> RLS (BYPASSRLS), así que cubre los dos buckets.
 
 ### 2.2 Reconocimiento facial (Hito 3)
 

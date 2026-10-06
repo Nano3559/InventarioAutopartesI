@@ -23,7 +23,12 @@ import {
   type Asistencia,
 } from '../api/attendance';
 import { listarRostros } from '../api/users';
-import { ApiError, type ArchivoLocal } from '../api/client';
+import {
+  ApiError,
+  SIN_CONEXION,
+  esperarServidorVivo,
+  type ArchivoLocal,
+} from '../api/client';
 import type { Location } from '../api/locations';
 import { getToken } from '../storage/token';
 import {
@@ -251,6 +256,30 @@ export default function AttendanceScreen({
       setAviso(null);
 
       try {
+        // Cold start de Render (~52.7 s) vs timeout de red del teléfono (~10 s):
+        // si el servidor quedó dormido, el multipart real moriría con
+        // "sin conexión" (status 0) aunque el backend esté por responder. Primero
+        // se espera a que conteste y la pantalla lo avisa en lugar de fallar seco.
+        const inmediato = await esperarServidorVivo(15_000);
+        if (!inmediato) {
+          setAviso({
+            tono: 'info',
+            titulo: 'Despertando el servidor…',
+            texto:
+              'El primer uso del día puede tardar hasta un minuto. Se reintenta ' +
+              'automáticamente.',
+          });
+          const despierto = await esperarServidorVivo(90_000);
+          if (!despierto) {
+            setAviso({
+              tono: 'error',
+              titulo: 'No se pudo marcar',
+              texto: SIN_CONEXION,
+            });
+            return;
+          }
+        }
+
         const token = await getToken();
         const data =
           usuarioId === undefined

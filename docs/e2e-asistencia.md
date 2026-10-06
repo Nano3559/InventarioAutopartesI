@@ -12,6 +12,14 @@ automatizar (contrato del API en Render) **ya quedó verificada el 06/10/2026** 
 
 ## Pre-requisitos verificados (06/10/2026)
 
+> ⛔ **BLOQUEANTE — PENDIENTE (acción manual, 06/10):** el registro facial en producción
+> responde **400** `new row violates row-level security policy (bucket: faces)` porque
+> `SUPABASE_KEY` en el entorno de **Render** quedó con la clave **`anon`**. Corregir antes
+> de la sección A: dashboard de Render → Web Service → Environment → `SUPABASE_KEY` = clave
+> `service_role` de Supabase (la misma del secret del ping en GitHub Actions) → Save →
+> `Manual Deploy → Deploy latest commit`. Sin esto **A falla** (ver `docs/despliegue.md` §1
+> y `docs/entornos.md` §Backend).
+
 - Backend de producción: `https://inventarioautopartesi.onrender.com` respondiendo.
 - `GET /face/status` (admin): `indiceCompleto: true`, `modelo.disponible: true`, bucket
   `faces` presente. `rostrosEnBase` empieza en **0** (nadie registrado todavía).
