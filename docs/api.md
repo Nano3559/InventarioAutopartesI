@@ -25,7 +25,7 @@ de rostro).
 | :--- | :--- | :--- |
 | GET | `/users` | Listar usuarios (sin `password` ni `embedding`) |
 | GET | `/users/rostros` | Personal con rostro registrado, con **URL firmada** de la foto |
-| POST | `/users/face/register` | **Registro facial** (multipart `usuarioId` **o** `nombre` + `apellido`, más `fotos[]`) |
+| POST | `/users/face/register` | **Registro facial** (multipart `usuarioId` **o** `nombre` + `apellido`, más `fotos`) |
 | POST | `/users` | Crear usuario |
 | PATCH | `/users/:id` | Actualizar usuario |
 | DELETE | `/users/:id` | Eliminar usuario |
@@ -40,7 +40,7 @@ Hay dos formas de apuntar al usuario, y **`usuarioId` gana** si vienen las dos:
 | `usuarioId` | El id del usuario elegido de la lista de personal. **Recomendado**: un id no tiene homónimos ni se puede escribir mal, e ignora `nombre`/`apellido` |
 | `nombre` | Formulario a mano. Texto, mínimo 2 caracteres. Se busca sin distinguir mayúsculas |
 | `apellido` | Formulario a mano. Texto, mínimo 2 caracteres |
-| `fotos[]` | 1 a 10 imágenes (`image/*`, 10 MB c/u). Se recomiendan 5 |
+| `fotos` | 1 a 10 imágenes (`image/*`, 10 MB c/u), repitiendo el campo `fotos` por cada archivo: el nombre del campo es **`fotos`**, no `fotos[]` (multer rechaza cualquier otro). Se recomiendan 5 |
 
 | Situación | Respuesta |
 | :--- | :--- |
@@ -82,8 +82,8 @@ usuario del índice). Un `activo: false` **impide el login** (`401`).
 | POST | `/products` | Crear producto |
 | PATCH | `/products/:id` | Actualizar producto |
 | DELETE | `/products/:id` | Eliminar producto |
-| POST | `/products/search-by-image` | Búsqueda de producto por imagen |
-| POST | `/products/:id/image` | Subir imagen de producto (multer + sharp + Supabase) |
+| POST | `/products/search-by-image` | Búsqueda de producto por imagen (multipart, campo `file`, `image/*` ≤ 10 MB) |
+| POST | `/products/:id/image` | Subir imagen de producto (multipart, campo `file`, multer + sharp + Supabase) |
 | PATCH | `/products/:id/stock` | Ajustar stock |
 | PATCH | `/products/:id/toggle-active` | Activar/desactivar producto |
 

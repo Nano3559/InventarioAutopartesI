@@ -6,16 +6,37 @@ name: Supabase ping diario
 #
 # Secretos requeridos en el repositorio (Settings → Secrets and variables → Actions):
 #   SUPABASE_URL  → https://<project-ref>.supabase.co
-#   SUPABASE_KEY  → service_role key
+#   SUPABASE_KEY  → service_role key (ideal) o anon key (ver "Rol de la clave")
 #
-# ── Por qué este workflow ya no consulta `products` ────────────────────────────
+# ── Rol de la clave ───────────────────────────────────────────────────────────
+# El primer paso decodifica el `role` del JWT (sin imprimir la clave) y decide:
+#
+#   service_role → ping a `GET /rest/v1/` (raíz de PostgREST). Devuelve 200 y
+#                   obliga a PostgREST a resolver el schema: eso cuenta como
+#                   actividad de base de datos, que es lo que evita la pausa.
+#   otro (anon)   → `GET /rest/v1/` responde 401 "Only the 'service_role' API
+#                   key can be used for this endpoint" y el job se caía a diario
+#                   (corridas del 2026-10-04). Con anon se usa una cadena de
+#                   respaldo que sí genera actividad:
+#                     1. `GET /rest/v1/products?select=id&limit=1` → incluso con
+#                        401/403 el error es de PostgreSQL (42501), o sea que la
+#                        consulta SÍ llegó a la base.
+#                     2. `GET /auth/v1/health` y `GET /storage/v1/bucket` → 200
+#                        con cualquier clave: actividad de los servicios.
+#                   El job queda en verde con un ::warning:: recordando que lo
+#                   ideal es cambiar el secret a service_role.
+#
+# ── Bucket faces ──────────────────────────────────────────────────────────────
+# R2 exige que `faces` sea privado (datos biométricos, Ley 26935 Bolivia). Solo
+# service_role puede listar buckets: con anon, Storage responde `[]` y
+# `/bucket/faces` → 404, así que el chequeo se omite con un warning en lugar de
+# fallar (fallaría todos los días sin decir nada nuevo).
+#
+# ── Por qué este workflow no consulta products como ping ──────────────────────
 # La versión anterior falló 4 de 4 veces (2026-09-30 → 2026-10-03) en el paso
 # "Consultar products". La causa NO eran los secrets: a `service_role` le faltan
 # los privilegios GRANT sobre las tablas de `public`, así que PostgREST responde
 #   403 {"code":"42501","message":"permission denied for table products"}
-# El liveness usa ahora `GET /rest/v1/` (raíz de PostgREST), que responde 200 con
-# cualquier service_role y no depende de permisos sobre tablas.
-#
 # Para que el conteo de productos sin código funcione hay que aplicar esto una
 # vez en el SQL Editor de Supabase (idempotente):
 #
@@ -63,31 +84,88 @@ jobs:
           fi
           echo "Secrets presentes."
 
-      - name: Ping de actividad (PostgREST)
+      - name: Detectar rol de la clave
+        id: rol
+        env:
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          # Decodifica solo el payload del JWT. NUNCA se imprime la clave.
+          payload="$(printf '%s' "${SUPABASE_KEY}" | cut -d. -f2)"
+          case $(( ${#payload} % 4 )) in
+            2) payload="${payload}==" ;;
+            3) payload="${payload}=" ;;
+          esac
+          rol="$(printf '%s' "$payload" | tr '_-' '/+' | base64 -d 2>/dev/null \
+            | grep -o '"role":"[^"]*"' | head -n1 | cut -d'"' -f4 || true)"
+          rol="${rol:-desconocido}"
+
+          echo "rol=${rol}" >> "${GITHUB_OUTPUT}"
+          echo "Rol de SUPABASE_KEY: ${rol}"
+
+          if [ "$rol" != "service_role" ]; then
+            echo "::warning::SUPABASE_KEY es '${rol}', no 'service_role'. El ping se hace con los endpoints de respaldo y el chequeo del bucket faces se omite (solo service_role puede verlo). Cambia el secret en Settings → Secrets and variables → Actions."
+          fi
+
+      - name: Ping de actividad
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ROL: ${{ steps.rol.outputs.rol }}
         run: |
           set -euo pipefail
           base="${SUPABASE_URL%/}"
 
-          # La raíz de PostgREST devuelve el OpenAPI del proyecto, así que la
-          # petición obliga al proyecto a resolver el schema: eso ya cuenta como
-          # actividad y es lo que evita la pausa de los 7 días.
-          response="$(curl -sS -D - -o /tmp/openapi.json \
-            -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}" \
-            "${base}/rest/v1/")"
+          request() {
+            curl -sS -o "$2" -w '%{http_code}' \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}" \
+              "$1"
+          }
 
-          echo "$response" | sed -n '1,10p'
-
-          if echo "$response" | grep -qi '^HTTP/.* 200'; then
-            tablas="$(grep -o '"/[a-z_]*"' /tmp/openapi.json | sort -u | wc -l | tr -d ' ')"
-            echo "Ping OK. Rutas de tabla expuestas en el schema public: ${tablas}"
+          if [ "$ROL" = "service_role" ]; then
+            # La raíz de PostgREST devuelve el OpenAPI del proyecto: la petición
+            # obliga a resolver el schema → actividad de base de datos.
+            code="$(request "${base}/rest/v1/" /tmp/ping.json)"
+            echo "GET /rest/v1/ → HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              tablas="$(grep -o '"/[a-z_]*"' /tmp/ping.json | sort -u | wc -l | tr -d ' ')"
+              echo "Ping OK. Rutas de tabla expuestas en el schema public: ${tablas}"
+            else
+              echo "::error::PostgREST no respondió 200 (HTTP ${code}). El proyecto puede haberse pausado o el secreto cambió."
+              cat /tmp/ping.json || true
+              exit 1
+            fi
           else
-            echo "::error::PostgREST no respondió 200. El proyecto puede haberse pausado o el secreto cambió."
-            cat /tmp/openapi.json || true
-            exit 1
+            # Cadena de respaldo con cualquier clave. Objetivo: al menos un 200
+            # y/o evidencia de que la consulta llegó a PostgreSQL.
+            alcanza_bd=0
+            servicios_ok=0
+
+            code="$(request "${base}/rest/v1/products?select=id&limit=1" /tmp/pg.json)"
+            echo "GET /rest/v1/products → HTTP ${code}"
+            if grep -q '"code":"42501"' /tmp/pg.json 2>/dev/null; then
+              echo "PostgreSQL respondió un error de permisos (42501): la consulta SÍ llegó a la base."
+              alcanza_bd=1
+            elif [ "$code" = "200" ]; then
+              alcanza_bd=1
+            fi
+
+            for ruta in /auth/v1/health /storage/v1/bucket; do
+              code="$(request "${base}${ruta}" /tmp/svc.json)"
+              echo "GET ${ruta} → HTTP ${code}"
+              if [ "$code" = "200" ]; then
+                servicios_ok=1
+              fi
+            done
+
+            if [ "$alcanza_bd" = "1" ] || [ "$servicios_ok" = "1" ]; then
+              echo "Ping OK: el proyecto respondió y quedó registrado como actividad diaria."
+            else
+              echo "::error::Ningún endpoint respondió (ni BD ni servicios). El proyecto puede haberse pausado."
+              cat /tmp/pg.json 2>/dev/null || true
+              exit 1
+            fi
           fi
 
       - name: Verificar bucket faces (privado)
@@ -97,9 +175,15 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ROL: ${{ steps.rol.outputs.rol }}
         run: |
           set -euo pipefail
           base="${SUPABASE_URL%/}"
+
+          if [ "$ROL" != "service_role" ]; then
+            echo "::warning::Chequeo de 'faces' omitido: requiere service_role (la clave actual es '${ROL}'). Verificalo a mano en Supabase Dashboard → Storage: debe existir y estar privado."
+            exit 0
+          fi
 
           buckets="$(curl -sS \
             -H "apikey: ${SUPABASE_KEY}" \
@@ -135,6 +219,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ROL: ${{ steps.rol.outputs.rol }}
         run: |
           set -uo pipefail
           base="${SUPABASE_URL%/}"
@@ -156,7 +241,7 @@ jobs:
               echo "::warning::Hay ${pendientes} producto(s) sin código. Ejecuta POST /api/products/barcode/generate-all (admin) en el backend."
             fi
           elif [ "$estado" = "401" ] || [ "$estado" = "403" ]; then
-            echo "::warning::No se pudo leer products (HTTP ${estado}): a service_role le faltan los GRANT sobre el schema public. El conteo se omite; el ping de actividad ya se hizo bien."
+            echo "::warning::No se pudo leer products (HTTP ${estado}) con la clave '${ROL}': el conteo requiere service_role con GRANT sobre el schema public. El ping de actividad ya se hizo bien."
           else
             echo "::warning::products respondió HTTP ${estado:-sin estado}. Se omite el conteo."
             cat /tmp/body.json 2>/dev/null || true
