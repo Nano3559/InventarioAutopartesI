@@ -407,8 +407,17 @@ export class FaceService implements OnModuleInit {
       this.logger.error(
         `Error de Supabase al subir el rostro: ${error.message}`,
       );
+      // El bucket `faces` es privado sin policies: solo lo alcanza la clave
+      // `service_role`. Si el entorno quedó con la clave `anon` (funciona en
+      // `products` porque ese bucket sí tiene policy), la subida responde
+      // "new row violates row-level security policy". Decirlo con la causa
+      // ahorra que la persona que opera el despliegue tenga que adivinar.
+      const esRls = /row-level security/i.test(error.message ?? '');
+      const hint = esRls
+        ? ' el bucket privado exige que SUPABASE_KEY sea la clave service_role del proyecto, no la anon'
+        : '';
       throw new BadRequestException(
-        `Error al guardar la foto del rostro: ${error.message} (bucket: ${this.bucket()})`,
+        `Error al guardar la foto del rostro: ${error.message} (bucket: ${this.bucket()}).${hint}`,
       );
     }
 

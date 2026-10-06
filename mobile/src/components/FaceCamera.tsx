@@ -67,6 +67,7 @@ export default function FaceCamera({
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [mountError, setMountError] = useState<string | null>(null);
+  const [captureFailed, setCaptureFailed] = useState(false);
   const [tomando, setTomando] = useState(false);
   const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
   const camaraRef = useRef<CameraView | null>(null);
@@ -93,6 +94,7 @@ export default function FaceCamera({
   const capture = useCallback(async () => {
     if (!camaraRef.current || ocupada) return;
     setTomando(true);
+    setCaptureFailed(false);
     try {
       const foto = await camaraRef.current.takePictureAsync({ quality: 0.8 });
       if (foto?.uri) {
@@ -101,9 +103,13 @@ export default function FaceCamera({
           name: `rostro-${Date.now()}.jpg`,
           type: 'image/jpeg',
         });
+      } else {
+        setCaptureFailed(true);
       }
     } catch {
-      // Si la toma falla no hay nada que reportar: el operador sigue encuadrando.
+      // Sin feedback la toma fallida es un botón mudo: el operador aprieta y no
+      // pasa nada, que se lee como "la cámara no sirve". Mejor decirlo corto.
+      setCaptureFailed(true);
     } finally {
       setTomando(false);
     }
@@ -126,14 +132,23 @@ export default function FaceCamera({
           Para registrar el rostro hay que tomar fotos con la cámara del celular. La imagen se
           usa solo para el reconocimiento de asistencia.
         </Text>
-        <Pressable
-          style={({ pressed }) => [styles.permBtn, pressed && styles.pressed]}
-          onPress={requestPermission}
-          accessibilityRole={a11y.button}
-          accessibilityLabel="Autorizar cámara"
-        >
-          <Text style={styles.permBtnText}>Autorizar cámara</Text>
-        </Pressable>
+        {permission.canAskAgain ? (
+          <Pressable
+            style={({ pressed }) => [styles.permBtn, pressed && styles.pressed]}
+            onPress={requestPermission}
+            accessibilityRole={a11y.button}
+            accessibilityLabel="Autorizar cámara"
+          >
+            <Text style={styles.permBtnText}>Autorizar cámara</Text>
+          </Pressable>
+        ) : (
+          // Sin `canAskAgain` el botón "Autorizar" ya no abre el diálogo del sistema:
+          // para que el error sea claro hay que mandar al operador a los ajustes.
+          <Text style={styles.permDenied}>
+            El permiso de la cámara fue denegado. Activalo en los ajustes del sistema para
+            poder registrar el rostro.
+          </Text>
+        )}
       </View>
     );
   }
@@ -175,22 +190,34 @@ export default function FaceCamera({
         </View>
       ) : null}
 
-      <Pressable
-        style={({ pressed }) => [styles.torchBtn, pressed && styles.pressed]}
-        onPress={() => setTorch((v) => !v)}
-        accessibilityRole={a11y.button}
-        accessibilityLabel={torch ? 'Apagar linterna' : 'Encender linterna'}
-      >
-        <Ionicons
-          name={torch ? 'flash' : 'flash-off'}
-          size={iconSize.md}
-          color={colors.white}
-        />
-      </Pressable>
+      {/* La linterna solo existe en la cámara trasera: la delantera no tiene led.
+          Mostrar el botón en el registro/marcaje (siempre frontal) sería un botón
+          que no hace nada, que leído como un error de la app. */}
+      {facing === 'back' ? (
+        <Pressable
+          style={({ pressed }) => [styles.torchBtn, pressed && styles.pressed]}
+          onPress={() => setTorch((v) => !v)}
+          accessibilityRole={a11y.button}
+          accessibilityLabel={torch ? 'Apagar linterna' : 'Encender linterna'}
+        >
+          <Ionicons
+            name={torch ? 'flash' : 'flash-off'}
+            size={iconSize.md}
+            color={colors.white}
+          />
+        </Pressable>
+      ) : null}
 
-      {mountError ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{mountError}</Text>
+      {mountError || captureFailed ? (
+        <View style={styles.errorBox} accessibilityRole={a11y.alert}>
+          <Text style={styles.errorTitle}>
+            {mountError ? 'No se pudo abrir la cámara' : 'No se pudo tomar la foto'}
+          </Text>
+          <Text style={styles.errorText}>
+            {captureFailed
+              ? 'Intentá de nuevo. Si sigue fallando, cerrá y volvé a abrir la pantalla.'
+              : mountError}
+          </Text>
         </View>
       ) : null}
 
@@ -293,10 +320,16 @@ const styles = StyleSheet.create({
     left: space.md,
     right: space.md,
     padding: space.md,
+    gap: space.xs,
     borderRadius: radius.md,
     backgroundColor: colors.dangerSoft,
     borderWidth: 1,
     borderColor: colors.danger,
+  },
+  errorTitle: {
+    color: colors.danger,
+    fontSize: fontSize.captionStrong,
+    fontFamily: fontFamily.sansSemiBold,
   },
   errorText: {
     color: colors.danger,
@@ -359,6 +392,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     fontFamily: fontFamily.sans,
     lineHeight: fontSize.body * lineHeight.relaxed,
+    textAlign: 'center',
+  },
+  permDenied: {
+    color: colors.danger,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    lineHeight: fontSize.caption * lineHeight.relaxed,
     textAlign: 'center',
   },
   permBtn: {

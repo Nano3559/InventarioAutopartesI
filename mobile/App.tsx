@@ -1,8 +1,15 @@
+import { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, View, Platform } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  StyleSheet,
+  View,
+  Platform,
+} from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from '@expo-google-fonts/inter/useFonts';
 const Inter_400Regular = require('@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf');
@@ -10,6 +17,7 @@ const Inter_500Medium = require('@expo-google-fonts/inter/500Medium/Inter_500Med
 const Inter_600SemiBold = require('@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf');
 const Inter_700Bold = require('@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf');
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { despertarServidor } from './src/api/client';
 import {
   TiqueadorProvider,
   useTiqueador,
@@ -171,6 +179,27 @@ function RootNavigator() {
 }
 
 export default function App() {
+  // Render se duerme a los 15 min sin tráfico (spin-down) y el primer request
+  // tarda ~52.7 s. En lugar de esperar ese arranque a mitad del día, la app lo
+  // mantiene despierto mientras está abierta: ping al abrir, al volver del fondo
+  // y cada 9 min (menos que los 15). Así `esperarServidorVivo()` responde en el
+  // primer intento y el flujo queda instantáneo. El 52.7 s solo ocurre si nadie
+  // usó la app por un rato largo (fin de semana, noche).
+  useEffect(() => {
+    const ping = () => {
+      despertarServidor();
+    };
+    ping();
+    const timer = setInterval(ping, 9 * 60 * 1000);
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') ping();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

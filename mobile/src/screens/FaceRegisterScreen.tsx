@@ -31,6 +31,8 @@ import {
 } from '../api/users';
 import {
   ApiError,
+  SIN_CONEXION,
+  esperarServidorVivo,
   type ArchivoLocal,
   type ProgresoSubida,
   type ResumenUsuario,
@@ -203,6 +205,29 @@ export default function FaceRegisterScreen() {
           texto: 'Volvé a iniciar sesión para registrar un rostro.',
         });
         return;
+      }
+      // Lo mismo que en el marcaje: Render duerme a los 15 min y arrancar tarda
+      // ~52.7 s. Si el multipart se manda estando dormido, la XHR de subida se
+      // queda sin respuesta mucho rato sin mostrar nada. Primero se asegura de que
+      // el servidor conteste y se le dice al operador qué está pasando.
+      const responde = await esperarServidorVivo(15_000);
+      if (!responde) {
+        setAviso({
+          tono: 'info',
+          titulo: 'Despertando el servidor…',
+          texto:
+            'El primer uso del día puede tardar hasta un minuto. Se reintenta ' +
+            'automáticamente.',
+        });
+        const despierto = await esperarServidorVivo(90_000);
+        if (!despierto) {
+          setAviso({
+            tono: 'error',
+            titulo: 'No se pudo registrar',
+            texto: SIN_CONEXION,
+          });
+          return;
+        }
       }
       const destino = elegido
         ? { usuarioId: elegido.id }
@@ -593,6 +618,11 @@ export default function FaceRegisterScreen() {
                   </Pressable>
                 </View>
 
+                <Text style={styles.fieldHint}>
+                  La persona debe salir sin lentes ni gorra: el sistema compara el
+                  rostro tal cual se ve, no detecta accesorios.
+                </Text>
+
                 <View style={styles.thumbs}>
                   {fotos.map((foto, i) => (
                     <Pressable
@@ -624,7 +654,7 @@ export default function FaceRegisterScreen() {
                     capturing={enviando}
                     bloqueada={fotos.length >= FOTOS_MAXIMO}
                     contador={`${fotos.length} de ${FOTOS_RECOMENDADAS}`}
-                    guideLabel="Rostro de frente, sin lentes ni sombrero"
+                    guideLabel="Rostro de frente, sin lentes, gorra ni sombrero"
                   />
                 </View>
               </>
