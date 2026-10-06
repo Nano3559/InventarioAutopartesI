@@ -73,7 +73,7 @@ export function PersonalPage() {
 
         const combined: UserItem[] = allUsers.map((u) => ({
           ...u,
-          fotoUrl: facesMap.get(u.id) || u.fotoUrl || null,
+          fotoUrl: facesMap.get(u.id) || null,
         }));
 
         setUsers(combined);
