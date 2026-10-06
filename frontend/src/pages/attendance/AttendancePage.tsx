@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   CalendarCheck,
   LogIn,
@@ -6,6 +7,7 @@ import {
   ScanFace,
   RefreshCw,
   CheckCircle2,
+  Activity,
 } from 'lucide-react';
 import { attendanceService } from '../../services/attendance.service';
 import { locationsService } from '../../services/locations.service';
@@ -194,13 +196,23 @@ export function AttendancePage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <Link
+            to="/asistencia/dashboard"
+            className="btn-primary"
+            style={{ fontSize: '0.84rem', padding: '0.45rem 0.85rem' }}
+          >
+            <Activity size={15} />
+            <span>Dashboard en Vivo</span>
+          </Link>
+
           <button
             type="button"
             className="btn-secondary"
             onClick={reloadData}
             disabled={loading}
             title="Recargar registros"
+            style={{ fontSize: '0.84rem', padding: '0.45rem 0.85rem' }}
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             <span>Actualizar</span>

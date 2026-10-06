@@ -18,6 +18,7 @@ import { ReportesPage } from '../pages/reportes/ReportesPage';
 import { SearchByImagePage } from '../pages/inventory/SearchByImagePage';
 import { PersonalPage } from '../pages/personal/PersonalPage';
 import { AttendancePage } from '../pages/attendance/AttendancePage';
+import { AttendanceDashboardPage } from '../pages/attendance/AttendanceDashboardPage';
 
 export function AppRoutes() {
   return (
@@ -66,12 +67,20 @@ export function AppRoutes() {
           }
         />
 
-        {/* Módulo de Historial de Asistencia */}
+        {/* Módulo de Historial y Dashboard de Asistencia */}
         <Route
           path="asistencia"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <AttendancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="asistencia/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AttendanceDashboardPage />
             </ProtectedRoute>
           }
         />
