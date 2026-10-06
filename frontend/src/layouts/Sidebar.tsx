@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Camera,
   History,
+  Users,
 } from 'lucide-react';
 import type { UserRole } from '../types/auth.types';
 
@@ -62,6 +63,12 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
           to: '/inventario',
           label: 'Inventario Global',
           icon: <Boxes size={18} />,
+          roles: ['admin'],
+        },
+        {
+          to: '/personal',
+          label: 'Gestión Personal',
+          icon: <Users size={18} />,
           roles: ['admin'],
         },
         {
