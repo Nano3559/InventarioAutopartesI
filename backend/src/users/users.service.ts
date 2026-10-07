@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '../entities/user.entity';
 import { FaceService } from '../face/face.service';
 import { ARCFACE_DIMENSION } from '../face/face-embedding';
+import type { RecorteCara } from '../face/face-embedding';
 import {
   FOTOS_MAXIMO_REGISTRO,
   FOTOS_MINIMO_REGISTRO,
@@ -237,6 +238,7 @@ export class UsersService {
     usuarioId: unknown,
     nombre: unknown,
     apellido: unknown,
+    recorte: RecorteCara | null | undefined,
     files: Express.Multer.File[] | undefined,
   ) {
     this.validarFotos(files);
@@ -277,7 +279,7 @@ export class UsersService {
     }
 
     const reRegistro = Boolean(usuario.embedding);
-    const embeddings = await this.face.embeddingsDeFotos(files);
+    const embeddings = await this.face.embeddingsDeFotos(files, recorte);
     const embedding = this.face.embeddingConsolidado(embeddings);
 
     // La foto se sube después de la inferencia: si ArcFace falla no queda basura

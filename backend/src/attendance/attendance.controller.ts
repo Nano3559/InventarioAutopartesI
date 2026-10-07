@@ -20,6 +20,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/current-user.decorator';
 import { AttendanceService } from './attendance.service';
+import { parsearRecorteCara } from '../face/face-embedding';
 import type {
   AttendanceDashboardFilters,
   AttendanceFilters,
@@ -59,7 +60,8 @@ export class AttendanceController {
   }
 
   /**
-   * Marcaje por rostro. `foto` siempre; `tipo` y `locationId` opcionales.
+   * Marcaje por rostro. `foto` siempre; `tipo`, `locationId` y el recorte del
+   * óvalo (`cropX`, `cropY`, `cropTamano`) opcionales.
    *
    * `usuarioId` fuerza el registro manual (el operador ya eligió a quién
    * pertenece la foto) y se salta el reconocimiento.
@@ -81,6 +83,9 @@ export class AttendanceController {
     @Body('tipo') tipo?: TipoAsistencia,
     @Body('locationId') locationId?: string,
     @Body('usuarioId') usuarioId?: string,
+    @Body('cropX') cropX?: string,
+    @Body('cropY') cropY?: string,
+    @Body('cropTamano') cropTamano?: string,
   ) {
     if (!foto) {
       throw new BadRequestException('Se requiere el archivo "foto"');
@@ -90,6 +95,7 @@ export class AttendanceController {
       tipo,
       enteroOpcional(locationId),
       enteroOpcional(usuarioId),
+      parsearRecorteCara(cropX, cropY, cropTamano),
       user.id,
     );
   }

@@ -4,11 +4,25 @@ interface ErrorPayload {
   message?: string | string[];
 }
 
+/**
+ * Recorte cuadrado del rostro en píxeles de la foto (tal como se ve, con la
+ * orientación EXIF ya aplicada). Lo calcula `FaceCamera` a partir del óvalo de
+ * la guía y viaja en el multipart como `cropX`/`cropY`/`cropTamano`: sin eso el
+ * backend encoge la escena completa y ArcFace no puede distinguir a las personas.
+ */
+export interface RecorteCara {
+  x: number;
+  y: number;
+  tamano: number;
+}
+
 /** Archivo local listo para `FormData.append`. */
 export interface ArchivoLocal {
   uri: string;
   name: string;
   type?: string;
+  /** Zona del rostro dentro de la foto (opcional: las fotos de la galería no lo traen). */
+  recorte?: RecorteCara;
 }
 
 /** Datos mínimos de un usuario para las listas de elección de la pantalla. */

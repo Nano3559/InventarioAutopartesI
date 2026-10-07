@@ -1,11 +1,14 @@
 import {
   ARCFACE_DIMENSION,
   ARCFACE_ENTRADA,
+  RECORTE_MINIMO,
   aNumero,
   aTensorNchw,
   esEmbeddingValido,
   normalizar,
+  parsearRecorteCara,
   promediarYNormalizar,
+  recorteUtilizable,
   similitudCoseno,
 } from './face-embedding';
 
@@ -140,6 +143,42 @@ describe('face-embedding (Hito 3)', () => {
       const salida = aNumero(normalizar([3, 4]));
       expect(Array.isArray(salida)).toBe(true);
       expect(salida).toHaveLength(2);
+    });
+  });
+
+  describe('parsearRecorteCara', () => {
+    it('arma el recorte desde los tres campos de texto del multipart', () => {
+      expect(parsearRecorteCara('10', '20', '300')).toEqual({
+        x: 10,
+        y: 20,
+        tamano: 300,
+      });
+    });
+
+    it('devuelve null si falta algún campo o no es un entero coherente', () => {
+      expect(parsearRecorteCara(undefined, undefined, undefined)).toBeNull();
+      expect(parsearRecorteCara('x', '20', '300')).toBeNull();
+      expect(parsearRecorteCara('10.5', '20', '300')).toBeNull();
+      expect(parsearRecorteCara('10', '20', '0')).toBeNull();
+      expect(parsearRecorteCara('-5', '20', '300')).toBeNull();
+    });
+  });
+
+  describe('recorteUtilizable', () => {
+    const bueno = { x: 10, y: 20, tamano: 300 };
+
+    it('acepta un recorte entero que cabe en la foto', () => {
+      expect(recorteUtilizable(bueno, 1030, 1020)).toEqual(bueno);
+    });
+
+    it('rechaza fuera de los bordes, tamaño mínimo y no enteros', () => {
+      expect(recorteUtilizable(bueno, 300, 300)).toBeNull();
+      expect(
+        recorteUtilizable({ ...bueno, tamano: RECORTE_MINIMO - 1 }, 1000, 1000),
+      ).toBeNull();
+      expect(recorteUtilizable({ ...bueno, x: 10.5 }, 1000, 1000)).toBeNull();
+      expect(recorteUtilizable(null, 1000, 1000)).toBeNull();
+      expect(recorteUtilizable(undefined, 1000, 1000)).toBeNull();
     });
   });
 

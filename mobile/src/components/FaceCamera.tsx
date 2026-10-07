@@ -24,9 +24,39 @@ import {
   a11y,
   opacity,
 } from '../theme';
-import type { ArchivoLocal } from '../api/client';
+import type { ArchivoLocal, RecorteCara } from '../api/client';
 
 const NEGRO = '#000000';
+
+/**
+ * Mapea el óvalo de la guía (visto en la caja de la cámara) a un **cuadrado
+ * centrado** en las coordenadas de la foto que se acaba de capturar.
+ *
+ * El preview de `CameraView` rellena su caja recortando la foto (aspectFill),
+ * siempre centrado: por eso el centro del óvalo ~ centro de la foto y no hace
+ * falta rastrear el offset. Se devuelve el cuadrado más grande que cabe, con el
+ * tamaño del diámetro del óvalo convertido a píxeles de foto.
+ */
+function recorteDelOvalo(
+  caja: { ancho: number; alto: number },
+  anchoFoto: number,
+  altoFoto: number,
+  anchoOvalo: number,
+  altoOvalo: number,
+): RecorteCara | undefined {
+  if (caja.ancho <= 0 || caja.alto <= 0 || !anchoFoto || !altoFoto) return undefined;
+  const escala = Math.max(caja.ancho / anchoFoto, caja.alto / altoFoto);
+  const diametroOvaloEnFoto = Math.max(anchoOvalo, altoOvalo) / escala;
+  const tamano = Math.max(
+    64,
+    Math.min(anchoFoto, altoFoto, Math.round(diametroOvaloEnFoto)),
+  );
+  return {
+    x: Math.round((anchoFoto - tamano) / 2),
+    y: Math.round((altoFoto - tamano) / 2),
+    tamano,
+  };
+}
 
 interface FaceCameraProps {
   /** Se avisa al padre con cada foto capturada, ya lista para el multipart. */
@@ -102,6 +132,13 @@ export default function FaceCamera({
           uri: foto.uri,
           name: `rostro-${Date.now()}.jpg`,
           type: 'image/jpeg',
+          recorte: recorteDelOvalo(
+            caja,
+            foto.width,
+            foto.height,
+            anchoOvalo,
+            altoOvalo,
+          ),
         });
       } else {
         setCaptureFailed(true);
@@ -113,7 +150,7 @@ export default function FaceCamera({
     } finally {
       setTomando(false);
     }
-  }, [ocupada, onCaptura]);
+  }, [caja, altoOvalo, anchoOvalo, ocupada, onCaptura]);
 
   if (!permission) {
     return (
