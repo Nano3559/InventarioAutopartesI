@@ -224,13 +224,23 @@ export default function AttendanceHistoryScreen() {
         onEndReached={cargarMas}
         onEndReachedThreshold={0.4}
         ListEmptyComponent={
-          cargando ? null : <Vacio hayFiltros={Boolean(search || tipo || metodo)} />
+          cargando
+            ? null
+            : error
+              ? (
+                  <VacioError error={error} onReintentar={refrescar} />
+                )
+              : (
+                  <Vacio
+                    hayFiltros={Boolean(search || tipo || metodo)}
+                  />
+                )
         }
         ListFooterComponent={
           <View style={styles.pie}>
             {cargandoMas ? (
               <ActivityIndicator color={colors.primary} />
-            ) : error ? (
+            ) : error && items.length ? (
               <Pressable
                 onPress={refrescar}
                 accessibilityRole={a11y.button}
@@ -404,6 +414,33 @@ function Vacio({ hayFiltros }: { hayFiltros: boolean }) {
   );
 }
 
+/** Falla de la carga inicial (no hay filas que listar): el error ocupa el estado
+ * vacío en vez de mostrarse como una línea perdida al pie de una lista vacía. */
+function VacioError({ error, onReintentar }: { error: string; onReintentar: () => void }) {
+  return (
+    <View style={styles.vacio}>
+      <Ionicons
+        name="cloud-offline-outline"
+        size={iconSize.lg}
+        color={colors.danger}
+      />
+      <Text style={styles.vacioTitulo}>No se pudo cargar el historial</Text>
+      <Text style={styles.vacioTexto}>{error}</Text>
+      <Pressable
+        onPress={onReintentar}
+        accessibilityRole={a11y.button}
+        style={({ pressed }) => [
+          styles.vacioReintentar,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Ionicons name="refresh" size={iconSize.sm} color={colors.white} />
+        <Text style={styles.vacioReintentarTexto}>Reintentar</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
 
@@ -524,6 +561,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: lineHeight.body,
     paddingHorizontal: space.lg,
+  },
+  vacioReintentar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    marginTop: space.sm,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+  },
+  vacioReintentarTexto: {
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.white,
   },
 
   overlay: {

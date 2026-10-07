@@ -60,6 +60,52 @@ function apiErrorDesde(
   return new ApiError(texto, status, extras);
 }
 
+/**
+ * Mensaje único para toda falla de red (status 0).
+ *
+ * En Render el plan free se apaga a los 15 min y el primer request tarda ~52.7 s
+ * (ver `docs/despliegue.md` §1.1), así que "no conecta" casi nunca es la internet del
+ * operador: es el servidor despertando. Decirlo ahorra que el vendedor reinicie la app.
+ */
+export const SIN_CONEXION =
+  'No se pudo conectar con el servidor. Revisá tu conexión: si es el primer uso del día, ' +
+  'el servidor puede estar despertando y tardar hasta un minuto. Intentá de nuevo.';
+
+/**
+ * Despierta al backend si está dormido, sin esperar respuesta.
+ *
+ * Se dispara al arrancar la app para que la espera del cold start (52.7 s) ocurra
+ * detrás del splash y no dentro del login o del primer escaneo. Si la petición falla
+ * por timeout no pasa nada: el objetivo es abrir la conexión, no leer datos.
+ */
+export function despertarServidor(): void {
+  fetch(config.apiUrl).catch(() => undefined);
+}
+
+/**
+ * Espera a que el backend conteste antes de una petición real.
+ *
+ * Render (plan free) duerme a los 15 min y el primer request tarda ~52.7 s. El
+ * timeout de red del teléfono (10 s en Android) corta antes y la petición real
+ * moriría con `SIN_CONEXION` aunque el servidor esté por responder. Este polling
+ * con `GET /api` repite hasta que llegue cualquier respuesta (aun 404 cuenta como
+ * "está vivo") o hasta `maxEsperaMs`. Es una GET idempotente: reintentar no
+ * duplica nada, a diferencia de un `POST` de marcaje.
+ */
+export async function esperarServidorVivo(maxEsperaMs = 90_000): Promise<boolean> {
+  const inicio = Date.now();
+  for (;;) {
+    try {
+      const res = await fetch(config.apiUrl);
+      if (res.status >= 200 && res.status < 600) return true;
+    } catch {
+      // sigue dormido o arrancando: se reintenta.
+    }
+    if (Date.now() - inicio >= maxEsperaMs) return false;
+    await new Promise((r) => setTimeout(r, 8_000));
+  }
+}
+
 export async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -80,10 +126,7 @@ export async function request<T>(
   try {
     response = await fetch(`${config.apiUrl}${path}`, { ...options, headers });
   } catch {
-    throw new ApiError(
-      'No se pudo conectar con el servidor. Verifique su conexión.',
-      0,
-    );
+    throw new ApiError(SIN_CONEXION, 0);
   }
 
   if (!response.ok) {
@@ -188,12 +231,23 @@ export function requestFormConProgreso<T>(
     };
 
     xhr.onerror = () => {
+      reject(new ApiError(SIN_CONEXION, 0));
+    };
+
+    // Sin `timeout`, una red que cuelga o un Render durmiendo dejan el promise
+    // colgado y la pantalla se queda en "procesando…" sin éxito ni error.
+    xhr.timeout = 120_000;
+    xhr.ontimeout = () => {
       reject(
         new ApiError(
-          'No se pudo conectar con el servidor. Verifique su conexión.',
+          'El servidor tardó demasiado en responder (más de 2 minutos). ' +
+            'Revisá la conexión e intentá de nuevo.',
           0,
         ),
       );
+    };
+    xhr.onabort = () => {
+      reject(new ApiError('La subida se canceló. Intentá de nuevo.', 0));
     };
 
     xhr.send(form);

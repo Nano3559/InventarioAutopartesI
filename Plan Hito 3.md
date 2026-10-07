@@ -111,6 +111,19 @@ Solo dos cosas, y ninguna puede quedar a medias:
 > ⚠️ **Calibración del umbral (tarea de B4).** `UMBRAL_CONFIANZA_FACIAL = 0.55` quedó definido para el scoring de InsightFace. Con **similitud coseno sobre embeddings ArcFace normalizados** el rango típico de "misma persona" es **0.28–0.45**. Con 0.55 fijo el sistema daría falsos negativos. Medir con los rostros de R5 y ajustar la constante en `common/constants.ts` antes de la demo.
 > **Estado:** B4 lo dejó en **0.35** (mitad del rango típico, a favor de no rechazar a quien sí es la persona). Si R5 reporta falsos positivos, **subirlo**; falsos negativos, **bajar**. El umbral sale en `GET /face/status` y en cada respuesta de `POST /attendance/check`.
 
+> ⚠️ **PENDIENTE (acción manual — no se puede hacer desde el repo).** Bloqueo encontrado al
+> probar el registro real (06/10, tarea R6): `Error al guardar
+> la foto del rostro: new row violates row-level security policy (bucket: faces)` → la
+> `SUPABASE_KEY` del entorno de **Render** quedó con la clave **`anon`** (en `products`
+> funciona porque ese bucket tiene policy; `faces` es privado y sin policies solo lo alcanza
+> `service_role`). **Corregir antes del E2E físico:** en el dashboard de Render poner la
+> clave `service_role` como `SUPABASE_KEY` (la misma que ya usa el ping de GitHub Actions) y
+> hacer `Manual Deploy`. El backend ahora
+> lo avisa con el hint en el 400 y `docs/entornos.md` §2.1 lo advierte. Síntoma secundario:
+> el marcaje decía "no se pudo conectar" porque el cold start (52.7 s) supera el timeout de
+> red del teléfono; la app ahora espera al servidor antes de mandar el multipart
+> (`esperarServidorVivo()`) y avisa "Despertando el servidor…".
+
 ---
 
 ## Tarea R9 — modo tiqueador (agregada al plan, 06/10)
