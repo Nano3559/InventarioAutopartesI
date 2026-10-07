@@ -7,17 +7,17 @@ automatizar (contrato del API en Render) **ya quedó verificada el 06/10/2026** 
 
 > **Objetivo de R5:** anotar **scores reales** (similitud coseno que devuelve ArcFace) y
 > detectar **falsos positivos/negativos**. Esos números recalibran `UMBRAL_CONFIANZA_FACIAL`
-> (hoy 0.35 en `backend/src/common/constants.ts`). Más referencias: `docs/arquitectura.md` §3.2
-> y `docs/despliegue.md` §1.1 (cold start 52.7 s → despertar Render antes de probar).
+> (hoy **0.8** en `backend/src/common/constants.ts`, configurable por env
+> `UMBRAL_CONFIANZA_FACIAL`). Más referencias: `docs/arquitectura.md` §3.2 y
+> `docs/despliegue.md` §1.1 (cold start 52.7 s → despertar Render antes de probar).
 
 ## Pre-requisitos verificados (06/10/2026)
 
-> ⛔ **BLOQUEANTE — PENDIENTE (acción manual, 06/10):** el registro facial en producción
-> responde **400** `new row violates row-level security policy (bucket: faces)` porque
-> `SUPABASE_KEY` en el entorno de **Render** quedó con la clave **`anon`**. Corregir antes
-> de la sección A: dashboard de Render → Web Service → Environment → `SUPABASE_KEY` = clave
-> `service_role` de Supabase (la misma del secret del ping en GitHub Actions) → Save →
-> `Manual Deploy → Deploy latest commit`. Sin esto **A falla** (ver `docs/despliegue.md` §1
+> ✅ **BLOQUEANTE RESUELTO (06/10):** el registro facial en producción respondía **400**
+> `new row violates row-level security policy (bucket: faces)` porque `SUPABASE_KEY` en el
+> entorno de **Render** quedó con la clave **`anon`**. Se corrigió poniendo la **`service_role`**
+> de Supabase como `SUPABASE_KEY` (la misma del secret del ping en GitHub Actions) +
+> `Manual Deploy`. El registro de la sección A ya puede probarse (ver `docs/despliegue.md` §1
 > y `docs/entornos.md` §Backend).
 
 - Backend de producción: `https://inventarioautopartesi.onrender.com` respondiendo.
@@ -77,11 +77,12 @@ curl -H "Authorization: Bearer $TOKEN" \
 5. Repetir con el mismo rostro más tarde / al día hábil siguiente → debe alternar a **salida**.
 6. Registrar puntas de marcaje: ingreso del turno, con el rostro de otra persona registrada.
 
-### Flujo "no reconocido" (baja confianza)
+### Flujo "usuario desconocido" (baja confianza / sin registrar)
 
-- Apuntar con poca luz o un ángulo extremo → el backend **no inserta nada**, devuelve
-  candidatos y la app deja elegir a mano. Verificar que aparece la ficha de candidatos y que
-  al elegir se registra con `metodo: manual` (confianza `null`).
+- Apuntar a una persona **no registrada** (o con poca luz) → el backend **no inserta nada**:
+  responde `reconocido: false` con `candidatos: []` y la app muestra el aviso
+  **"usuario desconocido, debe registrarse"** (con el umbral alcanzado). No hay selección
+  manual de candidatos en el camino automático.
 
 ## D. Verificación de lo registrado
 
@@ -108,11 +109,15 @@ categoría (VP/VN/FP/FN).
 - **VP** (verdadero positivo): reconoce a quien es → marcaje correcto, `reconocido: true`.
 - **VN**: desconocido/no registrado → `reconocido: false` sin candidato falso.
 - **FP**: reconoce a otra persona como registrada → marcaje incorrecto.
-- **FN**: no reconoce a quien SÍ está registrado → `requiereConfirmacion` o candidatos.
+- **FN**: no reconoce a quien SÍ está registrado → `reconocido: false` con el aviso "usuario desconocido".
 
-> **Recalibración:** si aparecen FN en condiciones normales de luz → **bajar** el umbral
-> (rango típico coseno 0.28–0.45). Si aparecen FP → **subirlo**. Hoy está en 0.35 y sale tanto
-> en `GET /face/status` como en cada respuesta de `POST /attendance/check`.
+> **Recalibración:** el 0.8 por defecto solo es alcanzable con caras **alineadas**. Antes de
+> R5 hay que alinear (SCRFD → warp 112×112) y **recalcular los embeddings** con el mismo
+> preprocesado (spike: `backend/spike/python/reconocer_rostro.py --registrar <id>`; o esperar
+> la alineación en el backend). Sin alineación el coseno "misma persona" es 0.28–0.45 y todo
+> saldrá "desconocido". Con caras alineadas se ajusta por env `UMBRAL_CONFIANZA_FACIAL`
+> (default 0.8): FN de un registrado → bajar; FP de un desconocido → subir. El valor sale en
+> `GET /face/status` y en cada respuesta de `POST /attendance/check`.
 
 ## Cierre de la prueba
 
@@ -120,5 +125,5 @@ categoría (VP/VN/FP/FN).
 - [ ] Escáner: ficha real + mensaje de código inexistente.
 - [ ] Marcaje entrada (y salida) con nombre + hora + tienda correctos.
 - [ ] Tabla de scores completa con al menos 5 intentos.
-- [ ] Umbral rechazado/ajustado según los FP/FN anotados.
+- [ ] Umbral ajustado (env `UMBRAL_CONFIANZA_FACIAL`) según los FP/FN anotados.
 - [ ] `dashboard?fecha=` muestra lo marcado.

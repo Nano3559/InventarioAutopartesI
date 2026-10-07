@@ -1,4 +1,10 @@
-import { appendFile, request, requestForm } from './client';
+import {
+  appendFile,
+  request,
+  requestFormConProgreso,
+  type ArchivoLocal,
+  type RecorteCara,
+} from './client';
 
 export type TipoAsistencia = 'entrada' | 'salida';
 
@@ -61,16 +67,18 @@ export interface CandidatoRostro {
 }
 
 /**
- * Respuesta de `POST /attendance/check`. Es una unión de cuatro casos:
+ * Respuesta de `POST /attendance/check`. Son dos casos:
  *
- * - sin coincidencias → `{reconocido:false, requiereConfirmacion:false, umbral, candidatos:[]}`
- * - bajo umbral      → `{reconocido:false, requiereConfirmacion:true, umbral, candidatos:[...]}`
- * - automático      → `{reconocido:true, manual:false, requiereConfirmacion:false, umbral, candidato, asistencia}`
- * - manual          → `{reconocido:true, manual:true, requiereConfirmacion:false, umbral, candidato, asistencia}`
+ * - reconocido  → `{reconocido:true, manual:false, requiereConfirmacion:false,
+ *                  umbral, candidato, asistencia}` (confianza ≥ umbral).
+ * - desconocido → `{reconocido:false, requiereConfirmacion:false, umbral,
+ *                  candidatos:[]}`. Por debajo del umbral (0.8) el backend **no
+ *                  inserta nada** y tampoco sugiere candidatos: la app muestra
+ *                  "usuario desconocido / debe registrarse".
  *
- * En el caso "bajo umbral" **no se inserta nada**: no existe `asistencia` ni un id
- * que confirmar. El camino de "no reconocido" es reenviar el mismo multipart con
- * `usuarioId`, que salta ArcFace y registra `metodo:'manual'`.
+ * El camino "bajo umbral → elegir a mano → `usuarioId`" ya no se expone: la app
+ * no tiene selector de personal. El marcaje manual (`usuarioId`) lo usan a
+ * propósito las herramientas de administración, no la pantalla de marcaje.
  */
 export interface AttendanceCheck {
   reconocido: boolean;
@@ -121,6 +129,8 @@ export interface MarcajeParams {
   locationId?: number | null;
   /** Fuerza el marcaje manual: salta ArcFace y usa a este usuario. */
   usuarioId?: number;
+  /** Zona del rostro (óvalo de `FaceCamera`); sin ella el reconocimiento se pierde. */
+  recorte?: RecorteCara;
 }
 
 function formMarcaje(params: MarcajeParams): FormData {
@@ -137,17 +147,39 @@ function formMarcaje(params: MarcajeParams): FormData {
   if (params.usuarioId !== undefined) {
     form.append('usuarioId', String(params.usuarioId));
   }
+  if (params.recorte) {
+    form.append('cropX', String(params.recorte.x));
+    form.append('cropY', String(params.recorte.y));
+    form.append('cropTamano', String(params.recorte.tamano));
+  }
   return form;
 }
 
-/** `POST /attendance/check`: reconoce el rostro y registra, o devuelve candidatos. */
+/**
+ * `POST /attendance/check`: reconoce el rostro y registra, o devuelve candidatos.
+ *
+ * Se envía por XHR (`requestFormConProgreso`), igual que el registro de rostros:
+ * el multipart vía `fetch` (`requestForm`) revienta en Expo Go con status 0
+ * ("no se pudo conectar"), mientras la XHR sube el archivo sin problema y tiene
+ * timeout propio de 120 s. El marcaje no muestra barra de progreso: va un
+ * spinner, así que no se pasa callback de progreso.
+ */
 export async function marcarAsistencia(
   params: MarcajeParams,
   token?: string | null,
 ): Promise<AttendanceCheck> {
-  return requestForm<AttendanceCheck>(
+  const archivos: ArchivoLocal[] = [
+    {
+      uri: params.fotoUri,
+      name: params.fileName ?? `marcaje-${Date.now()}.jpg`,
+      type: 'image/jpeg',
+    },
+  ];
+  return requestFormConProgreso<AttendanceCheck>(
     '/attendance/check',
     formMarcaje(params),
+    archivos,
+    () => {},
     token,
   );
 }

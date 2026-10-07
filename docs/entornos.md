@@ -71,6 +71,10 @@ porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 | Variable | Default | Descripción |
 | :--- | :--- | :--- |
 | `ARCFACE_MODEL` | `models/arcfaceresnet100-11-int8.onnx` | Ruta al modelo ONNX (63 MB, Apache-2.0, **no** se versiona) |
+| `UMBRAL_CONFIANZA_FACIAL` | `0.8` | Umbral de similitud coseno del reconocimiento. Debe ser finito y `0 < v ≤ 1`; cualquier otro valor cae al default `0.8`. Por debajo, `POST /attendance/check` responde `reconocido: false` sin candidatos ("usuario desconocido, debe registrarse"). Es el knob de calibración de R5: bajar si un registrado sale "desconocido"; subir si un desconocido pasa |
+
+> El umbral por defecto vive en `backend/src/common/constants.ts`; la env lo sobreescribe al
+> arrancar. Se lee en `GET /face/status` y en cada respuesta de `POST /attendance/check`.
 
 El modelo no se versiona (63 MB) y **en Render tampoco viene en el repo**, así que
 `npm run start:prod` ejecuta antes `prestart:prod` →

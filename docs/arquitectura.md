@@ -118,8 +118,9 @@ un 2º servicio no cabe cómodo y agrega un 2º cold start.
   1 foto en vivo      ──multipart───► POST /attendance/check
                                          └─ embedding de la foto
                                          └─ FaceService.buscar() → top-5 por coseno
-                                             ≥ 0.35 → INSERT asistencia (metodo 'automatico')
-                                             < 0.35 → 200 con candidatos, SIN insertar
+≥ 0.8 → INSERT asistencia (metodo 'automatico')
+                                              < 0.8 → 200 "usuario desconocido", SIN insertar
+                                                     (sin candidatos: privacidad, Ley 26935)
 ```
 
 | Decisión | Por qué |
@@ -128,8 +129,8 @@ un 2º servicio no cabe cómodo y agrega un 2º cold start.
 | **Ninguna sesión en `onModuleInit` para el modelo** | La `InferenceSession` se crea en la primera inferencia: son 92 MB y ~0.5 s que no se pagan en cada arranque (incluidos los spin-down de Render) si nadie marca asistencia. El **índice sí** se rehidrata al arrancar (ver abajo) |
 | **Índice de rostros en RAM** (`usuarioId → embedding` normalizado) | Los embeddings se guardan normalizados (L2), así que la similitud coseno es un simple producto punto de 512 floats por usuario: sin RAM, cada marcaje sería una consulta con `jsonb` a Postgres. Coste: ~2 KB por rostro |
 | **Rehidratación en `onModuleInit`** (`embedding IS NOT NULL AND activo = true`) | **Obligatoria**: Render borra la RAM en cada spin-down de 15 min. Sin esto, el primer marcaje después de dormir no reconocería a nadie. Verificable con `GET /face/status` (`indiceEnMemoria === rostrosEnBase`) |
-| **Umbral por similitud coseno = 0.35** | El 0.55 venía del scoring de InsightFace. Con coseno sobre embeddings ArcFace normalizados el rango típico de "misma persona" es **0.28-0.45**; 0.35 es la mitad de ese rango, a favor de no rechazar a quien sí es la persona |
-| **Sin modelo detector** (Yunet/SCRFD) | La app recorta un cuadrado 112×112 con **guía oval** y el rostro dentro: ArcFace ya consume ese recorte. Se ahorra un modelo detector completo y días de trabajo. El backend solo hace `resize(112,112,fit:'cover')`: **no alinea landmarks**, así que la calidad depende del encuadre de la app |
+| **Umbral por similitud coseno = 0.8 (estricto)** | El 0.55 venía del scoring de InsightFace; con coseno sobre embeddings ArcFace normalizados el rango típico de "misma persona" es **0.28-0.45**. El negocio exige no registrar a nadie que no esté seguro: 0.8 por defecto y **configurable** con la env `UMBRAL_CONFIANZA_FACIAL` (0<v≤1). Quien no llega → "usuario desconocido" sin candidatos |
+| **Alineación con SCRFD antes de ArcFace** (pendiente en backend) | ArcFace se entrenó con caras **alineadas**; el `resize(112,112,fit:'cover')` actual no alinea y por eso no distinguía quién es quién (coseno "misma persona" 0.28–0.45 → umbral 0.8 inalcanzable). SCRFD (detector de una etapa, como YOLO, Apache-2.0) entrega caja + **5 landmarks**; el warp a la plantilla ArcFace 112×112 sube el coseno del mismo rostro a ~0.5–0.85. Verificado en el spike Python; **portar a `FaceService` y re-registrar** |
 | **1 embedding por marcaje, N por registro** | Con EP de CPU no hay paralelismo real y el error de una foto no se pierde en un `Promise.all`. Medido: 246.8 ms por embedding (spike B2), ~1.2 s una tanda de 5 |
 | **Bucket `faces` privado + URL firmada** | Dato biométrico sensible (Ley 26935 Bolivia). `users.facePhoto` guarda la **ruta**, no una URL: las firmadas expiran y se piden al momento (`GET /users/rostros`). Cero logs de imágenes |
 
@@ -233,11 +234,11 @@ CADA DÍA
 AttendanceScreen (1 foto en vivo)
   → POST /attendance/check
   → embedding → similitud coseno contra el índice en RAM
-      ≥ 0.35 → INSERT asistencia: metodo 'automatico', confianza = similitud,
+      ≥ 0.8 → INSERT asistencia: metodo 'automatico', confianza = similitud,
                tipo alternado (1ª del día entrada, 2ª salida)
-      < 0.35 → 200 con top-5 candidatos y SIN insertar (nunca un error seco)
-  → el operador confirma a mano → POST /attendance/check con usuarioId (metodo 'manual')
-     o POST /attendance/:id/confirm sobre un marcaje existente
+      < 0.8 → 200 "usuario desconocido" SIN insertar, candidatos: [] (nunca un error seco)
+  → el operador registra a mano solo si conoce a la persona → POST /attendance/check con
+     usuarioId (metodo 'manual'), o POST /attendance/:id/confirm sobre un marcaje existente
 AttendanceHistoryScreen / dashboard web → GET /attendance y GET /attendance/dashboard
 ```
 
@@ -283,7 +284,7 @@ Pantallas del Hito 3 y quién las ve:
 | :--- | :--- | :--- |
 | `ScannerScreen` | `admin`, `tienda`, `inventario` | Lee un Code128 con la cámara (multiscan, dedup 2.5 s) y muestra la ficha del producto. **Solo consulta** |
 | `FaceRegisterScreen` | `admin` | Consentimiento (Ley 26935) + nombre/apellido + N fotos del rostro |
-| `AttendanceScreen` | `admin` | Foto en vivo → marcaje → nombre completo + hora + tienda; si no reconoce, muestra candidatos y deja elegir a mano |
+| `AttendanceScreen` | `admin` | Foto en vivo → marcaje → nombre completo + hora + tienda; si no reconoce, aviso "usuario desconocido, debe registrarse" (no hay selección manual) |
 | `AttendanceHistoryScreen` | `admin` | Historial con hora, método y confianza |
 | `components/FaceCamera` | (compartida) | Cámara + linterna + permisos + guía oval 112×112; la usan registro y marcaje |
 
@@ -301,9 +302,14 @@ Pantallas del Hito 3 y quién las ve:
   más, así que un reloj desincronizado no puede falsear la asistencia.
 - **El día del dashboard es el día local**, no UTC: `new Date('2026-10-03')` es medianoche UTC
   y en Bolivia (UTC-4) caería en el día anterior. Se arma con `new Date(y, m-1, d)`.
-- **Umbral facial 0.35 por similitud coseno**, no el 0.55 de InsightFace (ver §3.2).
-- **Reconocimiento con confirmación humana por debajo del umbral**: la API devuelve candidatos
-  y no inserta nada. Un marcaje incorrecto se corrige con `PATCH /attendance/:id`, que deja
-  rastro de quién lo confirmó.
+- **Umbral facial 0.8 (estricto) por similitud coseno**, configurable con la env
+  `UMBRAL_CONFIANZA_FACIAL` (0<v≤1). Por debajo → "usuario desconocido", sin candidatos (ver §3.2).
+- **ArcFace necesita caras alineadas** (ver §3.2): el fix SCRFD + warp ya está probado en el
+  spike `backend/spike/python/reconocer_rostro.py`; falta portarlo al backend para que la app
+  reconozca de verdad y el 0.8 sea alcanzable.
+- **El marcaje manual solo existe vía `usuarioId`**: por debajo del umbral el automático no
+  inserta nada ni filtra candidatos (privacidad, Ley 26935); el operador solo puede registrar
+  si conoce a la persona y la indica explícitamente. Un marcaje incorrecto se corrige con
+  `PATCH /attendance/:id`, que deja rastro de quién lo confirmó.
 - **Los datos del usuario salen por columnas explícitas** en toda respuesta con join: nunca
   `password` ni `embedding`.
