@@ -308,8 +308,8 @@ export default function AttendanceScreen({
           return;
         }
 
-        const crudos = data.candidatos ?? [];
-        if (crudos.length) {
+        const crudos = (data.candidatos ?? []).filter((c) => (c.similitud ?? 0) >= 0.55);
+        if (data.requiereConfirmacion && crudos.length) {
           const resueltos = await resolverCandidatos(
             crudos.map((c) => c.usuarioId),
           );
@@ -318,9 +318,9 @@ export default function AttendanceScreen({
           );
           setAviso({
             tono: 'warning',
-            titulo: 'Coincidencia detectada',
+            titulo: 'Coincidencia parcial',
             texto:
-              `La IA detectó al empleado con ${porcentaje(crudos[0]?.similitud)}. ` +
+              `La IA detectó una coincidencia con ${porcentaje(crudos[0]?.similitud)}. ` +
               'Confirmá si es la persona correcta para registrar el ingreso:',
           });
           return;
@@ -328,11 +328,11 @@ export default function AttendanceScreen({
 
         setCandidatos([]);
         setAviso({
-          tono: 'info',
+          tono: 'error',
           titulo: 'Rostro no reconocido',
           texto:
-            'No hay ningún rostro registrado que se parezca a esta foto. ' +
-            'Acércate a la cámara o regístralo desde "Registro Facial".',
+            'Esta persona no coincide con ningún empleado registrado en la empresa. ' +
+            'Si es un empleado nuevo, regístralo primero en "Registro Facial".',
         });
       } catch (err) {
         setAviso({
