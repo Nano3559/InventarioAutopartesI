@@ -30,17 +30,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
 
     async function restoreSession() {
-      const storedToken = await getToken();
-      if (storedToken && active) {
-        try {
-          const userData = await apiMe(storedToken);
-          setUser(userData);
-          setTokenState(storedToken);
-        } catch {
-          await deleteToken();
+      try {
+        const storedToken = await getToken();
+        if (storedToken && active) {
+          try {
+            // Timeout de 5s para no congelar la pantalla de inicio si el backend tarda en despertar
+            const userData = await Promise.race([
+              apiMe(storedToken),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout de sesión')), 5000),
+              ),
+            ]);
+            if (active) {
+              setUser(userData);
+              setTokenState(storedToken);
+            }
+          } catch {
+            // Si el token expiró o falló la verificación rápida, limpiamos
+            await deleteToken();
+          }
         }
+      } catch {
+        // En caso de fallo de lectura de SecureStore
+      } finally {
+        if (active) setLoading(false);
       }
-      if (active) setLoading(false);
     }
 
     void restoreSession();

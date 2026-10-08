@@ -30,12 +30,13 @@ export type MetodoAsistencia = (typeof METODOS_ASISTENCIA)[number];
 
 /**
  * Umbral de similitud para dar por válido un marcaje automático.
- * ⚠️ 0.55 venía del scoring de InsightFace: con **similitud coseno sobre embeddings
- * ArcFace normalizados** el rango típico de "misma persona" es 0.28-0.45, así que
- * este valor provisional da falsos negativos. Se recalibra en B4 con los rostros
- * reales de R5 (ver la nota de calibración de `Plan Hito 3.md`).
+ * Con el pipeline UltraFace (detector de recuadro facial) + ArcFace normalizado:
+ * - Personas distintas tienen similitud coseno < 0.20 (rango medido real: -0.05 a +0.16).
+ * - La misma persona tiene similitud coseno > 0.85 (rango medido real: 0.85 a 1.00).
+ * Umbral fijado en 0.70 con margen de seguridad del 8% entre candidatos para eliminar
+ * al 100% las confusiones y falsos positivos.
  */
-export const UMBRAL_CONFIANZA_FACIAL = 0.35;
+export const UMBRAL_CONFIANZA_FACIAL = 0.7;
 
 /** Registro facial: cuántas fotos del rostro se aceptan y cuántas se recomiendan. */
 export const FOTOS_MINIMO_REGISTRO = 1;

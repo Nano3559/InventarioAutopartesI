@@ -11,7 +11,6 @@ import { IsNull, Not, Repository } from 'typeorm';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ort from 'onnxruntime-node';
-import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import { User } from '../entities/user.entity';
 import { UMBRAL_CONFIANZA_FACIAL } from '../common/constants';
@@ -25,6 +24,7 @@ import {
   promediarYNormalizar,
   similitudCoseno,
 } from './face-embedding';
+import { FaceDetector, NOMBRE_MODELO_ULTRAFACE } from './face-detector';
 
 /** Nombre del modelo publicado por `onnxmodelzoo` (Apache-2.0). */
 const NOMBRE_MODELO = 'arcfaceresnet100-11-int8.onnx';
@@ -73,6 +73,12 @@ export class FaceService implements OnModuleInit {
       this.logger.log(
         `Índice de rostros rehidratado: ${n} usuario(s) con embedding`,
       );
+      // Actualiza en background los embeddings existentes usando el detector UltraFace
+      this.reprocesarRostrosExistentes().catch((err) => {
+        this.logger.warn(
+          `No se pudieron reprocesar rostros en background: ${(err as Error).message}`,
+        );
+      });
     } catch (err) {
       // Que la app levante igual: el índice se rehidrata en el primer uso.
       this.logger.warn(
@@ -195,23 +201,16 @@ export class FaceService implements OnModuleInit {
 
   /**
    * Recorte 112x112 RGB → tensor `float32 [1, 3, 112, 112]`.
-   * `rotate()` sin argumentos aplica la orientación EXIF: las fotos del celular
-   * llegan rotadas si no se tiene en cuenta.
+   * Utiliza FaceDetector (UltraFace ONNX) para detectar la posición exacta del rostro
+   * y recortar solo el recuadro facial con margen, eliminando ruidos de ropa y fondo.
    */
   private async preprocesar(buffer: Buffer): Promise<ort.Tensor> {
-    const { data, info } = await sharp(buffer)
-      .rotate()
-      .resize(ARCFACE_ENTRADA, ARCFACE_ENTRADA, { fit: 'cover' })
-      .flatten({ background: '#ffffff' })
-      .toColourspace('srgb')
-      .raw()
-      .toBuffer({ resolveWithObject: true });
+    const { bufferRecortado } = await FaceDetector.recortarRostro(
+      buffer,
+      this.config.get<string>('ULTRAFACE_MODEL'),
+    );
 
-    const tensor = aTensorNchw(data, info.channels);
-    // Se pasa un `number[]` y no el `Float32Array`: onnxruntime valida el tipo con
-    // `instanceof Float32Array` **de su propio realm**, así que un typed array creado
-    // en otro realm (el sandbox de Jest, por ejemplo) lo rechaza. La conversión son
-    // 37 632 números, despreciable frente a los ~350 ms de inferencia.
+    const tensor = aTensorNchw(bufferRecortado, 3);
     return new ort.Tensor('float32', Array.from(tensor), [
       1,
       3,
@@ -323,10 +322,14 @@ export class FaceService implements OnModuleInit {
       where: { embedding: Not(IsNull()), activo: true },
     });
 
+    const rutaDetector = FaceDetector.rutaModelo(
+      this.config.get<string>('ULTRAFACE_MODEL'),
+    );
+
     return {
       umbral: UMBRAL_CONFIANZA_FACIAL,
       umbralCriterio:
-        'similitud coseno sobre embeddings ArcFace normalizados (512 dims)',
+        'similitud coseno sobre embeddings ArcFace normalizados (512 dims) con detector UltraFace',
       rostrosEnBase,
       indiceEnMemoria: this.indice.size,
       indiceCompleto: this.indice.size === rostrosEnBase,
@@ -337,25 +340,76 @@ export class FaceService implements OnModuleInit {
         entrada: `${ARCFACE_ENTRADA}x${ARCFACE_ENTRADA}`,
         dimension: ARCFACE_DIMENSION,
       },
+      detector: {
+        nombre: NOMBRE_MODELO_ULTRAFACE,
+        ruta: rutaDetector,
+        disponible: rutaDetector !== null,
+      },
     };
   }
 
   /**
-   * Carga la `InferenceSession` a pedido y devuelve cuánto tardó. Sirve para
-   * medir el cold start con el modelo cargado (tarea B6) y para dejar la
-   * instancia caliente antes de la demo, sin necesidad de una foto real.
+   * Carga las sesiones de ArcFace y UltraFace a pedido y devuelve cuánto tardó.
    */
   async warmup() {
     const ruta = this.rutaModelo();
     const yaEstabaCargada = this.sesion !== undefined;
     const t0 = Date.now();
-    await this.obtenerSesion();
+    await Promise.all([
+      this.obtenerSesion(),
+      FaceDetector.obtenerSesion(this.config.get<string>('ULTRAFACE_MODEL')),
+    ]);
     return {
       ruta,
       yaEstabaCargada,
       ms: Date.now() - t0,
       rostrosEnIndice: this.indice.size,
     };
+  }
+
+  /**
+   * Reprocesa las fotos de referencia guardadas en Supabase con el detector UltraFace
+   * para actualizar los embeddings a la máxima precisión y eliminar falsos positivos.
+   */
+  async reprocesarRostrosExistentes(): Promise<{
+    actualizados: number;
+    total: number;
+  }> {
+    const usuarios = await this.usersRepo.find({
+      where: { activo: true, facePhoto: Not(IsNull()) },
+    });
+    if (!usuarios.length) return { actualizados: 0, total: 0 };
+
+    let actualizados = 0;
+    const cliente = this.cliente();
+    for (const u of usuarios) {
+      if (!u.facePhoto) continue;
+      try {
+        const { data, error } = await cliente.storage
+          .from(this.bucket())
+          .download(u.facePhoto);
+        if (error || !data) {
+          this.logger.warn(
+            `No se pudo descargar ${u.facePhoto}: ${error?.message}`,
+          );
+          continue;
+        }
+        const buf = Buffer.from(await data.arrayBuffer());
+        const nuevoEmbedding = await this.embeddingDeBuffer(buf);
+        u.embedding = nuevoEmbedding;
+        await this.usersRepo.save(u);
+        this.indice.set(u.id, normalizar(nuevoEmbedding));
+        actualizados++;
+        this.logger.log(
+          `Embedding actualizado con UltraFace para usuario ${u.id} (${u.nombre})`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Error al reprocesar foto de usuario ${u.id}: ${(err as Error).message}`,
+        );
+      }
+    }
+    return { actualizados, total: usuarios.length };
   }
 
   // ------------------------------------------------------- fotos (privadas)

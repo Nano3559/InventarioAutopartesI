@@ -162,15 +162,49 @@ export function appendFile(
 }
 
 /**
- * `POST` multipart. No se pone `Content-Type` a mano: tiene que ir el `boundary`
- * que genera `fetch`, y `request()` ya lo omite cuando el cuerpo es `FormData`.
+ * `POST` multipart. Se usa `XMLHttpRequest` para garantizar compatibilidad con
+ * el módulo nativo de red de React Native en Android al subir archivos locales.
  */
 export function requestForm<T>(
   path: string,
   form: FormData,
   token?: string | null,
 ): Promise<T> {
-  return request<T>(path, { method: 'POST', body: form }, token);
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${config.apiUrl}${path}`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.onload = () => {
+      let payload: (ErrorPayload & ApiErrorExtras) | undefined;
+      try {
+        payload = JSON.parse(xhr.responseText) as ErrorPayload & ApiErrorExtras;
+      } catch {
+        payload = undefined;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as T);
+        return;
+      }
+      reject(apiErrorDesde(xhr.status, payload));
+    };
+
+    xhr.onerror = () => {
+      reject(new ApiError(SIN_CONEXION, 0));
+    };
+
+    xhr.timeout = 60_000;
+    xhr.ontimeout = () => {
+      reject(
+        new ApiError(
+          'El servidor tardó demasiado en responder. Revisá tu conexión e intentá de nuevo.',
+          0,
+        ),
+      );
+    };
+
+    xhr.send(form);
+  });
 }
 
 export interface ProgresoSubida {

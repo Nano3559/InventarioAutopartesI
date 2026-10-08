@@ -568,7 +568,11 @@ export class AttendanceService {
       };
     }
     const mejor = candidatos[0];
-    if (mejor.similitud >= UMBRAL_CONFIANZA_FACIAL) {
+    const segundo = candidatos.length > 1 ? candidatos[1] : null;
+    const margenSeguridad = segundo ? mejor.similitud - segundo.similitud : 1;
+
+    // Reconocimiento seguro: supera el umbral y se separa claramente de otros candidatos
+    if (mejor.similitud >= UMBRAL_CONFIANZA_FACIAL && margenSeguridad >= 0.08) {
       const usuario = await this.usuariosRepo.findOne({
         where: { id: mejor.usuarioId, activo: true },
       });
