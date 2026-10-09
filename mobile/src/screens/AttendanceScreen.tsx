@@ -207,13 +207,6 @@ export default function AttendanceScreen({
     setAviso(null);
   }, []);
 
-  const alCapturar = useCallback((captura: ArchivoLocal) => {
-    setFoto(captura);
-    setResultado(null);
-    setCandidatos([]);
-    setAviso(null);
-  }, []);
-
   /**
    * El índice en memoria del backend solo guarda `usuarioId → embedding`, así que
    * los candidatos llegan sin nombre. `GET /users/rostros` es el catálogo de
@@ -249,53 +242,63 @@ export default function AttendanceScreen({
   }, []);
 
   const registrar = useCallback(
-    async (usuarioId?: number) => {
-      if (!foto || enviando || (usuarioId !== undefined && eligiendoId !== null)) return;
+    async (usuarioId?: number, capturaExplicita?: ArchivoLocal) => {
+      const fotoAProcesar = capturaExplicita ?? foto;
+      if (!fotoAProcesar || enviando || (usuarioId !== undefined && eligiendoId !== null)) return;
       if (usuarioId !== undefined) setEligiendoId(usuarioId);
       else setEnviando(true);
       setAviso(null);
 
       try {
-        // Cold start de Render (~52.7 s) vs timeout de red del teléfono (~10 s):
-        // si el servidor quedó dormido, el multipart real moriría con
-        // "sin conexión" (status 0) aunque el backend esté por responder. Primero
-        // se espera a que conteste y la pantalla lo avisa en lugar de fallar seco.
-        const inmediato = await esperarServidorVivo(15_000);
-        if (!inmediato) {
-          setAviso({
-            tono: 'info',
-            titulo: 'Despertando el servidor…',
-            texto:
-              'El primer uso del día puede tardar hasta un minuto. Se reintenta ' +
-              'automáticamente.',
-          });
-          const despierto = await esperarServidorVivo(90_000);
-          if (!despierto) {
+        const token = await getToken();
+        let data: AttendanceCheck;
+        try {
+          data =
+            usuarioId === undefined
+              ? await marcarAsistencia(
+                  { fotoUri: fotoAProcesar.uri, fileName: fotoAProcesar.name, locationId: tiendaId },
+                  token,
+                )
+              : await marcarAsistenciaManual(
+                  {
+                    fotoUri: fotoAProcesar.uri,
+                    fileName: fotoAProcesar.name,
+                    locationId: tiendaId,
+                    usuarioId,
+                  },
+                  token,
+                );
+        } catch (firstErr) {
+          if (firstErr instanceof ApiError && firstErr.status === 0) {
             setAviso({
-              tono: 'error',
-              titulo: 'No se pudo marcar',
-              texto: SIN_CONEXION,
+              tono: 'info',
+              titulo: 'Despertando el servidor…',
+              texto:
+                'El servidor se está activando. Se reintenta automáticamente…',
             });
-            return;
+            const despierto = await esperarServidorVivo(90_000);
+            if (!despierto) {
+              throw firstErr;
+            }
+            data =
+              usuarioId === undefined
+                ? await marcarAsistencia(
+                    { fotoUri: fotoAProcesar.uri, fileName: fotoAProcesar.name, locationId: tiendaId },
+                    token,
+                  )
+                : await marcarAsistenciaManual(
+                    {
+                      fotoUri: fotoAProcesar.uri,
+                      fileName: fotoAProcesar.name,
+                      locationId: tiendaId,
+                      usuarioId,
+                    },
+                    token,
+                  );
+          } else {
+            throw firstErr;
           }
         }
-
-        const token = await getToken();
-        const data =
-          usuarioId === undefined
-            ? await marcarAsistencia(
-                { fotoUri: foto.uri, fileName: foto.name, locationId: tiendaId },
-                token,
-              )
-            : await marcarAsistenciaManual(
-                {
-                  fotoUri: foto.uri,
-                  fileName: foto.name,
-                  locationId: tiendaId,
-                  usuarioId,
-                },
-                token,
-              );
 
         setResultado(data);
 
@@ -305,8 +308,8 @@ export default function AttendanceScreen({
           return;
         }
 
-        const crudos = data.candidatos ?? [];
-        if (crudos.length) {
+        const crudos = (data.candidatos ?? []).filter((c) => (c.similitud ?? 0) >= 0.55);
+        if (data.requiereConfirmacion && crudos.length) {
           const resueltos = await resolverCandidatos(
             crudos.map((c) => c.usuarioId),
           );
@@ -315,22 +318,21 @@ export default function AttendanceScreen({
           );
           setAviso({
             tono: 'warning',
-            titulo: 'No se reconoció con confianza',
+            titulo: 'Coincidencia parcial',
             texto:
-              `La mejor coincidencia quedó por debajo del umbral ` +
-              `(${porcentaje(data.umbral)}). Elegí a quién corresponde la foto: ` +
-              'quedará registrada como marcaje manual.',
+              `La IA detectó una coincidencia con ${porcentaje(crudos[0]?.similitud)}. ` +
+              'Confirmá si es la persona correcta para registrar el ingreso:',
           });
           return;
         }
 
         setCandidatos([]);
         setAviso({
-          tono: 'info',
+          tono: 'error',
           titulo: 'Rostro no reconocido',
           texto:
-            'No hay ningún rostro registrado que se parezca a esta foto. ' +
-            'Registralo primero desde "Registro Facial".',
+            'Esta persona no coincide con ningún empleado registrado en la empresa. ' +
+            'Si es un empleado nuevo, regístralo primero en "Registro Facial".',
         });
       } catch (err) {
         setAviso({
@@ -347,6 +349,18 @@ export default function AttendanceScreen({
       }
     },
     [eligiendoId, enviando, foto, resolverCandidatos, tiendaId],
+  );
+
+  const alCapturar = useCallback(
+    (captura: ArchivoLocal) => {
+      setFoto(captura);
+      setResultado(null);
+      setCandidatos([]);
+      setAviso(null);
+      // Disparo automático e inmediato de IA en tiempo real
+      void registrar(undefined, captura);
+    },
+    [registrar],
   );
 
   const registrado = resultado?.reconocido ? resultado.asistencia : undefined;
@@ -468,65 +482,79 @@ export default function AttendanceScreen({
 
   const BloqueCandidatos = candidatos.length ? (
     <View style={styles.candidatos}>
-      <Text style={styles.candidatosTitulo}>¿A quién pertenece esta foto?</Text>
+      <Text style={styles.candidatosTitulo}>Empleado detectado</Text>
       {resolviendo ? (
         <ActivityIndicator color={colors.primary} />
       ) : (
-        candidatos.map((c) => (
-          <Pressable
-            key={c.usuarioId}
-            style={({ pressed }) => [
-              styles.candidato,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => registrar(c.usuarioId)}
-            disabled={ocupado}
-            accessibilityRole={a11y.button}
-            accessibilityLabel={`Registrar marcaje de ${c.nombreCompleto}`}
-          >
-            <View style={styles.candidatoInfo}>
-              {/* El plan pide mostrar email/rol: con homónimos el nombre completo
-                  no alcanza para elegir. Con `numberOfLines` un email largo
-                  recorta en vez de empujar el badge y el chevron fuera de la fila. */}
-              <Text style={styles.candidatoNombre} numberOfLines={1}>
-                {c.nombreCompleto}
-              </Text>
-              <Text style={styles.candidatoMeta} numberOfLines={1}>
-                {c.email} · {c.rol}
-              </Text>
+        <>
+          <View style={styles.candidatoTopCard}>
+            <View style={styles.candidatoTopHeader}>
+              <Ionicons name="person-circle" size={44} color={colors.primary} />
+              <View style={styles.candidatoTopInfo}>
+                <Text style={styles.candidatoTopNombre} numberOfLines={1}>
+                  {candidatos[0].nombreCompleto}
+                </Text>
+                <Text style={styles.candidatoTopMeta} numberOfLines={1}>
+                  {candidatos[0].rol} · Coincidencia {porcentaje(candidatos[0].similitud)}
+                </Text>
+              </View>
             </View>
-            <Badge variant="info" size="sm">
-              {porcentaje(c.similitud)}
-            </Badge>
-            {eligiendoId === c.usuarioId ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons
-                name="chevron-forward"
-                size={iconSize.md}
-                color={colors.textMuted}
-              />
-            )}
+            <PrimaryCTA
+              label={`Sí, registrar ingreso de ${candidatos[0].nombreCompleto.split(' ')[0]}`}
+              iconName="checkmark-circle"
+              onPress={() => registrar(candidatos[0].usuarioId)}
+              disabled={ocupado}
+            />
+          </View>
+
+          {candidatos.length > 1 ? (
+            <>
+              <Text style={styles.candidatosSubtitulo}>¿No eres tú? Otras opciones:</Text>
+              {candidatos.slice(1).map((c) => (
+                <Pressable
+                  key={c.usuarioId}
+                  style={({ pressed }) => [styles.candidato, pressed && styles.pressed]}
+                  onPress={() => registrar(c.usuarioId)}
+                  disabled={ocupado}
+                  accessibilityRole={a11y.button}
+                  accessibilityLabel={`Registrar marcaje de ${c.nombreCompleto}`}
+                >
+                  <View style={styles.candidatoInfo}>
+                    <Text style={styles.candidatoNombre} numberOfLines={1}>{c.nombreCompleto}</Text>
+                    <Text style={styles.candidatoMeta} numberOfLines={1}>{c.email} · {c.rol}</Text>
+                  </View>
+                  <Badge variant="info" size="sm">{porcentaje(c.similitud)}</Badge>
+                  {eligiendoId === c.usuarioId ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={iconSize.md} color={colors.textMuted} />
+                  )}
+                </Pressable>
+              ))}
+            </>
+          ) : null}
+
+          <Pressable
+            style={({ pressed }) => [styles.btnReintentar, pressed && styles.pressed]}
+            onPress={reiniciar}
+            disabled={ocupado}
+          >
+            <Ionicons name="refresh" size={iconSize.sm} color={colors.textMuted} />
+            <Text style={styles.btnReintentarTexto}>Escanear de nuevo</Text>
           </Pressable>
-        ))
+        </>
       )}
     </View>
   ) : null;
 
-  const AccionMarcar = (
+  const AccionMarcar = !candidatos.length && foto ? (
     <PrimaryCTA
-      label={
-        enviando
-          ? 'Reconociendo…'
-          : foto
-            ? 'Marcar asistencia'
-            : 'Tomar foto y marcar'
-      }
+      label={enviando ? 'Reconociendo con IA…' : 'Reintentar marcaje'}
       iconName="finger-print"
       onPress={() => registrar()}
-      disabled={!foto || ocupado || faltaTienda}
+      disabled={ocupado || faltaTienda}
     />
-  );
+  ) : null;
 
   const Nota = faltaTienda ? null : (
     <View style={styles.nota}>
@@ -578,7 +606,12 @@ export default function AttendanceScreen({
         <View style={styles.panes}>
           <View style={styles.paneVisual}>
             {Marcaje ?? (
-              <FaceCamera onCaptura={alCapturar} guideLabel="Encadre el rostro dentro del óvalo" />
+              <FaceCamera
+                onCaptura={alCapturar}
+                capturing={enviando}
+                shutterLabel="Escanear Rostro"
+                guideLabel="Encuadra el rostro dentro del óvalo"
+              />
             )}
           </View>
 
@@ -626,7 +659,9 @@ export default function AttendanceScreen({
                   <>
                     <FaceCamera
                       onCaptura={alCapturar}
-                      guideLabel="Encadre el rostro dentro del óvalo"
+                      capturing={enviando}
+                      shutterLabel="Escanear Rostro"
+                      guideLabel="Encuadra el rostro dentro del óvalo"
                       style={[styles.camera, { height: altoCamara }]}
                     />
                     {FotoLista}
@@ -684,15 +719,33 @@ function MarcajeRegistrado({
   onRepetir: () => void;
 }) {
   const manual = asistencia.metodo === 'manual';
+  const esEntrada = asistencia.tipo === 'entrada';
+  const [segundos, setSegundos] = useState(4);
+
+  useEffect(() => {
+    if (segundos <= 0) {
+      onRepetir();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSegundos((prev) => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [segundos, onRepetir]);
+
   return (
     <View style={styles.resultado}>
       <View style={styles.resultadoIcono}>
         <Ionicons
           name="checkmark-circle"
-          size={iconSize.lg}
+          size={iconSize.xl}
           color={colors.success}
         />
       </View>
+
+      <Text style={styles.saludoTexto}>
+        {esEntrada ? '¡Bienvenido/a al turno!' : '¡Hasta pronto!'}
+      </Text>
 
       <Text style={styles.resultadoNombre} numberOfLines={2}>
         {asistencia.nombreCompleto || `Usuario #${asistencia.usuarioId}`}
@@ -703,14 +756,14 @@ function MarcajeRegistrado({
       </View>
 
       <View style={styles.chips}>
-        <Badge variant={asistencia.tipo === 'entrada' ? 'success' : 'warning'}>
-          {asistencia.tipo === 'entrada' ? 'Entrada' : 'Salida'}
+        <Badge variant={esEntrada ? 'success' : 'warning'}>
+          {esEntrada ? 'Entrada Registrada' : 'Salida Registrada'}
         </Badge>
         <Badge variant={manual ? 'warning' : 'default'}>
-          {manual ? 'Manual' : 'Automático'}
+          {manual ? 'Confirmación 1-tap' : 'Reconocimiento Automático'}
         </Badge>
-        {!manual ? (
-          <Badge variant="info">Confianza {porcentaje(asistencia.confianza)}</Badge>
+        {!manual && asistencia.confianza != null ? (
+          <Badge variant="info">Similitud {porcentaje(asistencia.confianza)}</Badge>
         ) : null}
       </View>
 
@@ -733,11 +786,16 @@ function MarcajeRegistrado({
         ) : null}
       </View>
 
+      <View style={styles.autoResetBar}>
+        <Text style={styles.autoResetTexto}>
+          Cámara lista para el siguiente en {segundos}s
+        </Text>
+      </View>
+
       <PrimaryCTA
-        label="Marcar otra persona"
-        iconName="camera"
+        label="Listo / Marcar ahora"
+        iconName="scan-outline"
         onPress={onRepetir}
-        color={colors.text}
       />
     </View>
   );
@@ -955,5 +1013,69 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+
+  saludoTexto: {
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+    color: colors.success,
+    letterSpacing: 0.5,
+  },
+  autoResetBar: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.systemSecondaryContainer,
+  },
+  autoResetTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+
+  candidatoTopCard: {
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  candidatoTopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  candidatoTopInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  candidatoTopNombre: {
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
+  candidatoTopMeta: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+  candidatosSubtitulo: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.textMuted,
+    marginTop: space.sm,
+  },
+  btnReintentar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    paddingVertical: space.sm,
+  },
+  btnReintentarTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.textMuted,
   },
 });

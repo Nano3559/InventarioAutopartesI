@@ -10,6 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   colors,
@@ -38,6 +39,8 @@ interface FaceCameraProps {
   facing?: CameraType;
   /** Texto de la guía: dice qué tiene que encuadrar el operador. */
   guideLabel?: string;
+  /** Etiqueta bajo el botón de disparo para saber qué acción realiza. */
+  shutterLabel?: string;
   /** Contador sobre la cámara, p. ej. "2 de 5". */
   contador?: string;
   /** Acepta un array de estilos: la altura de la cámara depende del ancho. */
@@ -45,22 +48,15 @@ interface FaceCameraProps {
 }
 
 /**
- * Cámara con encuadre guiado para rostros.
- *
- * No hay modelo detector de rostros: ArcFace espera un recorte de 112×112 y el backend
- * ya recorta, rota por EXIF y normaliza. Acá solo se le pide a la persona que ponga el
- * rostro dentro del óvalo, que es lo que hace que esos recortes sirvan.
- *
- * Permiso, linterna y captura viven acá porque el registro de rostros (R2) y el marcaje
- * de asistencia (R4) necesitan exactamente lo mismo, y duplicarlo fue lo que rompió el
- * escáner de códigos antes.
+ * Cámara con encuadre guiado para rostros y escaneo biométrico.
  */
 export default function FaceCamera({
   onCaptura,
   capturing = false,
   bloqueada = false,
   facing = 'front',
-  guideLabel = 'Encadre el rostro dentro del óvalo',
+  guideLabel = 'Encuadra el rostro dentro del óvalo',
+  shutterLabel,
   contador,
   style,
 }: FaceCameraProps) {
@@ -96,10 +92,49 @@ export default function FaceCamera({
     setTomando(true);
     setCaptureFailed(false);
     try {
-      const foto = await camaraRef.current.takePictureAsync({ quality: 0.8 });
+      const foto = await camaraRef.current.takePictureAsync({ quality: 0.85 });
       if (foto?.uri) {
+        let uriFinal = foto.uri;
+
+        // Recorte preciso centrado en el óvalo facial para que ArcFace
+        // reciba exactamente el rostro (ojos, nariz, boca) y no el fondo/techo.
+        if (caja.ancho > 0 && caja.alto > 0 && foto.width && foto.height) {
+          try {
+            const scaleX = foto.width / caja.ancho;
+            const scaleY = foto.height / caja.alto;
+
+            // Coordenadas del óvalo con margen de seguridad del 15%
+            const margenH = Math.round(anchoOvalo * 0.15);
+            const margenV = Math.round(altoOvalo * 0.15);
+
+            const cropWLayout = Math.min(caja.ancho, anchoOvalo + margenH * 2);
+            const cropHLayout = Math.min(caja.alto, altoOvalo + margenV * 2);
+
+            const cropLeftLayout = Math.max(0, (caja.ancho - cropWLayout) / 2);
+            const cropTopLayout = Math.max(0, (caja.alto - cropHLayout) / 2);
+
+            const originX = Math.max(0, Math.round(cropLeftLayout * scaleX));
+            const originY = Math.max(0, Math.round(cropTopLayout * scaleY));
+            const width = Math.min(foto.width - originX, Math.round(cropWLayout * scaleX));
+            const height = Math.min(foto.height - originY, Math.round(cropHLayout * scaleY));
+
+            if (width > 80 && height > 80) {
+              const recortada = await manipulateAsync(
+                foto.uri,
+                [{ crop: { originX, originY, width, height } }],
+                { compress: 0.85, format: SaveFormat.JPEG },
+              );
+              if (recortada?.uri) {
+                uriFinal = recortada.uri;
+              }
+            }
+          } catch {
+            // Si el recorte falla por cualquier razón, usamos la foto original
+          }
+        }
+
         onCaptura({
-          uri: foto.uri,
+          uri: uriFinal,
           name: `rostro-${Date.now()}.jpg`,
           type: 'image/jpeg',
         });
@@ -169,17 +204,19 @@ export default function FaceCamera({
             style={[
               styles.guideOval,
               { width: anchoOvalo, height: altoOvalo, borderRadius: anchoOvalo / 2 },
+              (capturing || tomando) && styles.guideOvalActivo,
             ]}
           />
           <Text
             style={[
               styles.guideText,
+              (capturing || tomando) && styles.guideTextActivo,
               caja.ancho > 0
                 ? { maxWidth: Math.max(160, caja.ancho - space['4xl']) }
                 : null,
             ]}
           >
-            {guideLabel}
+            {capturing ? 'Analizando rostro con IA…' : tomando ? 'Capturando imagen…' : guideLabel}
           </Text>
         </View>
       </View>
@@ -226,7 +263,7 @@ export default function FaceCamera({
           <View style={styles.procesandoPill}>
             <ActivityIndicator size="small" color={colors.white} />
             <Text style={styles.procesandoText}>
-              {capturing ? 'Registrando rostro...' : 'Tomando foto...'}
+              {capturing ? 'Reconociendo empleado…' : 'Procesando captura…'}
             </Text>
           </View>
         ) : null}
@@ -239,11 +276,14 @@ export default function FaceCamera({
           onPress={capture}
           disabled={ocupada}
           accessibilityRole={a11y.button}
-          accessibilityLabel="Tomar foto del rostro"
+          accessibilityLabel={shutterLabel ?? 'Escanear rostro'}
           accessibilityState={{ disabled: ocupada }}
         >
-          <Ionicons name="camera" size={iconSize.xl} color={colors.white} />
+          <Ionicons name="scan-outline" size={iconSize.xl} color={colors.white} />
         </Pressable>
+        {shutterLabel && !ocupada ? (
+          <Text style={styles.shutterLabel}>{shutterLabel}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -277,6 +317,16 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     opacity: opacity.hover,
   },
+  guideOvalActivo: {
+    borderColor: colors.primary,
+    borderWidth: 3,
+    borderStyle: 'solid',
+    opacity: 1,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+  },
   guideText: {
     color: colors.white,
     fontSize: fontSize.caption,
@@ -288,6 +338,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     overflow: 'hidden',
     textAlign: 'center',
+  },
+  guideTextActivo: {
+    backgroundColor: colors.primary,
+    fontFamily: fontFamily.sansSemiBold,
   },
   contadorPill: {
     position: 'absolute',
@@ -367,6 +421,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderWidth: 4,
     borderColor: colors.white,
+  },
+  shutterLabel: {
+    color: colors.white,
+    fontSize: fontSize.captionStrong,
+    fontFamily: fontFamily.sansSemiBold,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   shutterDisabled: {
     opacity: opacity.disabled,

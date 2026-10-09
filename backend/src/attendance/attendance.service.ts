@@ -568,7 +568,22 @@ export class AttendanceService {
       };
     }
     const mejor = candidatos[0];
-    if (mejor.similitud >= UMBRAL_CONFIANZA_FACIAL) {
+    const segundo = candidatos.length > 1 ? candidatos[1] : null;
+    const margenSeguridad = segundo ? mejor.similitud - segundo.similitud : 1;
+
+    // Si ni el mejor candidato alcanza una similitud mínima creíble (0.55),
+    // es un rostro desconocido: no se debe sugerir a ningún empleado.
+    if (mejor.similitud < 0.55) {
+      return {
+        reconocido: false,
+        requiereConfirmacion: false,
+        umbral: UMBRAL_CONFIANZA_FACIAL,
+        candidatos: [],
+      };
+    }
+
+    // Reconocimiento seguro: supera el umbral y se separa claramente de otros candidatos
+    if (mejor.similitud >= UMBRAL_CONFIANZA_FACIAL && margenSeguridad >= 0.08) {
       const usuario = await this.usuariosRepo.findOne({
         where: { id: mejor.usuarioId, activo: true },
       });
@@ -577,7 +592,7 @@ export class AttendanceService {
           reconocido: false,
           requiereConfirmacion: false,
           umbral: UMBRAL_CONFIANZA_FACIAL,
-          candidatos,
+          candidatos: [],
         };
       }
       const fecha = new Date();
@@ -608,11 +623,13 @@ export class AttendanceService {
         asistencia: completa,
       };
     }
+
+    // Coincidencia parcial que requiere confirmación (solo candidatos plausibles >= 0.55)
     return {
       reconocido: false,
       requiereConfirmacion: true,
       umbral: UMBRAL_CONFIANZA_FACIAL,
-      candidatos,
+      candidatos: candidatos.filter((c) => c.similitud >= 0.55),
     };
   }
 

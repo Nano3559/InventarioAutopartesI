@@ -28,4 +28,9 @@ export class FaceController {
   warmup() {
     return this.faceService.warmup();
   }
+
+  @Post('reindex')
+  reindex() {
+    return this.faceService.reprocesarRostrosExistentes();
+  }
 }
