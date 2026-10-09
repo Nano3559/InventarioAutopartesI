@@ -72,6 +72,17 @@ export function usuariosSinRostro(
   );
 }
 
+/**
+ * Personal activo que ya cuenta con un rostro/embedding registrado.
+ */
+export function usuariosConRostro(
+  usuarios: UsuarioListado[],
+): UsuarioListado[] {
+  return usuarios.filter(
+    (u) => u.activo && Boolean(u.facePhoto || u.faceRegisteredAt),
+  );
+}
+
 /** Todo el personal, para armar el selector de "quién falta". Solo admin. */
 export async function listarUsuarios(token: string): Promise<UsuarioListado[]> {
   return request<UsuarioListado[]>('/users', {}, token);
@@ -123,4 +134,23 @@ export async function registrarRostro(
 /** Rostros ya registrados, con URL firmada de la foto. Solo admin. */
 export async function listarRostros(token: string): Promise<RostroListado[]> {
   return request<RostroListado[]>('/users/rostros', {}, token);
+}
+
+/**
+ * Borra el rostro registrado de un usuario (foto, fecha y embedding)
+ * para permitir volver a entrenarlo / registrarlo desde cero con fotos nuevas.
+ */
+export async function eliminarRostro(
+  usuarioId: number,
+  token: string,
+): Promise<void> {
+  await request<unknown>(
+    `/users/${usuarioId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eliminarEmbedding: true }),
+    },
+    token,
+  );
 }
