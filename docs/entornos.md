@@ -71,6 +71,7 @@ porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 | Variable | Default | Descripción |
 | :--- | :--- | :--- |
 | `ARCFACE_MODEL` | `models/arcfaceresnet100-11-int8.onnx` | Ruta al modelo ONNX (63 MB, Apache-2.0, **no** se versiona) |
+| `ULTRAFACE_MODEL` | `models/version-RFB-320.onnx` | Ruta al detector de rostros UltraFace RFB-320 (1.2 MB, MIT, **no** se versiona). Opcional: si falta, el backend sigue funcionando con el recorte de seguridad (centro de la foto) y `GET /face/status` reporta `detector.disponible: false` |
 
 El modelo no se versiona (63 MB) y **en Render tampoco viene en el repo**, así que
 `npm run start:prod` ejecuta antes `prestart:prod` →

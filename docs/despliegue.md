@@ -26,10 +26,21 @@ plan free, región Oregon):
    quiere una ruta distinta a `models/arcfaceresnet100-11-int8.onnx`.
 2. `DB_SYNC=false` en producción (migraciones controladas; no `synchronize`).
 3. El modelo ArcFace (63 MB) **no está en el repo**: `npm run start:prod` dispara antes
-   `prestart:prod` → `scripts/ensure-arcface-model.mjs`, que lo descarga si falta. El
-   disco de Render persiste entre spin-down, pero **cada deploy borra el filesystem**,
-   así que el archivo se baja en el primer arranque de cada despliegue (~8 s).
+   `prestart:prod` → `scripts/ensure-arcface-model.mjs`, que lo descarga si falta. El mismo
+   script baja también el detector **UltraFace** `version-RFB-320.onnx` (1.2 MB, MIT) que usa
+   el recorte del rostro. El disco de Render persiste entre spin-down, pero **cada deploy
+   borra el filesystem**, así que los archivos se bajan en el primer arranque de cada
+   despliegue (~8 s). Con `ARCFACE_MODEL` / `ULTRAFACE_MODEL` definidos, el script respeta
+   esa ruta y no descarga nada.
 4. Verificar salud: `GET https://inventarioautopartesi.onrender.com/api` responde 200.
+   Después, `GET /face/status` (admin) debe mostrar `detector.disponible: true` — si es
+   `false`, el reconocimiento sigue funcionando pero con el recorte de seguridad del centro
+   de la foto, que empeora la similitud.
+
+> ℹ️ **`UMBRAL_CONFIANZA_FACIAL` ya no es variable de entorno**: es una constante de
+> `backend/src/common/constants.ts` (hoy `0.7`) y solo cambia con redeploy. Si el entorno de
+> Render todavía tiene esa variable definida (servía para el `feature/face`), se puede
+> borrar del dashboard: ya no la lee nadie.
 
 > ⚠️ **PENDIENTE (06/10):** `SUPABASE_KEY` en el entorno de Render quedó con la clave
 > **`anon`** y el registro facial falla con `400 row-level security policy (bucket: faces)`

@@ -7,7 +7,8 @@ automatizar (contrato del API en Render) **ya quedó verificada el 06/10/2026** 
 
 > **Objetivo de R5:** anotar **scores reales** (similitud coseno que devuelve ArcFace) y
 > detectar **falsos positivos/negativos**. Esos números recalibran `UMBRAL_CONFIANZA_FACIAL`
-> (hoy 0.35 en `backend/src/common/constants.ts`). Más referencias: `docs/arquitectura.md` §3.2
+> (hoy 0.70 en `backend/src/common/constants.ts`; el 0.35/0.55 anterior era pre-UltraFace).
+> Más referencias: `docs/arquitectura.md` §3.2
 > y `docs/despliegue.md` §1.1 (cold start 52.7 s → despertar Render antes de probar).
 
 ## Pre-requisitos verificados (06/10/2026)
@@ -111,8 +112,11 @@ categoría (VP/VN/FP/FN).
 - **FN**: no reconoce a quien SÍ está registrado → `requiereConfirmacion` o candidatos.
 
 > **Recalibración:** si aparecen FN en condiciones normales de luz → **bajar** el umbral
-> (rango típico coseno 0.28–0.45). Si aparecen FP → **subirlo**. Hoy está en 0.35 y sale tanto
+> (con UltraFace la misma persona mide **> 0.85** y personas distintas **< 0.20**; el 0.70
+> deja margen). Si aparecen FP → **subirlo**. Hoy está en 0.70 y sale tanto
 > en `GET /face/status` como en cada respuesta de `POST /attendance/check`.
+> **Con UltraFace el recorte ya va centrado en la cara**, así que los scores son muy
+> superiores a los del pipeline anterior (0.28–0.45): recalibrar con datos viejos, no.
 
 ## Cierre de la prueba
 

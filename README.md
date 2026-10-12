@@ -56,9 +56,9 @@
 - **Escáner móvil**: Lectura instantánea con `expo-camera` en la app móvil que consulta en Render y muestra la ficha del repuesto (precio, stock total, stock por tienda e imagen).
 
 #### 2. Control de Asistencia Facial con IA (ArcFace in-process)
-- **Modelo de IA embebido**: Inferencia *in-process* dentro de NestJS con `onnxruntime-node` utilizando **ArcFace int8** (`onnxmodelzoo/arcfaceresnet100-11-int8`, Apache-2.0, embedding de 512 dimensiones). Sin microservicios externos ni dependencias pesadas de GPU.
+- **Modelo de IA embebido**: Inferencia *in-process* dentro de NestJS con `onnxruntime-node` utilizando **ArcFace int8** (`onnxmodelzoo/arcfaceresnet100-11-int8`, Apache-2.0, embedding de 512 dimensiones) precedido por el detector de rostros **UltraFace RFB-320** (`version-RFB-320.onnx`, MIT, 1.2 MB), que recorta el recuadro facial antes de la inferencia. Sin microservicios externos ni dependencias pesadas de GPU.
 - **Registro facial**: Formulario móvil con encuadre oval guiado (112×112) que extrae, promedia y normaliza el embedding, almacenando la fotografía de auditoría en el bucket privado `faces` de Supabase.
-- **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral calibrado en **0.35**. Registro automático de `entrada` o `salida` según el flujo diario del empleado.
+- **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral calibrado en **0.70** (más margen ≥ 0.08 contra el 2º candidato). Registro automático de `entrada` o `salida` según el flujo diario del empleado.
 - **Privacidad y cumplimiento legal (Ley 26935 Bolivia)**: Fotografías servidas exclusivamente mediante URLs firmadas temporales (1 hora) y opción de supresión biométrica definitiva (`eliminarEmbedding: true`).
 
 #### 3. Módulos Web de Gestión y Auditoría (Web Admin)
@@ -93,7 +93,7 @@ Detalle técnico completo y justificaciones: [docs/stack-tecnologico.md](docs/st
 │   │   ├── users/         CRUD de empleados + baja biométrica
 │   │   ├── products/      catálogo + generación y consulta Code128
 │   │   ├── attendance/    historial, dashboard y marcaje de asistencia
-│   │   ├── face/          inferencia ArcFace ONNX + índice de memoria
+│   │   ├── face/          inferencia ArcFace ONNX + detector UltraFace + índice de memoria
 │   │   ├── entities/      15 entidades TypeORM (incluye Asistencia)
 │   │   └── seed.ts        siembra de datos reales (7 sucursales, productos)
 │   ├── schema.sql         esquema PostgreSQL de referencia
@@ -202,6 +202,7 @@ Resumen de variables esenciales ([docs/entornos.md](docs/entornos.md)):
 | `SUPABASE_BUCKET` | Backend | Bucket para fotos de repuestos (`products`) |
 | `FACE_BUCKET` | Backend | Bucket privado para biometría (`faces`) |
 | `ARCFACE_MODEL` | Backend | Ruta al modelo ArcFace ONNX int8 |
+| `ULTRAFACE_MODEL` | Backend | Ruta al detector de rostros UltraFace ONNX (opcional) |
 | `VITE_API_URL` | Frontend | URL base del backend (incluye `/api`) |
 | `EXPO_PUBLIC_API_URL` | Móvil | URL base del backend (sin `/api`) |
 
@@ -213,7 +214,7 @@ Resumen de variables esenciales ([docs/entornos.md](docs/entornos.md)):
 | :--- | :--- |
 | [docs/README.md](docs/README.md) | Índice general de la documentación técnica |
 | [docs/api.md](docs/api.md) | Contrato completo de endpoints REST (asistencia, productos, ventas, usuarios) |
-| [docs/arquitectura.md](docs/arquitectura.md) | Arquitectura del sistema y §3.2 Modelo de reconocimiento facial sin detector |
+| [docs/arquitectura.md](docs/arquitectura.md) | Arquitectura del sistema y §3.2 Modelo de reconocimiento facial (ArcFace + UltraFace in-process) |
 | [docs/stack-tecnologico.md](docs/stack-tecnologico.md) | Versiones exactas y justificación técnica de la arquitectura |
 | [docs/e2e-asistencia.md](docs/e2e-asistencia.md) | Pruebas e2e de asistencia biométrica |
 | [docs/git-convention.md](docs/git-convention.md) | Guía de ramas, commits convencionales y flujo de integración |

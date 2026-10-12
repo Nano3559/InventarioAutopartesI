@@ -12,7 +12,7 @@ Documentación del negocio y plan: `requerimientos.md` (ejercicio), `Plan Hito 3
 
 ## Stack implementado
 
-- **Backend:** NestJS 11 + TypeScript + TypeORM + PostgreSQL (`pg`). Auth JWT (Passport), bcryptjs, multer + sharp + Supabase (imágenes), `onnxruntime-node` (ArcFace in-process), `@bwip-js/node` (Code128), `xlsx` (Excel), swagger-free.
+- **Backend:** NestJS 11 + TypeScript + TypeORM + PostgreSQL (`pg`). Auth JWT (Passport), bcryptjs, multer + sharp + Supabase (imágenes), `onnxruntime-node` (ArcFace + UltraFace in-process), `@bwip-js/node` (Code128), `xlsx` (Excel), swagger-free.
 - **Frontend web admin/tienda:** React 19 + Vite 8 + TypeScript, `react-router-dom` 7, `lucide-react`. Sin librería de estado/forms/CSS (estilos en CSS plano, context para auth/notificaciones). Desplegado en Vercel.
 - **Mobile:** Expo 57 / React Native 0.86. React Navigation (native-stack + drawer), `expo-camera` (escáner de códigos de barras y captura de rostro), expo-secure-store, image/document picker, print/sharing. EAS para builds.
 
@@ -44,13 +44,13 @@ Plan día a día en `Plan Hito 3.md` (8 días, 3 personas, 1 tarea diaria por pe
 - **Identidad de producto:** Code128 generado por el equipo → `products.codigo`, formato `AP-<id>-<codigoFabrica>`. Etiqueta **solo barras** (`includetext: false`), sin texto legible.
 - **Librería de códigos de barras:** `@bwip-js/node` (backend), `@bwip-js/browser` (web), `@bwip-js/react-native` (móvil). **No usar `jsbarcode` ni `bwip-js` v3.**
 - **Reconocimiento facial:** ArcFace ONNX int8 (**Apache-2.0**, `onnxmodelzoo/arcfaceresnet100-11-int8`) ejecutado **dentro de NestJS con `onnxruntime-node`** — un solo servicio. **No hay microservicio FastAPI**, ni `FACE_SERVICE_URL` / `FACE_API_KEY`.
-- **Sin modelo detector de rostros:** la app recorta 112×112 con guía oval y ArcFace ya consume ese recorte.
-- **Umbral de confianza:** `UMBRAL_CONFIANZA_FACIAL` se recalibra con **similitud coseno** (rango típico 0.28–0.45); el 0.55 inicial daba falsos negativos. **Quedó en 0.35** (`backend/src/common/constants.ts`) y se lee en `GET /face/status`.
+- **Detector de rostros UltraFace:** `version-RFB-320.onnx` (MIT, 1.2 MB) corre in-process en `backend/src/face/face-detector.ts`: localiza el recuadro facial y recorta solo eso (margen 15%) antes de ArcFace. Guía oval de la app = primera barrera, UltraFace = segunda. **Fallback:** si el modelo no está, recorte central de la foto (la app sigue funcionando; `GET /face/status` reporta `detector.disponible: false`).
+- **Umbral de confianza:** `UMBRAL_CONFIANZA_FACIAL = 0.70` (`backend/src/common/constants.ts`, **constante: no se cambia por variable de entorno, exige redeploy**). Con UltraFace la misma persona mide > 0.85 y personas distintas < 0.20; además se exige **margen ≥ 0.08** entre el mejor y el segundo candidato para marcar automático. Por debajo de 0.55 la API responde "rostro no reconocido" sin sugerir candidatos (Ley 26935).
 - **Descartado:** conteo de autopartes con YOLO (ya no es el alcance).
 - **Pendiente, sin agendar:** escaneo desde el POS (botón en `SalesScreen` + cámara en modal, decisión ya tomada) y conteo de recepción. El escáner del Hito 3 es **solo de consulta**. Ver "Tarea pendiente" en `Plan Hito 3.md`.
 - **Registro facial:** el endpoint asocia un rostro a un usuario **ya creado**, no crea usuarios. Apunta al usuario con **`usuarioId`** (elegido en la app desde la lista de personal sin rostro; un id no tiene homónimos) o, como alternativa, con `nombre` + `apellido` escritos a mano: si no existe nadie con ese nombre, 404. `usuarioId` gana si vienen los dos.
 
-**Ya está listo:** entidades `Product.codigo`, `User` extendida (5 campos) y `Asistencia`; constantes en `backend/src/common/constants.ts`; `backend/sql/hito3.sql`; `AttendanceModule` y `FaceModule` registrados. Las **5 rutas de asistencia** y las 2 de diagnóstico están documentadas en `docs/api.md` §Attendance; la arquitectura del reconocimiento, en `docs/arquitectura.md` §3.2.
+**Ya está listo:** entidades `Product.codigo`, `User` extendida (5 campos) y `Asistencia`; constantes en `backend/src/common/constants.ts`; `backend/sql/hito3.sql`; `AttendanceModule` y `FaceModule` registrados. Las **5 rutas de asistencia** y las 3 de diagnóstico (`/face/status`, `/face/warmup`, `/face/reindex`) están documentadas en `docs/api.md` §Attendance; la arquitectura del reconocimiento, en `docs/arquitectura.md` §3.2.
 
 **Trampas conocidas** (ver la tabla completa en el plan):
 - En Nest, `@Get('by-barcode/:codigo')` debe declararse **antes** de `@Get(':id')`, si no responde 400.
@@ -63,7 +63,7 @@ Plan día a día en `Plan Hito 3.md` (8 días, 3 personas, 1 tarea diaria por pe
 
 ## Backend (`backend/`)
 
-Módulos NestJS: `auth`, `users`, `products`, `locations`, `sales`, `movimientos`, `solicitudes`, `proveedores`, `costos`, `devoluciones`, `precios`, `reportes`, `attendance`, `face` (`src/face/`: reconocimiento facial in-process con ArcFace). 15 entidades TypeORM en `src/entities/`. `schema.sql` = esquema PostgreSQL de referencia (ojo: no define `factura_items`, que sí existe como entidad).
+Módulos NestJS: `auth`, `users`, `products`, `locations`, `sales`, `movimientos`, `solicitudes`, `proveedores`, `costos`, `devoluciones`, `precios`, `reportes`, `attendance`, `face` (`src/face/`: reconocimiento facial in-process con ArcFace + detector UltraFace). 15 entidades TypeORM en `src/entities/`. `schema.sql` = esquema PostgreSQL de referencia (ojo: no define `factura_items`, que sí existe como entidad).
 
 ### Comandos
 - `npm run start:dev` — dev con hot-reload (`nest start --watch`).

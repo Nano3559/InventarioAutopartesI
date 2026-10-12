@@ -92,7 +92,7 @@ Infraestructura compartida:
 | `src/common/image-upload.ts` | `multerImagenes()` + `imageFileFilter`: `FileInterceptor` con `memoryStorage`, filtro `image/*` y tope de 10 MB (producto, rostro) |
 | `src/auth/jwt-auth.guard.ts` + `roles.guard.ts` | Guard global de JWT + RBAC |
 
-### 3.2 Reconocimiento facial: ArcFace in-process, **sin modelo detector**
+### 3.2 Reconocimiento facial: ArcFace + UltraFace in-process
 
 Un solo proceso de Node hace **todo**: no hay microservicio Python/FastAPI, ni cliente HTTP,
 ni `FACE_SERVICE_URL` / `FACE_API_KEY`. Motivo práctico: en Render Free (512 MB, 750 h/mes)
@@ -102,8 +102,12 @@ un 2º servicio no cabe cómodo y agrega un 2º cold start.
   📱 App móvil                        🧠 NestJS (un solo proceso)                  🗄️ Postgres
   ─────────────                       ───────────────────────────                  ─────────
   FaceRegisterScreen                  POST /users/face/register
-  N fotos, guía oval  ──multipart───► FaceService.preprocesar (sharp: EXIF, 112×112,
-                                         (x-127.5)/128 → tensor [1,3,112,112])
+  N fotos, guía oval  ──multipart───► FaceService.preprocesar
+                                         └─ FaceDetector.recortarRostro (sharp: EXIF →
+                                            320×240 → UltraFace RFB-320 → mejor caja con
+                                            score ≥ 0.6 → recorte con margen 15%;
+                                            si no hay detección, recorte central)
+                                         └─ sharp: 112×112, (x-127.5)/128 → tensor [1,3,112,112]
                                        └─ onnxruntime-node · EP cpu · sesión perezosa
                                           ArcFace int8 (63 MB) → fc1 [1,512]
                                           ─► promedio de las N ─► normalización L2
@@ -118,8 +122,9 @@ un 2º servicio no cabe cómodo y agrega un 2º cold start.
   1 foto en vivo      ──multipart───► POST /attendance/check
                                          └─ embedding de la foto
                                          └─ FaceService.buscar() → top-5 por coseno
-                                             ≥ 0.35 → INSERT asistencia (metodo 'automatico')
-                                             < 0.35 → 200 con candidatos, SIN insertar
+                                             ≥ 0.70 y margen ≥ 0.08 → INSERT ('automatico')
+                                             ≥ 0.55 → 200 con candidatos, SIN insertar
+                                             < 0.55 → 200 "rostro no reconocido", SIN insertar
 ```
 
 | Decisión | Por qué |
@@ -128,8 +133,8 @@ un 2º servicio no cabe cómodo y agrega un 2º cold start.
 | **Ninguna sesión en `onModuleInit` para el modelo** | La `InferenceSession` se crea en la primera inferencia: son 92 MB y ~0.5 s que no se pagan en cada arranque (incluidos los spin-down de Render) si nadie marca asistencia. El **índice sí** se rehidrata al arrancar (ver abajo) |
 | **Índice de rostros en RAM** (`usuarioId → embedding` normalizado) | Los embeddings se guardan normalizados (L2), así que la similitud coseno es un simple producto punto de 512 floats por usuario: sin RAM, cada marcaje sería una consulta con `jsonb` a Postgres. Coste: ~2 KB por rostro |
 | **Rehidratación en `onModuleInit`** (`embedding IS NOT NULL AND activo = true`) | **Obligatoria**: Render borra la RAM en cada spin-down de 15 min. Sin esto, el primer marcaje después de dormir no reconocería a nadie. Verificable con `GET /face/status` (`indiceEnMemoria === rostrosEnBase`) |
-| **Umbral por similitud coseno = 0.35** | El 0.55 venía del scoring de InsightFace. Con coseno sobre embeddings ArcFace normalizados el rango típico de "misma persona" es **0.28-0.45**; 0.35 es la mitad de ese rango, a favor de no rechazar a quien sí es la persona |
-| **Sin modelo detector** (Yunet/SCRFD) | La app recorta un cuadrado 112×112 con **guía oval** y el rostro dentro: ArcFace ya consume ese recorte. Se ahorra un modelo detector completo y días de trabajo. El backend solo hace `resize(112,112,fit:'cover')`: **no alinea landmarks**, así que la calidad depende del encuadre de la app |
+| **Umbral por similitud coseno = 0.70** | Con UltraFace el recorte ya sale centrado en la cara, así que la misma persona mide > 0.85 y personas distintas < 0.20 (medido). El umbral es una **constante del código**, no una variable de entorno: recalibrar exige redeploy. Además se exige un **margen ≥ 0.08** entre el mejor y el segundo candidato antes de marcar automático |
+| **Detector de rostros UltraFace** (`version-RFB-320.onnx`, MIT, 1.2 MB) | El backend localiza el recuadro facial y recorta solo eso (con margen 15%) antes de ArcFace: elimina ropa y fondo del embedding. La guía oval de la app sigue siendo la primera barrera; UltraFace es la segunda. **Fallback**: si el modelo no está, se usa el recorte central de la foto y `GET /face/status` lo reporta en `detector.disponible: false`. Se descartaron Yunet/SCRFD por licencia/tamaño equivalente sin ventaja |
 | **1 embedding por marcaje, N por registro** | Con EP de CPU no hay paralelismo real y el error de una foto no se pierde en un `Promise.all`. Medido: 246.8 ms por embedding (spike B2), ~1.2 s una tanda de 5 |
 | **Bucket `faces` privado + URL firmada** | Dato biométrico sensible (Ley 26935 Bolivia). `users.facePhoto` guarda la **ruta**, no una URL: las firmadas expiran y se piden al momento (`GET /users/rostros`). Cero logs de imágenes |
 
@@ -233,9 +238,10 @@ CADA DÍA
 AttendanceScreen (1 foto en vivo)
   → POST /attendance/check
   → embedding → similitud coseno contra el índice en RAM
-      ≥ 0.35 → INSERT asistencia: metodo 'automatico', confianza = similitud,
-               tipo alternado (1ª del día entrada, 2ª salida)
-      < 0.35 → 200 con top-5 candidatos y SIN insertar (nunca un error seco)
+      ≥ 0.70 (y margen ≥ 0.08 vs el 2º candidato) → INSERT asistencia: metodo
+               'automatico', confianza = similitud, tipo alternado (1ª entrada, 2ª salida)
+      ≥ 0.55 pero < 0.70 → 200 con candidatos y SIN insertar (la app pide confirmar)
+      < 0.55 → 200 "rostro no reconocido" y SIN insertar (nunca un error seco)
   → el operador confirma a mano → POST /attendance/check con usuarioId (metodo 'manual')
      o POST /attendance/:id/confirm sobre un marcaje existente
 AttendanceHistoryScreen / dashboard web → GET /attendance y GET /attendance/dashboard
@@ -301,7 +307,7 @@ Pantallas del Hito 3 y quién las ve:
   más, así que un reloj desincronizado no puede falsear la asistencia.
 - **El día del dashboard es el día local**, no UTC: `new Date('2026-10-03')` es medianoche UTC
   y en Bolivia (UTC-4) caería en el día anterior. Se arma con `new Date(y, m-1, d)`.
-- **Umbral facial 0.35 por similitud coseno**, no el 0.55 de InsightFace (ver §3.2).
+- **Umbral facial 0.70 por similitud coseno** (constante del código, no de entorno; ver §3.2).
 - **Reconocimiento con confirmación humana por debajo del umbral**: la API devuelve candidatos
   y no inserta nada. Un marcaje incorrecto se corrige con `PATCH /attendance/:id`, que deja
   rastro de quién lo confirmó.
