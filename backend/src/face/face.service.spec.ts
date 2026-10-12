@@ -3,6 +3,11 @@ import { Repository } from 'typeorm';
 import { FaceService } from './face.service';
 import { ARCFACE_DIMENSION } from './face-embedding';
 import type { User } from '../entities/user.entity';
+import sharp from 'sharp';
+import { createClient } from '@supabase/supabase-js';
+import { FaceDetector } from './face-detector';
+
+jest.mock('@supabase/supabase-js', () => ({ createClient: jest.fn() }));
 
 /**
  * OJO — lo que here no se testea: la **inferencia con `onnxruntime-node`**.
@@ -49,6 +54,108 @@ const embedding = (semilla = 0) => {
 };
 
 describe('FaceService (Hito 3)', () => {
+  describe('detección obligatoria antes de comparar o registrar', () => {
+    let servicio: FaceService;
+    let foto: Express.Multer.File;
+    beforeEach(async () => {
+      servicio = new FaceService(repoVacio, new ConfigService());
+      foto = {
+        originalname: 'fondo.png',
+        buffer: await sharp({
+          create: {
+            width: 112,
+            height: 112,
+            channels: 3,
+            background: '#ffffff',
+          },
+        })
+          .png()
+          .toBuffer(),
+      } as Express.Multer.File;
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it('si falta SCRFD responde 503 y no ejecuta detector ni ArcFace', async () => {
+      jest.spyOn(FaceDetector, 'rutaModelo').mockReturnValue(null);
+      const detectar = jest.spyOn(FaceDetector, 'detectar');
+      await expect(servicio.analizarRostro(foto)).rejects.toMatchObject({
+        status: 503,
+      });
+      expect(detectar).not.toHaveBeenCalled();
+    });
+
+    it('si SCRFD falla no hace fallback a la escena completa', async () => {
+      jest.spyOn(FaceDetector, 'rutaModelo').mockReturnValue('detector.onnx');
+      jest
+        .spyOn(FaceDetector, 'detectar')
+        .mockRejectedValue(new Error('falló detector'));
+      await expect(servicio.analizarRostro(foto)).rejects.toMatchObject({
+        status: 503,
+      });
+    });
+
+    it.each([0, 2])(
+      'con %i rostros no calcula embedding ni permite registro',
+      async (cantidad) => {
+        jest.spyOn(FaceDetector, 'rutaModelo').mockReturnValue('detector.onnx');
+        jest.spyOn(FaceDetector, 'detectar').mockResolvedValue(
+          Array.from({ length: cantidad }, () => ({
+            score: 0.99,
+            caja: { x1: 0, y1: 0, x2: 112, y2: 112 },
+            landmarks: [],
+          })),
+        );
+        const analisis = await servicio.analizarRostro(foto);
+        expect(analisis.embedding).toEqual([]);
+        expect(analisis.rostros).toBe(cantidad);
+        await expect(servicio.embeddingDeFoto(foto)).rejects.toMatchObject({
+          status: 400,
+        });
+      },
+    );
+
+    it('reprocesar una referencia sin rostro conserva el embedding original', async () => {
+      const original = embedding(7);
+      const usuario = {
+        id: 7,
+        activo: true,
+        facePhoto: 'user-7.png',
+        embedding: original,
+      };
+      const save = jest.fn();
+      servicio = new FaceService(
+        {
+          find: jest.fn().mockResolvedValue([usuario]),
+          save,
+        } as unknown as Repository<User>,
+        new ConfigService({
+          SUPABASE_URL: 'https://example.test',
+          SUPABASE_KEY: 'test',
+        }),
+      );
+      servicio.upsertEnIndice(7, original);
+      jest.mocked(createClient).mockReturnValue({
+        storage: {
+          from: () => ({
+            download: () =>
+              Promise.resolve({
+                data: { arrayBuffer: () => foto.buffer },
+                error: null,
+              }),
+          }),
+        },
+      } as never);
+      jest.spyOn(FaceDetector, 'rutaModelo').mockReturnValue('detector.onnx');
+      jest.spyOn(FaceDetector, 'detectar').mockResolvedValue([]);
+      expect(await servicio.reprocesarRostrosExistentes()).toEqual({
+        actualizados: 0,
+        total: 1,
+      });
+      expect(save).not.toHaveBeenCalled();
+      expect(usuario.embedding).toEqual(original);
+      expect((await servicio.buscar(original))[0].similitud).toBeCloseTo(1, 6);
+    });
+  });
   describe('ruta del modelo', () => {
     it('usa ARCFACE_MODEL cuando el archivo existe', () => {
       const servicio = new FaceService(
@@ -118,6 +225,7 @@ describe('FaceService (Hito 3)', () => {
         { id: 2, embedding: embedding(2) },
         { id: 3, embedding: [1, 2, 3] }, // dimensión incorrecta
         { id: 4, embedding: embedding(4).fill(Number.NaN) },
+        { id: 5, embedding: embedding(5).fill(0) },
       ];
       const servicio = new FaceService(repoCon(filas), new ConfigService());
       expect(await servicio.rehidratarIndice()).toBe(2);

@@ -177,6 +177,19 @@ export function evaluarCoincidencia<T extends CoincidenciaRostro>(
 ): DecisionReconocimiento<T> {
   const mejor = candidatos[0] ?? null;
   if (!mejor) return { reconocido: false, mejor: null, margen: 0 };
+  if (
+    !Number.isFinite(umbral) ||
+    umbral <= 0 ||
+    umbral > 1 ||
+    !Number.isFinite(margenMinimo) ||
+    margenMinimo < 0 ||
+    margenMinimo > 1 ||
+    candidatos.some(
+      (c) =>
+        !Number.isFinite(c.similitud) || c.similitud < -1 || c.similitud > 1,
+    )
+  )
+    return { reconocido: false, mejor: null, margen: 0 };
 
   const segundo = candidatos[1];
   const margen = segundo ? mejor.similitud - segundo.similitud : 1;
@@ -223,6 +236,7 @@ export function esEmbeddingValido(
   return (
     Array.isArray(v) &&
     v.length === dim &&
-    v.every((x) => typeof x === 'number' && Number.isFinite(x))
+    v.every((x) => typeof x === 'number' && Number.isFinite(x)) &&
+    v.some((x) => x !== 0)
   );
 }

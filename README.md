@@ -56,6 +56,7 @@
 - **Escáner móvil**: Lectura instantánea con `expo-camera` en la app móvil que consulta en Render y muestra la ficha del repuesto (precio, stock total, stock por tienda e imagen).
 
 #### 2. Control de Asistencia Facial con IA (ArcFace in-process)
+- **Comparación estricta**: SCRFD obligatorio y exactamente un rostro alineado. Sin rostro o con varios no se registra asistencia; si el detector falla se devuelve 503. Se exige umbral de similitud y margen sobre el segundo candidato.
 - **Modelo de IA embebido**: Inferencia *in-process* dentro de NestJS con `onnxruntime-node` utilizando **ArcFace int8** (`onnxmodelzoo/arcfaceresnet100-11-int8`, Apache-2.0, embedding de 512 dimensiones). Sin microservicios externos ni dependencias pesadas de GPU.
 - **Registro facial**: Formulario móvil con encuadre oval guiado (112×112) que extrae, promedia y normaliza el embedding, almacenando la fotografía de auditoría en el bucket privado `faces` de Supabase.
 - **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral **estricto en 0.8** (configurable por env). Registro automático de `entrada` o `salida` según el flujo diario; si nadie supera el umbral se avisa "usuario desconocido, debe registrarse" sin registrar nada.

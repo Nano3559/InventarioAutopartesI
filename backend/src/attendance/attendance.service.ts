@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
@@ -565,14 +566,23 @@ export class AttendanceService {
 
     const analisis = await this.faceService.analizarRostro(file, recorte);
 
-    // Gate de presencia: si SCRFD está disponible y no hay rostro, no tiene sentido
-    // comparar contra la galería (un parche de fondo no es una persona y su
-    // embedding puede empatar con cualquiera).
-    if (analisis.deteccionDisponible && !analisis.rostroDetectado) {
+    // Sin un único rostro alineado no se compara la galería: el fondo o un
+    // acompañante pueden generar una identidad equivocada.
+    if (!analisis.deteccionDisponible) {
+      throw new ServiceUnavailableException(
+        'El reconocimiento facial requiere detección y alineación SCRFD.',
+      );
+    }
+    if (
+      !analisis.rostroDetectado ||
+      analisis.rostros !== 1 ||
+      analisis.estrategia !== 'alineado'
+    ) {
       return {
         reconocido: false,
         requiereConfirmacion: false,
-        sinRostro: true,
+        sinRostro: !analisis.rostroDetectado,
+        variosRostros: analisis.rostros > 1,
         umbral: UMBRAL_CONFIANZA_FACIAL,
         candidatos: [],
       };

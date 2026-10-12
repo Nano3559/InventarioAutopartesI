@@ -92,7 +92,11 @@ export interface AttendanceCheck {
     nombreCompleto: string;
     similitud: number | null;
   };
-  /** Solo cuando NO se reconoció: top-K por similitud para elegir a mano. */
+  /** La foto no contiene un rostro detectable; no se registra asistencia. */
+  sinRostro?: boolean;
+  /** La foto contiene varias personas; se solicita una nueva captura. */
+  variosRostros?: boolean;
+  /** Vacío cuando no se reconoce: no se ofrecen identidades alternativas. */
   candidatos?: CandidatoRostro[];
   /** Solo cuando quedó registrado. */
   asistencia?: Asistencia;
@@ -156,7 +160,7 @@ function formMarcaje(params: MarcajeParams): FormData {
 }
 
 /**
- * `POST /attendance/check`: reconoce el rostro y registra, o devuelve candidatos.
+ * `POST /attendance/check`: registra solo si reconoce el rostro; en otro caso no marca.
  *
  * Se envía por XHR (`requestFormConProgreso`), igual que el registro de rostros:
  * el multipart vía `fetch` (`requestForm`) revienta en Expo Go con status 0

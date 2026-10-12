@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
-import { Logger } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { DETECCION_CONFIANZA_FACIAL } from '../common/constants';
 import type { Punto } from './face-align';
 
@@ -66,7 +66,7 @@ export class FaceDetector {
     if (!ruta) {
       this.logger.warn(
         `Modelo SCRFD (${NOMBRE_MODELO_SCRFD}) no encontrado: el reconocimiento ` +
-          'caerá al recorte sin alinear (menos preciso).',
+          'no estará disponible hasta instalar el detector.',
       );
       return null;
     }
@@ -85,14 +85,17 @@ export class FaceDetector {
 
   /**
    * Detecta todos los rostros de la imagen y devuelve sus 5 landmarks. Si el
-   * modelo no está disponible devuelve `[]` (el llamador decide el fallback).
+   * modelo no está disponible lanza 503; una lista vacía significa que no hay rostro.
    */
   static async detectar(
     buffer: Buffer,
     rutaPersonalizada?: string,
   ): Promise<RostroDetectado[]> {
     const sesion = await this.obtenerSesion(rutaPersonalizada);
-    if (!sesion) return [];
+    if (!sesion)
+      throw new ServiceUnavailableException(
+        'El detector SCRFD no está disponible',
+      );
 
     const meta = await sharp(buffer).metadata();
     const ancho = meta.width ?? 0;

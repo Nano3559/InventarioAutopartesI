@@ -14,8 +14,9 @@
 import * as path from 'path';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
+import * as ort from 'onnxruntime-node';
 import { FaceService } from '../src/face/face.service';
-import { ARCFACE_DIMENSION } from '../src/face/face-embedding';
+import { ARCFACE_DIMENSION, aTensorNchw } from '../src/face/face-embedding';
 
 const MODELO =
   process.env.ARCFACE_MODEL ||
@@ -78,6 +79,17 @@ async function main() {
     {} as never,
     new ConfigService({ ARCFACE_MODEL: MODELO }),
   );
+  // Contrato de inferencia, no biometría: las imágenes sintéticas no pasan SCRFD.
+  // Conserva el modelo, tensor y normalización reales fuera del sandbox de Jest.
+  const inferencia = servicio as unknown as {
+    inferir(tensor: ort.Tensor): Promise<number[]>;
+  };
+  servicio.embeddingDeFoto = async (file) => {
+    const { data } = await sharp(file.buffer).resize(112, 112)
+      .removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
+    return inferencia.inferir(new ort.Tensor('float32', aTensorNchw(data), [1, 3, 112, 112]));
+  };
+  console.log('Entradas sintéticas: verifica inferencia ArcFace, no SCRFD ni precisión con personas reales.');
 
   const t0 = Date.now();
   const a = await servicio.embeddingDeFoto(
@@ -103,8 +115,8 @@ async function main() {
   console.log('');
   console.log('--- Similitud coseno (esto es lo que se compara contra el umbral) ---');
   console.log(`  misma foto            ${mismo.toFixed(4)}`);
-  console.log(`  mismo rostro, otra toma ${parecido.toFixed(4)}`);
-  console.log(`  otro rostro            ${otro.toFixed(4)}`);
+  console.log(`  imagen sintética similar ${parecido.toFixed(4)}`);
+  console.log(`  imagen sintética distinta ${otro.toFixed(4)}`);
   console.log('');
   console.log(
     `  ${mismo.toFixed(4)} > ${parecido.toFixed(4)} > ${otro.toFixed(4)}  ${

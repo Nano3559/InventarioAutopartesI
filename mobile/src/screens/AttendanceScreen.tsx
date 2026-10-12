@@ -242,15 +242,32 @@ export default function AttendanceScreen({
           return;
         }
 
-        // Reconocimiento estricto: bajo el umbral (0.8) el backend no registra nada
-        // y no vuelve candidatos. La foto no está en la BD → usuario desconocido.
+        if (data.variosRostros) {
+          setAviso({
+            tono: 'warning',
+            titulo: 'Se detectó más de un rostro',
+            texto: 'La asistencia no se registró. Toma una nueva foto en la que aparezcas únicamente tú, con el rostro dentro del óvalo.',
+          });
+          return;
+        }
+
+        if (data.sinRostro) {
+          setAviso({
+            tono: 'warning',
+            titulo: 'No se detectó un rostro',
+            texto: 'La asistencia no se registró. Mira de frente a la cámara, ubica tu rostro dentro del óvalo y toma otra foto con buena iluminación.',
+          });
+          return;
+        }
+
+        // Una coincidencia insuficiente nunca permite marcar ni elegir un usuario.
         setAviso({
           tono: 'warning',
           titulo: 'Usuario desconocido',
           texto:
-            `La cara no coincide con ningún empleado registrado en la base de datos ` +
-            `(confianza mínima ${porcentaje(data.umbral)}). Debe registrarse primero ` +
-            'desde "Registro Facial", y recién ahí volver a marcarse.',
+            'No pudimos verificar tu identidad con los rostros registrados. ' +
+            'La asistencia no se registró. Toma otra foto con buena iluminación. ' +
+            'Si el mensaje persiste, solicita al administrador que revise tu registro facial.',
         });
       } catch (err) {
         setAviso({
@@ -326,8 +343,8 @@ export default function AttendanceScreen({
       <Text style={styles.titulo}>Marcar asistencia</Text>
       <Text style={styles.subtitulo}>
         {registrado
-          ? 'Marcaje registrado.'
-          : 'La persona se para frente a la cámara y se toma una sola foto.'}
+          ? 'Asistencia registrada correctamente.'
+          : 'Toma una foto de frente y con buena iluminación. Verificaremos tu identidad con los rostros registrados para marcar tu asistencia.'}
       </Text>
     </>
   );
@@ -564,6 +581,7 @@ function MarcajeRegistrado({
         />
       </View>
 
+      <Text style={styles.resultadoConfirmacion}>Asistencia registrada</Text>
       <Text style={styles.resultadoNombre} numberOfLines={2}>
         {asistencia.nombreCompleto || `Usuario #${asistencia.usuarioId}`}
       </Text>
@@ -716,6 +734,12 @@ const styles = StyleSheet.create({
 
   resultado: { alignItems: 'center', alignSelf: 'stretch', gap: space.md, paddingHorizontal: space.sm },
   resultadoIcono: { marginTop: space.sm },
+  resultadoConfirmacion: {
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.success,
+    textAlign: 'center',
+  },
   resultadoNombre: {
     fontSize: fontSize.headline,
     fontFamily: fontFamily.sansBold,
