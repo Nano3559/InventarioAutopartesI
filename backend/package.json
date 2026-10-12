@@ -22,7 +22,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "face:check": "ts-node --transpile-only spike/face-check.ts"
+    "face:check": "ts-node --transpile-only spike/face-check.ts",
+    "face:detector:check": "ts-node --transpile-only spike/scrfd-check.ts"
   },
   "dependencies": {
     "@bwip-js/node": "^4.11.4",

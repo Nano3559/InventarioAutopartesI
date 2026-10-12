@@ -83,7 +83,7 @@ for (const m of MODELOS) {
     } catch (err) {
       avisos(
         m.etiqueta,
-        `no se pudo descargar el modelo (${err.message}). Se usará modo alternativo si está disponible.`,
+        `no se pudo descargar el modelo (${err.message}). El reconocimiento facial no estará disponible hasta instalar ambos modelos; no hay modo alternativo sin alineación.`,
       );
     }
   }

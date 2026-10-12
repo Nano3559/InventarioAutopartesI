@@ -41,8 +41,8 @@ const NOMBRE_MODELO = 'arcfaceresnet100-11-int8.onnx';
  * `spike/models/` en desarrollo (lo baja el spike B2) y `models/` para despliegue.
  */
 const RUTAS_MODELO = [
-  path.join('spike', 'models', NOMBRE_MODELO),
-  path.join('models', NOMBRE_MODELO),
+  path.resolve(__dirname, '..', '..', 'spike', 'models', NOMBRE_MODELO),
+  path.resolve(__dirname, '..', '..', 'models', NOMBRE_MODELO),
 ];
 
 /** Bucket **privado** de Supabase Storage con las fotos de rostro (Ley 26935). */

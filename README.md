@@ -155,6 +155,7 @@ npm run start:dev        # API escuchando en http://localhost:3000/api
 Para verificar el contrato biométrico de ArcFace:
 ```bash
 npm run face:check       # Valida el modelo ONNX int8 (512 dims, norma 1)
+npm run face:detector:check # Valida SCRFD con fotos cuadradas y rectangulares
 ```
 
 ### 4. Frontend Web
@@ -180,6 +181,7 @@ npm start                # Expo Metro Bundler
 | `npm run start:dev` | backend | Servidor NestJS en modo desarrollo con hot-reload |
 | `npm run build` | backend | Compilación de producción (`nest build`) |
 | `npm run face:check` | backend | Validación del contrato real del modelo ArcFace ONNX |
+| `npm run face:detector:check` | backend | Inferencia SCRFD real sobre fondos sintéticos cuadrados y rectangulares; no mide precisión biométrica |
 | `npm test` | backend | Tests unitarios con Jest |
 | `npm run test:e2e` | backend | 129 tests e2e automatizados de asistencia y catálogo |
 | `npm run seed` | backend | Población de datos reales en base de datos |

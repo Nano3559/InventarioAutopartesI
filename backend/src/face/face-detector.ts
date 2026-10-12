@@ -10,8 +10,8 @@ import type { Punto } from './face-align';
 export const NOMBRE_MODELO_SCRFD = 'scrfd_2.5g_bnkps.onnx';
 
 export const RUTAS_MODELO_SCRFD = [
-  path.join('spike', 'models', NOMBRE_MODELO_SCRFD),
-  path.join('models', NOMBRE_MODELO_SCRFD),
+  path.resolve(__dirname, '..', '..', 'spike', 'models', NOMBRE_MODELO_SCRFD),
+  path.resolve(__dirname, '..', '..', 'models', NOMBRE_MODELO_SCRFD),
 ];
 
 /** Lado mayor al que se escala la imagen para la detección (el spike usa 640). */
@@ -111,18 +111,29 @@ export class FaceDetector {
 
     const nw = info.width;
     const nh = info.height;
-    const plano = nw * nh;
-    if (data.length !== plano * 3) return [];
+    const plano = LADO_DETECCION * LADO_DETECCION;
+    if (data.length !== nw * nh * 3) return [];
 
     // NCHW RGB con (x - 127.5) / 128, como el spike y como ArcFace.
-    const blob = new Float32Array(3 * plano);
-    for (let i = 0; i < plano; i++) {
-      blob[i] = (data[i * 3] - 127.5) / 128;
-      blob[plano + i] = (data[i * 3 + 1] - 127.5) / 128;
-      blob[2 * plano + i] = (data[i * 3 + 2] - 127.5) / 128;
+    // Este export ONNX exige 640x640. Se rellena a derecha/abajo con negro,
+    // conservando la proporción y el origen de cajas/landmarks de la foto.
+    const blob = new Float32Array(3 * plano).fill(-127.5 / 128);
+    for (let y = 0; y < nh; y++) {
+      for (let x = 0; x < nw; x++) {
+        const i = y * nw + x;
+        const destino = y * LADO_DETECCION + x;
+        blob[destino] = (data[i * 3] - 127.5) / 128;
+        blob[plano + destino] = (data[i * 3 + 1] - 127.5) / 128;
+        blob[2 * plano + destino] = (data[i * 3 + 2] - 127.5) / 128;
+      }
     }
 
-    const tensor = new ort.Tensor('float32', blob, [1, 3, nh, nw]);
+    const tensor = new ort.Tensor('float32', blob, [
+      1,
+      3,
+      LADO_DETECCION,
+      LADO_DETECCION,
+    ]);
     const salida = await sesion.run({ [sesion.inputNames[0]]: tensor });
 
     const salidas = this.mapearSalidas(sesion.outputNames, salida);
@@ -130,7 +141,15 @@ export class FaceDetector {
     const xs = ancho / nw;
     const ys = alto / nh;
 
-    const detecciones = this.decodificar(salidas, nw, nh, xs, ys, ancho, alto);
+    const detecciones = this.decodificar(
+      salidas,
+      LADO_DETECCION,
+      LADO_DETECCION,
+      xs,
+      ys,
+      ancho,
+      alto,
+    );
     return this.nms(detecciones);
   }
 
