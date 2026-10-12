@@ -200,27 +200,53 @@ export default function AttendanceScreen({
       setAviso(null);
 
       try {
-        // Cold start de Render (~52.7 s) vs timeout de red del teléfono (~10 s):
-        // si el servidor quedó dormido, el multipart real moriría con
-        // "sin conexión" (status 0) aunque el backend esté por responder. Primero
-        // se espera a que conteste y la pantalla lo avisa en lugar de fallar seco.
-        const inmediato = await esperarServidorVivo(15_000);
-        if (!inmediato) {
-          setAviso({
-            tono: 'info',
-            titulo: 'Despertando el servidor…',
-            texto:
-              'El primer uso del día puede tardar hasta un minuto. Se reintenta ' +
-              'automáticamente.',
-          });
-          const despierto = await esperarServidorVivo(90_000);
-          if (!despierto) {
+        const token = await getToken();
+        let data: AttendanceCheck;
+        try {
+          data =
+            usuarioId === undefined
+              ? await marcarAsistencia(
+                  { fotoUri: fotoAProcesar.uri, fileName: fotoAProcesar.name, locationId: tiendaId },
+                  token,
+                )
+              : await marcarAsistenciaManual(
+                  {
+                    fotoUri: fotoAProcesar.uri,
+                    fileName: fotoAProcesar.name,
+                    locationId: tiendaId,
+                    usuarioId,
+                  },
+                  token,
+                );
+        } catch (firstErr) {
+          if (firstErr instanceof ApiError && firstErr.status === 0) {
             setAviso({
-              tono: 'error',
-              titulo: 'No se pudo marcar',
-              texto: SIN_CONEXION,
+              tono: 'info',
+              titulo: 'Despertando el servidor…',
+              texto:
+                'El servidor se está activando. Se reintenta automáticamente…',
             });
-            return;
+            const despierto = await esperarServidorVivo(90_000);
+            if (!despierto) {
+              throw firstErr;
+            }
+            data =
+              usuarioId === undefined
+                ? await marcarAsistencia(
+                    { fotoUri: fotoAProcesar.uri, fileName: fotoAProcesar.name, locationId: tiendaId },
+                    token,
+                  )
+                : await marcarAsistenciaManual(
+                    {
+                      fotoUri: fotoAProcesar.uri,
+                      fileName: fotoAProcesar.name,
+                      locationId: tiendaId,
+                      usuarioId,
+                    },
+                    token,
+                  );
+          } else {
+            throw firstErr;
           }
         }
 
@@ -266,6 +292,18 @@ export default function AttendanceScreen({
       }
     },
     [enviando, foto, tiendaId],
+  );
+
+  const alCapturar = useCallback(
+    (captura: ArchivoLocal) => {
+      setFoto(captura);
+      setResultado(null);
+      setCandidatos([]);
+      setAviso(null);
+      // Disparo automático e inmediato de IA en tiempo real
+      void registrar(undefined, captura);
+    },
+    [registrar],
   );
 
   const registrado = resultado?.reconocido ? resultado.asistencia : undefined;
@@ -387,18 +425,12 @@ export default function AttendanceScreen({
 
   const AccionMarcar = (
     <PrimaryCTA
-      label={
-        enviando
-          ? 'Reconociendo…'
-          : foto
-            ? 'Marcar asistencia'
-            : 'Tomar foto y marcar'
-      }
+      label={enviando ? 'Reconociendo con IA…' : 'Reintentar marcaje'}
       iconName="finger-print"
       onPress={() => registrar()}
-      disabled={!foto || ocupado || faltaTienda}
+      disabled={ocupado || faltaTienda}
     />
-  );
+  ) : null;
 
   const Nota = faltaTienda ? null : (
     <View style={styles.nota}>
@@ -450,7 +482,12 @@ export default function AttendanceScreen({
         <View style={styles.panes}>
           <View style={styles.paneVisual}>
             {Marcaje ?? (
-              <FaceCamera onCaptura={alCapturar} guideLabel="Encadre el rostro dentro del óvalo" />
+              <FaceCamera
+                onCaptura={alCapturar}
+                capturing={enviando}
+                shutterLabel="Escanear Rostro"
+                guideLabel="Encuadra el rostro dentro del óvalo"
+              />
             )}
           </View>
 
@@ -497,7 +534,9 @@ export default function AttendanceScreen({
                   <>
                     <FaceCamera
                       onCaptura={alCapturar}
-                      guideLabel="Encadre el rostro dentro del óvalo"
+                      capturing={enviando}
+                      shutterLabel="Escanear Rostro"
+                      guideLabel="Encuadra el rostro dentro del óvalo"
                       style={[styles.camera, { height: altoCamara }]}
                     />
                     {FotoLista}
@@ -554,15 +593,33 @@ function MarcajeRegistrado({
   onRepetir: () => void;
 }) {
   const manual = asistencia.metodo === 'manual';
+  const esEntrada = asistencia.tipo === 'entrada';
+  const [segundos, setSegundos] = useState(4);
+
+  useEffect(() => {
+    if (segundos <= 0) {
+      onRepetir();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSegundos((prev) => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [segundos, onRepetir]);
+
   return (
     <View style={styles.resultado}>
       <View style={styles.resultadoIcono}>
         <Ionicons
           name="checkmark-circle"
-          size={iconSize.lg}
+          size={iconSize.xl}
           color={colors.success}
         />
       </View>
+
+      <Text style={styles.saludoTexto}>
+        {esEntrada ? '¡Bienvenido/a al turno!' : '¡Hasta pronto!'}
+      </Text>
 
       <Text style={styles.resultadoNombre} numberOfLines={2}>
         {asistencia.nombreCompleto || `Usuario #${asistencia.usuarioId}`}
@@ -573,14 +630,14 @@ function MarcajeRegistrado({
       </View>
 
       <View style={styles.chips}>
-        <Badge variant={asistencia.tipo === 'entrada' ? 'success' : 'warning'}>
-          {asistencia.tipo === 'entrada' ? 'Entrada' : 'Salida'}
+        <Badge variant={esEntrada ? 'success' : 'warning'}>
+          {esEntrada ? 'Entrada Registrada' : 'Salida Registrada'}
         </Badge>
         <Badge variant={manual ? 'warning' : 'default'}>
-          {manual ? 'Manual' : 'Automático'}
+          {manual ? 'Confirmación 1-tap' : 'Reconocimiento Automático'}
         </Badge>
-        {!manual ? (
-          <Badge variant="info">Confianza {porcentaje(asistencia.confianza)}</Badge>
+        {!manual && asistencia.confianza != null ? (
+          <Badge variant="info">Similitud {porcentaje(asistencia.confianza)}</Badge>
         ) : null}
       </View>
 
@@ -603,11 +660,16 @@ function MarcajeRegistrado({
         ) : null}
       </View>
 
+      <View style={styles.autoResetBar}>
+        <Text style={styles.autoResetTexto}>
+          Cámara lista para el siguiente en {segundos}s
+        </Text>
+      </View>
+
       <PrimaryCTA
-        label="Marcar otra persona"
-        iconName="camera"
+        label="Listo / Marcar ahora"
+        iconName="scan-outline"
         onPress={onRepetir}
-        color={colors.text}
       />
     </View>
   );
@@ -797,5 +859,69 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+
+  saludoTexto: {
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+    color: colors.success,
+    letterSpacing: 0.5,
+  },
+  autoResetBar: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.systemSecondaryContainer,
+  },
+  autoResetTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+
+  candidatoTopCard: {
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  candidatoTopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  candidatoTopInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  candidatoTopNombre: {
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
+  candidatoTopMeta: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+  candidatosSubtitulo: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.textMuted,
+    marginTop: space.sm,
+  },
+  btnReintentar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    paddingVertical: space.sm,
+  },
+  btnReintentarTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.textMuted,
   },
 });

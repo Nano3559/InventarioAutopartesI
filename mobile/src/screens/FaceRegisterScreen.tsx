@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +24,8 @@ import {
   registrarRostro,
   listarUsuarios,
   usuariosSinRostro,
+  usuariosConRostro,
+  eliminarRostro,
   FOTOS_MINIMO,
   FOTOS_MAXIMO,
   FOTOS_RECOMENDADAS,
@@ -81,7 +84,10 @@ export default function FaceRegisterScreen() {
   const [apellido, setApellido] = useState('');
   const [elegido, setElegido] = useState<UsuarioListado | null>(null);
   const [modoManual, setModoManual] = useState(false);
+  const [pestana, setPestana] = useState<'pendientes' | 'registrados'>('pendientes');
   const [pendientes, setPendientes] = useState<UsuarioListado[] | null>(null);
+  const [registrados, setRegistrados] = useState<UsuarioListado[] | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<number | null>(null);
   const [errorPendientes, setErrorPendientes] = useState<string | null>(null);
   const [fotos, setFotos] = useState<ArchivoLocal[]>([]);
   const [consentido, setConsentido] = useState(false);
@@ -96,21 +102,34 @@ export default function FaceRegisterScreen() {
   const hayDestino =
     elegido !== null || (nombre.trim().length > 0 && apellido.trim().length > 0);
 
+  const esReentrenamiento = Boolean(
+    elegido && (elegido.facePhoto || elegido.faceRegisteredAt),
+  );
+
   const completa =
     fotos.length >= FOTOS_MINIMO && hayDestino && consentido;
 
   /**
-   * El personal que todavía no tiene rostro. Se recarga después de cada registro
-   * para que la lista no ofrezca otra vez a quien ya quedó cargado.
+   * Carga todo el personal activo y lo clasifica entre pendientes (sin rostro)
+   * y registrados (con fotos/modelo activo).
    */
-  const cargarPendientes = useCallback(async () => {
+  const cargarPersonal = useCallback(async () => {
     setErrorPendientes(null);
     try {
       const token = await getToken();
       if (!token) return;
-      setPendientes(usuariosSinRostro(await listarUsuarios(token)));
+      const lista = await listarUsuarios(token);
+      const sin = usuariosSinRostro(lista);
+      const con = usuariosConRostro(lista);
+      setPendientes(sin);
+      setRegistrados(con);
+      // Si ya todos tienen rostro registrado, cambiamos por defecto a la pestaña de registrados
+      if (sin.length === 0 && con.length > 0) {
+        setPestana('registrados');
+      }
     } catch {
       setPendientes(null);
+      setRegistrados(null);
       setErrorPendientes(
         'No se pudo leer el personal. Podés escribir el nombre a mano.',
       );
@@ -118,8 +137,8 @@ export default function FaceRegisterScreen() {
   }, []);
 
   useEffect(() => {
-    void cargarPendientes();
-  }, [cargarPendientes]);
+    void cargarPersonal();
+  }, [cargarPersonal]);
 
   const agregarFoto = useCallback((foto: ArchivoLocal) => {
     setAviso(null);
@@ -287,6 +306,80 @@ export default function FaceRegisterScreen() {
     }
   }, [apellido, completa, elegido, enviando, fotos, nombre]);
 
+  const reentrenarUsuario = useCallback((u: UsuarioListado) => {
+    elegirUsuario(u);
+    setConsentido(true);
+    setFotos([]);
+    setAviso({
+      tono: 'info',
+      titulo: 'Actualizar fotos / reentrenar',
+      texto: `Tomá fotos nuevas para ${u.nombreCompleto}. Reemplazarán las fotos y el modelo biométrico anterior.`,
+    });
+  }, [elegirUsuario]);
+
+  const solicitarBorrarRostro = useCallback((u: UsuarioListado) => {
+    const ejecutarBorrado = async () => {
+      try {
+        setEliminandoId(u.id);
+        setAviso(null);
+        const token = await getToken();
+        if (!token) {
+          setAviso({
+            tono: 'error',
+            titulo: 'Sesión vencida',
+            texto: 'Volvé a iniciar sesión para borrar el rostro.',
+          });
+          return;
+        }
+        await eliminarRostro(u.id, token);
+        if (elegido?.id === u.id) {
+          setElegido(null);
+          setFotos([]);
+        }
+        await cargarPersonal();
+        setAviso({
+          tono: 'info',
+          titulo: 'Fotos y modelo eliminados',
+          texto: `Se eliminó el rostro de ${u.nombreCompleto}. Ya podés volver a registrarlo con fotos nuevas.`,
+        });
+      } catch (err) {
+        setAviso({
+          tono: 'error',
+          titulo: 'No se pudo eliminar',
+          texto: err instanceof Error ? err.message : 'Error al eliminar el rostro.',
+        });
+      } finally {
+        setEliminandoId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (
+        typeof window !== 'undefined' &&
+        window.confirm(
+          `¿Eliminar fotos de ${u.nombreCompleto}?\n\nSe borrará el modelo biométrico de la base de datos para que puedas volver a registrarlo desde cero.`,
+        )
+      ) {
+        void ejecutarBorrado();
+      }
+    } else {
+      Alert.alert(
+        `¿Eliminar fotos de ${u.nombreCompleto}?`,
+        'Se borrarán las fotos y el modelo biométrico de la base de datos para que puedas volver a registrarlo desde cero con mejores fotos.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar rostro',
+            style: 'destructive',
+            onPress: () => {
+              void ejecutarBorrado();
+            },
+          },
+        ],
+      );
+    }
+  }, [cargarPersonal, elegido?.id]);
+
   const reiniciar = useCallback(() => {
     setResultado(null);
     setFotos([]);
@@ -298,9 +391,8 @@ export default function FaceRegisterScreen() {
     setAviso(null);
     setCandidatos([]);
     setSugerencias([]);
-    // La persona recién registrada ya no tiene que aparecer en la lista.
-    void cargarPendientes();
-  }, [cargarPendientes]);
+    void cargarPersonal();
+  }, [cargarPersonal]);
 
   /**
    * Lista de personas para que el operador elija a cuál se le asocia el rostro.
@@ -437,6 +529,47 @@ export default function FaceRegisterScreen() {
             <View style={styles.formBox}>
               <Text style={styles.fieldLabel}>¿A quién le tomás la foto?</Text>
 
+              {elegido && (elegido.facePhoto || elegido.faceRegisteredAt) ? (
+                <View style={styles.reentrenandoNotice}>
+                  <Ionicons name="sync-outline" size={iconSize.sm} color={colors.primary} />
+                  <Text style={styles.reentrenandoNoticeText}>
+                    Reentrenando: se reemplazarán las fotos y el modelo biométrico de {elegido.nombreCompleto}.
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Pestañas: Personal sin registrar vs. Personal ya registrado */}
+              <View style={styles.tabBar}>
+                <Pressable
+                  style={[styles.tabBtn, pestana === 'pendientes' && styles.tabBtnActive]}
+                  onPress={() => setPestana('pendientes')}
+                  accessibilityRole={a11y.button}
+                >
+                  <Text
+                    style={[
+                      styles.tabBtnText,
+                      pestana === 'pendientes' && styles.tabBtnTextActive,
+                    ]}
+                  >
+                    Sin registrar ({pendientes?.length ?? 0})
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.tabBtn, pestana === 'registrados' && styles.tabBtnActive]}
+                  onPress={() => setPestana('registrados')}
+                  accessibilityRole={a11y.button}
+                >
+                  <Text
+                    style={[
+                      styles.tabBtnText,
+                      pestana === 'registrados' && styles.tabBtnTextActive,
+                    ]}
+                  >
+                    Registrados ({registrados?.length ?? 0})
+                  </Text>
+                </Pressable>
+              </View>
+
               {errorPendientes ? (
                 <View style={styles.pendingWarn} accessibilityRole={a11y.alert}>
                   <Ionicons
@@ -446,60 +579,161 @@ export default function FaceRegisterScreen() {
                   />
                   <Text style={styles.pendingWarnText}>{errorPendientes}</Text>
                 </View>
-              ) : pendientes === null ? (
-                <View style={styles.pendingCargando}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : pendientes.length === 0 ? (
-                <View style={styles.pendingVacio}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={iconSize.md}
-                    color={colors.success}
-                  />
-                  <Text style={styles.pendingVacioText}>
-                    Todo el personal activo ya tiene rostro registrado.
-                  </Text>
-                </View>
+              ) : pestana === 'pendientes' ? (
+                pendientes === null ? (
+                  <View style={styles.pendingCargando}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : pendientes.length === 0 ? (
+                  <View style={styles.pendingVacio}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={iconSize.md}
+                      color={colors.success}
+                    />
+                    <Text style={styles.pendingVacioText}>
+                      Todo el personal activo ya tiene rostro registrado. Podés verlos o reentrenar en la pestaña "Registrados".
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    style={styles.pendingList}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {pendientes.map((u) => {
+                      const activo = elegido?.id === u.id;
+                      return (
+                        <Pressable
+                          key={u.id}
+                          style={({ pressed }) => [
+                            styles.pendingRow,
+                            activo && styles.pendingRowOn,
+                            pressed && styles.pressed,
+                          ]}
+                          onPress={() => elegirUsuario(u)}
+                          disabled={enviando}
+                          accessibilityRole={a11y.button}
+                          accessibilityState={{ selected: activo }}
+                          accessibilityLabel={`Elegir a ${u.nombreCompleto}`}
+                        >
+                          <Ionicons
+                            name={activo ? 'radio-button-on' : 'person-outline'}
+                            size={iconSize.md}
+                            color={activo ? colors.primary : colors.textMuted}
+                          />
+                          <View style={styles.pendingRowInfo}>
+                            <Text style={styles.pendingRowNombre} numberOfLines={1}>
+                              {u.nombreCompleto}
+                            </Text>
+                            <Text style={styles.pendingRowMeta} numberOfLines={1}>
+                              {u.email} · {u.rol}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )
               ) : (
-                <ScrollView
-                  style={styles.pendingList}
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                >
-                  {pendientes.map((u) => {
-                    const activo = elegido?.id === u.id;
-                    return (
-                      <Pressable
-                        key={u.id}
-                        style={({ pressed }) => [
-                          styles.pendingRow,
-                          activo && styles.pendingRowOn,
-                          pressed && styles.pressed,
-                        ]}
-                        onPress={() => elegirUsuario(u)}
-                        disabled={enviando}
-                        accessibilityRole={a11y.button}
-                        accessibilityState={{ selected: activo }}
-                        accessibilityLabel={`Elegir a ${u.nombreCompleto}`}
-                      >
-                        <Ionicons
-                          name={activo ? 'radio-button-on' : 'person-outline'}
-                          size={iconSize.md}
-                          color={activo ? colors.primary : colors.textMuted}
-                        />
-                        <View style={styles.pendingRowInfo}>
-                          <Text style={styles.pendingRowNombre} numberOfLines={1}>
-                            {u.nombreCompleto}
-                          </Text>
-                          <Text style={styles.pendingRowMeta} numberOfLines={1}>
-                            {u.email} · {u.rol}
-                          </Text>
+                /* Pestaña: Registrados */
+                registrados === null ? (
+                  <View style={styles.pendingCargando}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : registrados.length === 0 ? (
+                  <View style={styles.pendingVacio}>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={iconSize.md}
+                      color={colors.textMuted}
+                    />
+                    <Text style={styles.pendingVacioText}>
+                      Aún no hay personal con rostro registrado.
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    style={styles.pendingList}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {registrados.map((u) => {
+                      const activo = elegido?.id === u.id;
+                      const enBorrado = eliminandoId === u.id;
+                      return (
+                        <View
+                          key={u.id}
+                          style={[
+                            styles.pendingRow,
+                            activo && styles.pendingRowOn,
+                          ]}
+                        >
+                          <Ionicons
+                            name={activo ? 'radio-button-on' : 'checkmark-circle'}
+                            size={iconSize.md}
+                            color={activo ? colors.primary : colors.success}
+                          />
+                          <View style={styles.pendingRowInfo}>
+                            <Text style={styles.pendingRowNombre} numberOfLines={1}>
+                              {u.nombreCompleto}
+                            </Text>
+                            <Text style={styles.pendingRowMeta} numberOfLines={1}>
+                              {u.email} · {u.rol}
+                            </Text>
+                          </View>
+                          <View style={styles.regActionRow}>
+                            <Pressable
+                              style={({ pressed }) => [
+                                styles.regBtnReentrenar,
+                                activo && styles.regBtnReentrenarOn,
+                                pressed && styles.pressed,
+                              ]}
+                              onPress={() => reentrenarUsuario(u)}
+                              disabled={enviando || enBorrado}
+                              accessibilityRole={a11y.button}
+                              accessibilityLabel={`Tomar nuevas fotos para ${u.nombreCompleto}`}
+                            >
+                              <Ionicons
+                                name="camera-outline"
+                                size={iconSize.sm}
+                                color={activo ? colors.white : colors.primary}
+                              />
+                              <Text
+                                style={[
+                                  styles.regBtnReentrenarText,
+                                  activo && styles.regBtnReentrenarTextOn,
+                                ]}
+                              >
+                                {activo ? 'Listo' : 'Reentrenar'}
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              style={({ pressed }) => [
+                                styles.regBtnBorrar,
+                                pressed && styles.pressed,
+                              ]}
+                              onPress={() => solicitarBorrarRostro(u)}
+                              disabled={enviando || enBorrado}
+                              accessibilityRole={a11y.button}
+                              accessibilityLabel={`Eliminar fotos de ${u.nombreCompleto}`}
+                            >
+                              {enBorrado ? (
+                                <ActivityIndicator size="small" color={colors.danger} />
+                              ) : (
+                                <Ionicons
+                                  name="trash-outline"
+                                  size={iconSize.sm}
+                                  color={colors.danger}
+                                />
+                              )}
+                            </Pressable>
+                          </View>
                         </View>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
+                      );
+                    })}
+                  </ScrollView>
+                )
               )}
 
               {/* Respaldo: el nombre a mano, con el riesgo de 404/409 que la lista
@@ -708,12 +942,12 @@ export default function FaceRegisterScreen() {
               <PrimaryCTA
                 label={
                   enviando
-                    ? 'Registrando...'
-                    : `Registrar rostro (${fotos.length} ${
+                    ? (esReentrenamiento ? 'Actualizando...' : 'Registrando...')
+                    : `${esReentrenamiento ? 'Actualizar modelo' : 'Registrar rostro'} (${fotos.length} ${
                         fotos.length === 1 ? 'foto' : 'fotos'
                       })`
                 }
-                iconName="camera"
+                iconName={esReentrenamiento ? 'sync' : 'camera'}
                 onPress={enviar}
                 disabled={!completa || enviando}
               />
@@ -1140,5 +1374,88 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     fontFamily: fontFamily.sans,
     lineHeight: fontSize.caption * lineHeight.relaxed,
+  },
+
+  // ── Pestañas y acciones de reentrenamiento/eliminación ─────────────────────
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.bg,
+    borderRadius: radius.sm,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: space.xs,
+    marginBottom: space.xs,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.xs,
+  },
+  tabBtnActive: {
+    backgroundColor: colors.card,
+    ...shadows.level1,
+  },
+  tabBtnText: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+  tabBtnTextActive: {
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.primary,
+  },
+  regActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  regBtnReentrenar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.xs,
+    backgroundColor: colors.primarySoft,
+  },
+  regBtnReentrenarOn: {
+    backgroundColor: colors.primary,
+  },
+  regBtnReentrenarText: {
+    color: colors.primary,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+  },
+  regBtnReentrenarTextOn: {
+    color: colors.white,
+  },
+  regBtnBorrar: {
+    padding: 8,
+    borderRadius: radius.xs,
+    backgroundColor: colors.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reentrenandoNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.sm,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginTop: space.xs,
+    marginBottom: space.xs,
+  },
+  reentrenandoNoticeText: {
+    flex: 1,
+    color: colors.primary,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
   },
 });
