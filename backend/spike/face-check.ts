@@ -9,17 +9,25 @@
  * modelo se corre **fuera** de Jest.
  *
  * Uso:  npm run face:check
- * Modelo: backend/spike/models/arcfaceresnet100-11-int8.onnx (63 MB, no se versiona)
+ * Modelo: backend/models/arcfaceresnet100-11-int8.onnx (63 MB, no se versiona;
+ * lo baja `node scripts/ensure-arcface-model.mjs`. También se acepta
+ * backend/spike/models/, la ubicación histórica del spike)
  */
+import * as fs from 'fs';
 import * as path from 'path';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { FaceService } from '../src/face/face.service';
 import { ARCFACE_DIMENSION } from '../src/face/face-embedding';
 
+const NOMBRE_MODELO = 'arcfaceresnet100-11-int8.onnx';
+const CANDIDATOS = [
+  path.join(__dirname, '..', 'models', NOMBRE_MODELO), // canónico (ensure-arcface-model.mjs)
+  path.join(__dirname, 'models', NOMBRE_MODELO), // histórico del spike
+];
 const MODELO =
-  process.env.ARCFACE_MODEL ||
-  path.join(__dirname, 'models', 'arcfaceresnet100-11-int8.onnx');
+  process.env.ARCFACE_MODEL ??
+  (CANDIDATOS.find((ruta) => fs.existsSync(ruta)) ?? CANDIDATOS[0]);
 
 const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(1);
 const rss = () => Number(mb(process.memoryUsage().rss));
