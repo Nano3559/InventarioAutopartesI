@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from '@expo-google-fonts/inter/useFonts';
 const Inter_400Regular = require('@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf');
 const Inter_500Medium = require('@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf');
@@ -201,20 +202,26 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <TiqueadorProvider>
-          <NavigationContainer>
-            <RootNavigator />
-            <StatusBar style="dark" animated />
-          </NavigationContainer>
-        </TiqueadorProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    // `GestureHandlerRootView` es obligatorio para el drawer de
+    // `@react-navigation/drawer` v7: sin él, la app arranca en Expo Go pero
+    // revienta en el dispositivo (pantalla azul al montar Main).
+    <GestureHandlerRootView style={styles.raiz}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <TiqueadorProvider>
+            <NavigationContainer>
+              <RootNavigator />
+              <StatusBar style="dark" animated />
+            </NavigationContainer>
+          </TiqueadorProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  raiz: { flex: 1 },
   loading: {
     flex: 1,
     alignItems: 'center',

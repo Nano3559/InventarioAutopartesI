@@ -58,7 +58,7 @@
 #### 2. Control de Asistencia Facial con IA (ArcFace in-process)
 - **Modelo de IA embebido**: Inferencia *in-process* dentro de NestJS con `onnxruntime-node` utilizando **ArcFace int8** (`onnxmodelzoo/arcfaceresnet100-11-int8`, Apache-2.0, embedding de 512 dimensiones). Sin microservicios externos ni dependencias pesadas de GPU.
 - **Registro facial**: Formulario móvil con encuadre oval guiado (112×112) que extrae, promedia y normaliza el embedding, almacenando la fotografía de auditoría en el bucket privado `faces` de Supabase.
-- **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral calibrado en **0.35**. Registro automático de `entrada` o `salida` según el flujo diario del empleado.
+- **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral **estricto en 0.8** (configurable por env). Registro automático de `entrada` o `salida` según el flujo diario; si nadie supera el umbral se avisa "usuario desconocido, debe registrarse" sin registrar nada.
 - **Privacidad y cumplimiento legal (Ley 26935 Bolivia)**: Fotografías servidas exclusivamente mediante URLs firmadas temporales (1 hora) y opción de supresión biométrica definitiva (`eliminarEmbedding: true`).
 
 #### 3. Módulos Web de Gestión y Auditoría (Web Admin)

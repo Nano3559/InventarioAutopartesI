@@ -29,14 +29,28 @@ export const METODOS_ASISTENCIA = ['automatico', 'manual'] as const;
 export type MetodoAsistencia = (typeof METODOS_ASISTENCIA)[number];
 
 /**
- * Umbral de similitud para dar por válido un marcaje automático.
- * Con el pipeline UltraFace (detector de recuadro facial) + ArcFace normalizado:
- * - Personas distintas tienen similitud coseno < 0.20 (rango medido real: -0.05 a +0.16).
- * - La misma persona tiene similitud coseno > 0.85 (rango medido real: 0.85 a 1.00).
- * Umbral fijado en 0.70 con margen de seguridad del 8% entre candidatos para eliminar
- * al 100% las confusiones y falsos positivos.
+ * Umbral de similitud (coseno sobre embeddings ArcFace normalizados, 0-1) para
+ * dar por válido un marcaje automático.
+ *
+ * Historia de la calibración:
+ * - 0.55 venía del scoring de InsightFace y con coseno ArcFace daba falsos
+ *   negativos (el rango típico de "misma persona" medido era 0.28-0.45).
+ * - 0.35 dejaba pasar desconocidos: una cara que **no está registrada** podía
+ *   igualar con la galería y marcaba "confianza alta", registrando al empleado
+ *   equivocado.
+ * - 0.8 (exigido por el negocio): cualquier marcaje por debajo de esa confianza
+ *   se responde como "usuario desconocido" y la app pide registrarse primero.
+ *   Es deliberadamente exigente: un rostro **bien alineado** del mismo usuario
+ *   suele superarlo; si un empleado registrado empieza a salir "desconocido",
+ *   hay que bajar el valor (se configura con `UMBRAL_CONFIANZA_FACIAL` en el
+ *   entorno, sin redeploy) y no volver a subirlo por debajo de lo que separa
+ *   genuinos de impostores en la tabla de scores de R5.
  */
-export const UMBRAL_CONFIANZA_FACIAL = 0.7;
+const umbralConfianza = Number(process.env.UMBRAL_CONFIANZA_FACIAL);
+export const UMBRAL_CONFIANZA_FACIAL =
+  Number.isFinite(umbralConfianza) && umbralConfianza > 0 && umbralConfianza <= 1
+    ? umbralConfianza
+    : 0.8;
 
 /** Registro facial: cuántas fotos del rostro se aceptan y cuántas se recomiendan. */
 export const FOTOS_MINIMO_REGISTRO = 1;

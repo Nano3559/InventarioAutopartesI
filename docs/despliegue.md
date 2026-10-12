@@ -31,13 +31,12 @@ plan free, región Oregon):
    así que el archivo se baja en el primer arranque de cada despliegue (~8 s).
 4. Verificar salud: `GET https://inventarioautopartesi.onrender.com/api` responde 200.
 
-> ⚠️ **PENDIENTE (06/10):** `SUPABASE_KEY` en el entorno de Render quedó con la clave
-> **`anon`** y el registro facial falla con `400 row-level security policy (bucket: faces)`
+> ✅ **RESUELTO (06/10):** `SUPABASE_KEY` en el entorno de Render quedó con la clave
+> **`anon`** y el registro facial fallaba con `400 row-level security policy (bucket: faces)`
 > (el bucket `faces` es privado, sin policies: solo `service_role` lo alcanza; `products`
-> funciona con `anon` porque tiene policy). **Acción manual:** dashboard de Render →
-> Web Service → Environment → `SUPABASE_KEY` = clave `service_role` de Supabase (la misma
-> del secret del ping en GitHub Actions) → Save → `Manual Deploy → Deploy latest commit`.
-> Ver `docs/entornos.md` §Backend.
+> funciona con `anon` porque tiene policy). Se corrigió poniendo la **`service_role`** de
+> Supabase como `SUPABASE_KEY` en el dashboard de Render (la misma del secret del ping en
+> GitHub Actions) + `Manual Deploy`. Ver `docs/entornos.md` §Backend.
 
 ### 1.1 Plan free: spin-down y cold start
 
