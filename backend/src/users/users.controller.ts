@@ -17,6 +17,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { multerImagenes } from '../common/image-upload';
 import { FOTOS_MAXIMO_REGISTRO } from '../common/constants';
+import { parsearRecorteCara } from '../face/face-embedding';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -62,12 +63,16 @@ export class UsersController {
     @Body('usuarioId') usuarioId: string | undefined,
     @Body('nombre') nombre: string | undefined,
     @Body('apellido') apellido: string | undefined,
+    @Body('cropX') cropX: string | undefined,
+    @Body('cropY') cropY: string | undefined,
+    @Body('cropTamano') cropTamano: string | undefined,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     return this.usersService.registrarRostro(
       usuarioId,
       nombre,
       apellido,
+      parsearRecorteCara(cropX, cropY, cropTamano),
       files,
     );
   }

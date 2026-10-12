@@ -15,6 +15,7 @@ import {
   UMBRAL_CONFIANZA_FACIAL,
 } from '../common/constants';
 import type { MetodoAsistencia, TipoAsistencia } from '../common/constants';
+import type { RecorteCara } from '../face/face-embedding';
 
 const LIMITE_PAGINA_MAX = 200;
 
@@ -525,18 +526,22 @@ export class AttendanceService {
   }
 
   /**
-   * Verifica rostro → reconoce y registra marcaje automático o devuelve candidatos.
+   * Verifica rostro → reconoce y registra marcaje automático o responde "usuario
+   * desconocido" sin insertar nada.
    *
-   * Con `usuarioId` se **salta el reconocimiento**: el operador ya eligió a quién
-   * pertenece la foto (es el camino de "no reconocido" → elegir el nombre a mano,
-   * la UX de R4). Se registra `metodo: 'manual'`, sin confianza, con el admin que
-   * confirma en `confirmadoPorId`, y sin correr ArcFace: la foto se ignora.
+   * Política estricta del negocio: por debajo de `UMBRAL_CONFIANZA_FACIAL` no se
+   * registra nada ni se sugieren candidatos (privacidad, Ley 26935): la app pide
+   * registrarse. Con `usuarioId` se **salta el reconocimiento**: el operador ya
+   * eligió a quién pertenece la foto. Se registra `metodo: 'manual'`, sin confianza,
+   * con el admin que confirma en `confirmadoPorId`, y sin correr ArcFace: la foto
+   * se ignora.
    */
   async check(
     file: Express.Multer.File,
     tipo?: TipoAsistencia,
     locationId?: number | null,
     usuarioId?: number | null,
+    recorte?: RecorteCara | null,
     actorId?: number | null,
   ) {
     if (tipo !== undefined && !TIPOS_ASISTENCIA.includes(tipo)) {
@@ -557,9 +562,16 @@ export class AttendanceService {
       return this.registrarManual(usuarioId, tipo, locationId, actorId);
     }
 
-    const embedding = await this.faceService.embeddingDeFoto(file);
+    const embedding = await this.faceService.embeddingDeFoto(file, recorte);
     const candidatos = await this.faceService.buscar(embedding, 5);
-    if (!candidatos.length) {
+    const mejor = candidatos[0];
+
+    // Política del negocio: el reconocimiento es estricto. Por debajo del umbral
+    // (UMBRAL_CONFIANZA_FACIAL, 0.8 por defecto) NO se registra nada ni se sugieren
+    // candidatos: se responde "usuario desconocido" y la app pide registrarse.
+    // Sin esto, una cara que no está en la BD igualaba con la galería, marcaba
+    // confianza "alta" y registraba a la persona equivocada.
+    if (!mejor || mejor.similitud < UMBRAL_CONFIANZA_FACIAL) {
       return {
         reconocido: false,
         requiereConfirmacion: false,
@@ -567,52 +579,45 @@ export class AttendanceService {
         candidatos: [],
       };
     }
-    const mejor = candidatos[0];
-    if (mejor.similitud >= UMBRAL_CONFIANZA_FACIAL) {
-      const usuario = await this.usuariosRepo.findOne({
-        where: { id: mejor.usuarioId, activo: true },
-      });
-      if (!usuario) {
-        return {
-          reconocido: false,
-          requiereConfirmacion: false,
-          umbral: UMBRAL_CONFIANZA_FACIAL,
-          candidatos,
-        };
-      }
-      const fecha = new Date();
-      const tipoFinal =
-        tipo ?? (await this.determinarTipoAutomatico(usuario.id, fecha));
-      const asistencia = this.asistenciaRepo.create({
-        usuarioId: usuario.id,
-        locationId: locationId ?? null,
-        fecha,
-        tipo: tipoFinal,
-        metodo: 'automatico',
-        confianza: mejor.similitud,
-      });
-      const guardada = await this.asistenciaRepo.save(asistencia);
-      const completa = await this.findOne(guardada.id);
+
+    const usuario = await this.usuariosRepo.findOne({
+      where: { id: mejor.usuarioId, activo: true },
+    });
+    if (!usuario) {
       return {
-        reconocido: true,
-        manual: false,
+        reconocido: false,
         requiereConfirmacion: false,
         umbral: UMBRAL_CONFIANZA_FACIAL,
-        candidato: {
-          usuarioId: usuario.id,
-          nombreCompleto: [usuario.nombre, usuario.apellido]
-            .filter(Boolean)
-            .join(' '),
-          similitud: mejor.similitud,
-        },
-        asistencia: completa,
+        candidatos: [],
       };
     }
+
+    const fecha = new Date();
+    const tipoFinal =
+      tipo ?? (await this.determinarTipoAutomatico(usuario.id, fecha));
+    const asistencia = this.asistenciaRepo.create({
+      usuarioId: usuario.id,
+      locationId: locationId ?? null,
+      fecha,
+      tipo: tipoFinal,
+      metodo: 'automatico',
+      confianza: mejor.similitud,
+    });
+    const guardada = await this.asistenciaRepo.save(asistencia);
+    const completa = await this.findOne(guardada.id);
     return {
-      reconocido: false,
-      requiereConfirmacion: true,
+      reconocido: true,
+      manual: false,
+      requiereConfirmacion: false,
       umbral: UMBRAL_CONFIANZA_FACIAL,
-      candidatos,
+      candidato: {
+        usuarioId: usuario.id,
+        nombreCompleto: [usuario.nombre, usuario.apellido]
+          .filter(Boolean)
+          .join(' '),
+        similitud: mejor.similitud,
+      },
+      asistencia: completa,
     };
   }
 

@@ -234,9 +234,10 @@ quién es la foto" **cuando el marcaje ya existe**: pasa la fila a `metodo: 'man
 Devuelve la fila actualizada (mismo shape que `GET /attendance`). Marcaje inexistente → `404`.
 No reescribe `usuarioId`, `tipo` ni `locationId`: para eso está `PATCH /attendance/:id`.
 
-> Cuando el marcaje **todavía no existe** (el caso normal de la UX de R4: se presidente en
-> vivo y sale `requiereConfirmacion`), se vuelve a llamar a `POST /attendance/check` con
-> `usuarioId`: ahí se crea la fila ya como manual y se salta ArcFace por completo.
+> Cuando el marcaje **todavía no existe**, el camino manual es llamar a
+> `POST /attendance/check` con `usuarioId`: ahí se crea la fila ya como manual y se salta
+> ArcFace por completo. (Ya no existe el camino "bajo umbral → candidatos" de R4: el
+> automático responde o un reconocido, o "usuario desconocido" sin candidatos.)
 
 ### `GET /attendance/dashboard` (B5)
 
@@ -298,27 +299,29 @@ explícitas: nunca `password` ni `embedding`.
 | `tipo` | `entrada` \| `salida`. Opcional: si falta, se alterna según el último marcaje del día |
 | `locationId` | Tienda del marcaje. Se valida: debe existir → si no, `404` |
 | `usuarioId` | **B5.** Fuerza el marcaje manual: el operador ya eligió a quién pertenece la foto |
+| `cropX`, `cropY`, `cropTamano` | **Recorte cuadrado** (px) en la foto original, calculado por la app sobre la guía oval. Opcionales: sin ellos se procesa la escena completa y baja la precisión |
 
-Sin `usuarioId` el servicio normaliza la foto (`sharp`: EXIF, `112×112` con `fit: 'cover'`),
-corre ArcFace int8 y compara por similitud coseno contra el índice en memoria
-(umbral `UMBRAL_CONFIANZA_FACIAL` = 0.35). **La guía oval es de la app móvil**, no del
-backend: aquí solo llega el recorte cuadrado que la cámara ya encuadró.
+Sin `usuarioId` el servicio normaliza la foto (`sharp`: normaliza EXIF, extrae el recorte
+`cropX/cropY/cropTamano` si viene, deja `112×112` con `fit: 'cover'`), corre ArcFace int8 y
+compara por similitud coseno contra el índice en memoria (umbral `UMBRAL_CONFIANZA_FACIAL` =
+0.8, configurable por env). **La guía oval es de la app móvil**: ella calcula el recorte y lo
+manda, para que el backend no compare la escena completa. Ojo: hoy los embeddings se calculan
+**sin alineación** (recorte → 112×112); para que ArcFace reconozca bien (y el 0.8 sea
+alcanzable) falta el fix de alineación SCRFD en el backend — ver `Plan Hito 3.md`.
 
 ```jsonc
-// índice vacío (nadie tiene rostro): no se crea nada
-{ "reconocido": false, "requiereConfirmacion": false, "umbral": 0.35, "candidatos": [] }
-
-// coincidencias por debajo del umbral: el admin elige a mano (o descarta)
-{ "reconocido": false, "requiereConfirmacion": true, "umbral": 0.35, "similitud": 0.21,
-  "candidatos": [ /* top 5: `{ usuarioId, similitud }`, de más a menos similar */ ] }
+// nadie reconoce (índice vacío o por debajo del umbral): NO se inserta nada y NO se
+// filtran candidatos (privacidad biométrica, Ley 26935). La app muestra
+// "usuario desconocido, debe registrarse"
+{ "reconocido": false, "requiereConfirmacion": false, "umbral": 0.8, "candidatos": [] }
 
 // por encima del umbral: se registra el marcaje
-{ "reconocido": true, "manual": false, "requiereConfirmacion": false, "umbral": 0.35,
+{ "reconocido": true, "manual": false, "requiereConfirmacion": false, "umbral": 0.8,
   "candidato": { "usuarioId": 3, "nombreCompleto": "Ana Paz", "similitud": 0.82 },
   "asistencia": { /* la fila de GET /attendance */ } }
 
 // con usuarioId (manual): sin ArcFace, metodo "manual", confianza null y confirmada por el admin
-{ "reconocido": true, "manual": true, "requiereConfirmacion": false, "umbral": 0.35,
+{ "reconocido": true, "manual": true, "requiereConfirmacion": false, "umbral": 0.8,
   "candidato": { "usuarioId": 3, "nombreCompleto": "Ana Paz", "similitud": null },
   "asistencia": { "metodo": "manual", "confirmadoPorId": 1, "confianza": null, … } }
 ```

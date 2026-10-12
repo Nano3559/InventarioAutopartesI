@@ -18,11 +18,9 @@ import AdminPasswordGate from '../components/AdminPasswordGate';
 import TiendaSelector from '../components/TiendaSelector';
 import {
   marcarAsistencia,
-  marcarAsistenciaManual,
   type AttendanceCheck,
   type Asistencia,
 } from '../api/attendance';
-import { listarRostros } from '../api/users';
 import {
   ApiError,
   SIN_CONEXION,
@@ -57,15 +55,6 @@ type Aviso = {
   texto: string;
 } | null;
 
-/** Candidato de `check` ya resuelto con los datos del catálogo de personal. */
-interface CandidatoResuelto {
-  usuarioId: number;
-  similitud: number;
-  nombreCompleto: string;
-  email: string;
-  rol: string;
-}
-
 const HORA = { hour: '2-digit', minute: '2-digit' } as const;
 
 function horaDe(fecha: string): string {
@@ -87,18 +76,14 @@ function porcentaje(valor: number | null | undefined): string {
 /**
  * Marcaje de asistencia (tarea R4).
  *
- * El flujo tiene un solo camino de ida y tres finales, según lo que conteste
+ * El flujo tiene un solo camino de ida y dos finales, según lo que conteste
  * `POST /attendance/check`:
  *
  * 1. **Reconocido** → queda registrado el marcaje y se muestra nombre, hora exacta
  *    y tienda.
- * 2. **Bajo umbral** → el backend **no inserta nada**: devuelve candidatos y la
- *    pantalla deja que el operador elija a mano. Al elegir se reenvía el mismo
- *    multipart con `usuarioId`, que registra `metodo:'manual'`.
- * 3. **Sin coincidencias** → no hay rostros registrados (o ninguno parecido).
- *
- * Los candidatos del backend traen solo `usuarioId` y `similitud`
- * (`CandidatoRostro`), así que el nombre se resuelve contra `GET /users/rostros`.
+ * 2. **Desconocido** (similitud < 80%) → el backend **no inserta nada**: la
+ *    pantalla avisa "usuario desconocido" y pide registrarse primero. No hay
+ *    selector de personal: un desconocido no puede marcarse a mano.
  */
 export default function AttendanceScreen({
   modoTiqueador = false,
@@ -137,9 +122,6 @@ export default function AttendanceScreen({
   const [foto, setFoto] = useState<ArchivoLocal | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<AttendanceCheck | null>(null);
-  const [candidatos, setCandidatos] = useState<CandidatoResuelto[]>([]);
-  const [resolviendo, setResolviendo] = useState(false);
-  const [eligiendoId, setEligiendoId] = useState<number | null>(null);
   const [aviso, setAviso] = useState<Aviso>(null);
 
   // ── Tienda del terminal (tarea R9) ──────────────────────────────────────────
@@ -196,63 +178,25 @@ export default function AttendanceScreen({
     // Si ya había una foto capturada, era para otra tienda: se descarta.
     setFoto(null);
     setResultado(null);
-    setCandidatos([]);
     setAviso(null);
   }, []);
 
   const reiniciar = useCallback(() => {
     setFoto(null);
     setResultado(null);
-    setCandidatos([]);
     setAviso(null);
   }, []);
 
   const alCapturar = useCallback((captura: ArchivoLocal) => {
     setFoto(captura);
     setResultado(null);
-    setCandidatos([]);
     setAviso(null);
   }, []);
 
-  /**
-   * El índice en memoria del backend solo guarda `usuarioId → embedding`, así que
-   * los candidatos llegan sin nombre. `GET /users/rostros` es el catálogo de
-   * quienes tienen rostro registrado: es lo que permite al operador elegir bien
-   * entre homónimos.
-   */
-  const resolverCandidatos = useCallback(async (ids: number[]) => {
-    setResolviendo(true);
-    try {
-      const token = await getToken();
-      const roster = await listarRostros(token ?? '');
-      const porId = new Map(roster.map((r) => [r.id, r]));
-      return ids.map((usuarioId) => {
-        const persona = porId.get(usuarioId);
-        return {
-          usuarioId,
-          nombreCompleto: persona?.nombreCompleto ?? `Usuario #${usuarioId}`,
-          email: persona?.email ?? 'Sin email',
-          rol: persona?.rol ?? '—',
-        };
-      });
-    } catch {
-      // Si el catálogo no se puede leer, el operador igual puede elegir por id.
-      return ids.map((usuarioId) => ({
-        usuarioId,
-        nombreCompleto: `Usuario #${usuarioId}`,
-        email: 'Sin email',
-        rol: '—',
-      }));
-    } finally {
-      setResolviendo(false);
-    }
-  }, []);
-
   const registrar = useCallback(
-    async (usuarioId?: number) => {
-      if (!foto || enviando || (usuarioId !== undefined && eligiendoId !== null)) return;
-      if (usuarioId !== undefined) setEligiendoId(usuarioId);
-      else setEnviando(true);
+    async () => {
+      if (!foto || enviando) return;
+      setEnviando(true);
       setAviso(null);
 
       try {
@@ -281,56 +225,32 @@ export default function AttendanceScreen({
         }
 
         const token = await getToken();
-        const data =
-          usuarioId === undefined
-            ? await marcarAsistencia(
-                { fotoUri: foto.uri, fileName: foto.name, locationId: tiendaId },
-                token,
-              )
-            : await marcarAsistenciaManual(
-                {
-                  fotoUri: foto.uri,
-                  fileName: foto.name,
-                  locationId: tiendaId,
-                  usuarioId,
-                },
-                token,
-              );
+        const data = await marcarAsistencia(
+          {
+            fotoUri: foto.uri,
+            fileName: foto.name,
+            locationId: tiendaId,
+            recorte: foto.recorte,
+          },
+          token,
+        );
 
         setResultado(data);
 
         if (data.reconocido && data.asistencia) {
-          setCandidatos([]);
           setAviso(null);
           return;
         }
 
-        const crudos = data.candidatos ?? [];
-        if (crudos.length) {
-          const resueltos = await resolverCandidatos(
-            crudos.map((c) => c.usuarioId),
-          );
-          setCandidatos(
-            resueltos.map((r, i) => ({ ...r, similitud: crudos[i].similitud })),
-          );
-          setAviso({
-            tono: 'warning',
-            titulo: 'No se reconoció con confianza',
-            texto:
-              `La mejor coincidencia quedó por debajo del umbral ` +
-              `(${porcentaje(data.umbral)}). Elegí a quién corresponde la foto: ` +
-              'quedará registrada como marcaje manual.',
-          });
-          return;
-        }
-
-        setCandidatos([]);
+        // Reconocimiento estricto: bajo el umbral (0.8) el backend no registra nada
+        // y no vuelve candidatos. La foto no está en la BD → usuario desconocido.
         setAviso({
-          tono: 'info',
-          titulo: 'Rostro no reconocido',
+          tono: 'warning',
+          titulo: 'Usuario desconocido',
           texto:
-            'No hay ningún rostro registrado que se parezca a esta foto. ' +
-            'Registralo primero desde "Registro Facial".',
+            `La cara no coincide con ningún empleado registrado en la base de datos ` +
+            `(confianza mínima ${porcentaje(data.umbral)}). Debe registrarse primero ` +
+            'desde "Registro Facial", y recién ahí volver a marcarse.',
         });
       } catch (err) {
         setAviso({
@@ -343,14 +263,13 @@ export default function AttendanceScreen({
         });
       } finally {
         setEnviando(false);
-        setEligiendoId(null);
       }
     },
-    [eligiendoId, enviando, foto, resolverCandidatos, tiendaId],
+    [enviando, foto, tiendaId],
   );
 
   const registrado = resultado?.reconocido ? resultado.asistencia : undefined;
-  const ocupado = enviando || eligiendoId !== null || resolviendo;
+  const ocupado = enviando;
 
   // Sin tienda configurada no se puede marcar: el marcaje quedaría sin tienda.
   const SinTienda = (
@@ -466,53 +385,6 @@ export default function AttendanceScreen({
     </View>
   ) : null;
 
-  const BloqueCandidatos = candidatos.length ? (
-    <View style={styles.candidatos}>
-      <Text style={styles.candidatosTitulo}>¿A quién pertenece esta foto?</Text>
-      {resolviendo ? (
-        <ActivityIndicator color={colors.primary} />
-      ) : (
-        candidatos.map((c) => (
-          <Pressable
-            key={c.usuarioId}
-            style={({ pressed }) => [
-              styles.candidato,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => registrar(c.usuarioId)}
-            disabled={ocupado}
-            accessibilityRole={a11y.button}
-            accessibilityLabel={`Registrar marcaje de ${c.nombreCompleto}`}
-          >
-            <View style={styles.candidatoInfo}>
-              {/* El plan pide mostrar email/rol: con homónimos el nombre completo
-                  no alcanza para elegir. Con `numberOfLines` un email largo
-                  recorta en vez de empujar el badge y el chevron fuera de la fila. */}
-              <Text style={styles.candidatoNombre} numberOfLines={1}>
-                {c.nombreCompleto}
-              </Text>
-              <Text style={styles.candidatoMeta} numberOfLines={1}>
-                {c.email} · {c.rol}
-              </Text>
-            </View>
-            <Badge variant="info" size="sm">
-              {porcentaje(c.similitud)}
-            </Badge>
-            {eligiendoId === c.usuarioId ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons
-                name="chevron-forward"
-                size={iconSize.md}
-                color={colors.textMuted}
-              />
-            )}
-          </Pressable>
-        ))
-      )}
-    </View>
-  ) : null;
-
   const AccionMarcar = (
     <PrimaryCTA
       label={
@@ -594,7 +466,6 @@ export default function AttendanceScreen({
                 <>
                   {FotoLista}
                   {BloqueAviso}
-                  {BloqueCandidatos}
                   {AccionMarcar}
                 </>
               )}
@@ -631,7 +502,6 @@ export default function AttendanceScreen({
                     />
                     {FotoLista}
                     {BloqueAviso}
-                    {BloqueCandidatos}
                     {AccionMarcar}
                   </>
                 )}
@@ -843,34 +713,6 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.body,
   },
   avisoTitulo: { fontFamily: fontFamily.sansSemiBold },
-
-  candidatos: { gap: space.sm },
-  candidatosTitulo: {
-    fontSize: fontSize.bodyStrong,
-    fontFamily: fontFamily.sansSemiBold,
-    color: colors.text,
-  },
-  candidato: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    padding: space.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
-  },
-  candidatoInfo: { flex: 1, minWidth: 0 },
-  candidatoNombre: {
-    fontSize: fontSize.body,
-    fontFamily: fontFamily.sansSemiBold,
-    color: colors.text,
-  },
-  candidatoMeta: {
-    fontSize: fontSize.caption,
-    fontFamily: fontFamily.sans,
-    color: colors.textMuted,
-  },
 
   resultado: { alignItems: 'center', alignSelf: 'stretch', gap: space.md, paddingHorizontal: space.sm },
   resultadoIcono: { marginTop: space.sm },

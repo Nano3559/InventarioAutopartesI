@@ -108,6 +108,15 @@ export async function registrarRostro(
   for (const foto of fotos) {
     appendFile(form, 'fotos', foto);
   }
+  // Todas las fotos de la sesión vienen de la misma cámara y el mismo óvalo, así
+  // que el recorte de la primera vale para el lote. Sin esto ArcFace compararía
+  // la escena completa y cualquier rostro emparentaría con cualquiera.
+  const recorte = fotos[0]?.recorte;
+  if (recorte) {
+    form.append('cropX', String(recorte.x));
+    form.append('cropY', String(recorte.y));
+    form.append('cropTamano', String(recorte.tamano));
+  }
   if (alSubir) {
     return requestFormConProgreso<RostroRegistrado>(
       '/users/face/register',
