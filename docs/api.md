@@ -234,9 +234,10 @@ quién es la foto" **cuando el marcaje ya existe**: pasa la fila a `metodo: 'man
 Devuelve la fila actualizada (mismo shape que `GET /attendance`). Marcaje inexistente → `404`.
 No reescribe `usuarioId`, `tipo` ni `locationId`: para eso está `PATCH /attendance/:id`.
 
-> Cuando el marcaje **todavía no existe** (el caso normal de la UX de R4: se presidente en
-> vivo y sale `requiereConfirmacion`), se vuelve a llamar a `POST /attendance/check` con
-> `usuarioId`: ahí se crea la fila ya como manual y se salta ArcFace por completo.
+> Cuando el marcaje **todavía no existe**, el camino manual es llamar a
+> `POST /attendance/check` con `usuarioId`: ahí se crea la fila ya como manual y se salta
+> ArcFace por completo. (Ya no existe el camino "bajo umbral → candidatos" de R4: el
+> automático responde o un reconocido, o "usuario desconocido" sin candidatos.)
 
 ### `GET /attendance/dashboard` (B5)
 
@@ -298,33 +299,32 @@ explícitas: nunca `password` ni `embedding`.
 | `tipo` | `entrada` \| `salida`. Opcional: si falta, se alterna según el último marcaje del día |
 | `locationId` | Tienda del marcaje. Se valida: debe existir → si no, `404` |
 | `usuarioId` | **B5.** Fuerza el marcaje manual: el operador ya eligió a quién pertenece la foto |
+| `cropX`, `cropY`, `cropTamano` | **Recorte cuadrado** (px) en la foto original, calculado por la app sobre la guía oval. Opcionales: sin ellos se procesa la escena completa y baja la precisión |
 
-Sin `usuarioId` el servicio localiza el rostro (**UltraFace** RFB-320 → recorte con margen
-15%, o recorte central de reserva), normaliza (`sharp`: 112×112, `(x-127.5)/128`), corre
-ArcFace int8 y compara por similitud coseno contra el índice en memoria
-(umbral `UMBRAL_CONFIANZA_FACIAL` = **0.70**, más **margen ≥ 0.08** contra el 2º candidato).
-**La guía oval es de la app móvil**, no del backend: aquí solo llega el recorte cuadrado que
-la cámara ya encuadró.
+Sin `usuarioId` el servicio normaliza la foto (`sharp`: normaliza EXIF, extrae el recorte
+`cropX/cropY/cropTamano` si viene, deja `112×112` con `fit: 'cover'`), corre ArcFace int8 y
+compara por similitud coseno contra el índice en memoria (umbral `UMBRAL_CONFIANZA_FACIAL` =
+0.8, configurable por env). **La guía oval es de la app móvil**: ella calcula el recorte y lo
+manda, para que el backend no compare la escena completa. **Si no viene recorte** (fotos de
+referencia del bucket `faces`, `POST /face/reindex`, clientes viejos) el backend localiza la
+cara con el **detector UltraFace** (`version-RFB-320.onnx`, MIT) y recorta solo eso; si el
+modelo no está, usa el encuadre completo como último recurso. Ojo: hoy los embeddings se
+calculan **sin alineación de landmarks** (recorte → 112×112); para que ArcFace reconozca
+aún mejor falta el fix de alineación SCRFD en el backend — ver `Plan Hito 3.md`.
 
 ```jsonc
-// índice vacío (nadie tiene rostro): no se crea nada
-{ "reconocido": false, "requiereConfirmacion": false, "umbral": 0.7, "candidatos": [] }
+// nadie reconoce (índice vacío o por debajo del umbral): NO se inserta nada y NO se
+// filtran candidatos (privacidad biométrica, Ley 26935). La app muestra
+// "usuario desconocido, debe registrarse"
+{ "reconocido": false, "requiereConfirmacion": false, "umbral": 0.8, "candidatos": [] }
 
-// el mejor candidato ni siquiera llega a 0.55: "rostro no reconocido", sin candidatos
-// (Ley 26935: no se sugiere a quién parecerse por debajo de un creíble)
-{ "reconocido": false, "requiereConfirmacion": false, "umbral": 0.7, "candidatos": [] }
-
-// entre 0.55 y 0.70, o cerca del umbral pero con margen < 0.08: el admin elige a mano
-{ "reconocido": false, "requiereConfirmacion": true, "umbral": 0.7,
-  "candidatos": [ /* top 5 con similitud ≥ 0.55: `{ usuarioId, similitud }`, de más a menos similar */ ] }
-
-// ≥ 0.70 con margen ≥ 0.08: se registra el marcaje
-{ "reconocido": true, "manual": false, "requiereConfirmacion": false, "umbral": 0.7,
+// por encima del umbral: se registra el marcaje
+{ "reconocido": true, "manual": false, "requiereConfirmacion": false, "umbral": 0.8,
   "candidato": { "usuarioId": 3, "nombreCompleto": "Ana Paz", "similitud": 0.82 },
   "asistencia": { /* la fila de GET /attendance */ } }
 
 // con usuarioId (manual): sin ArcFace, metodo "manual", confianza null y confirmada por el admin
-{ "reconocido": true, "manual": true, "requiereConfirmacion": false, "umbral": 0.7,
+{ "reconocido": true, "manual": true, "requiereConfirmacion": false, "umbral": 0.8,
   "candidato": { "usuarioId": 3, "nombreCompleto": "Ana Paz", "similitud": null },
   "asistencia": { "metodo": "manual", "confirmadoPorId": 1, "confianza": null, … } }
 ```
@@ -341,30 +341,16 @@ puede abrir → `400`; modelo ArcFace ausente en el servidor → `503`.
 
 | Método | Ruta | Descripción |
 | :--- | :--- | :--- |
-| GET | `/face/status` | Estado del reconocimiento: umbral, rostros en BD, índice en memoria, bucket, disponibilidad del modelo ArcFace y del detector UltraFace |
+| GET | `/face/status` | Estado del reconocimiento: umbral, rostros en BD, índice en memoria, bucket, disponibilidad del modelo ArcFace y del detector UltraFace (`detector.disponible`) |
 | POST | `/face/warmup` | Carga las dos `InferenceSession` (ArcFace + UltraFace) a pedido y devuelve los ms |
-| POST | `/face/reindex` | **Reentrena en el momento** los rostros ya registrados: baja cada foto del bucket `faces`, recalcula el embedding con UltraFace + ArcFace y actualiza BD + índice. Devuelve `{ actualizados, total }` |
+| POST | `/face/reindex` | **Reentrena en el momento** los rostros ya registrados: baja cada foto del bucket `faces`, recalcula el embedding (UltraFace + ArcFace) y actualiza BD + índice. Devuelve `{ actualizados, total }` |
 
 `status` y `warmup` no aceptan foto ni registran nada: sirven para verificar un despliegue y
 medir el cold start de Render (ver `docs/despliegue.md`). `indiceEnMemoria === rostrosEnBase`
-prueba que el `onModuleInit` rehidrató el índice tras un spin-down; `modelo.cargada` es `false`
-hasta el primer `warmup` o inferencia porque la sesión es perezosa.
-
-La respuesta de `status` incluye los dos modelos por separado:
-
-```json
-{
-  "umbral": 0.7,
-  "rostrosEnBase": 3, "indiceEnMemoria": 3, "indiceCompleto": true,
-  "bucket": "faces",
-  "modelo":    { "ruta": "…/models/arcfaceresnet100-11-int8.onnx", "disponible": true, "cargada": false, "entrada": "112x112", "dimension": 512 },
-  "detector":  { "nombre": "version-RFB-320.onnx", "ruta": "…/models/version-RFB-320.onnx", "disponible": true }
-}
-```
-
-> ⚠️ `UMBRAL_CONFIANZA_FACIAL` **es una constante del código** (`backend/src/common/constants.ts`)
-> y **no se puede cambiar por variable de entorno**: requiere redeploy. Si hay que recalibrar,
-> se edita el archivo (ver [arquitectura.md](arquitectura.md) §3.2).
+prueba que el `onModuleInit` rehidrató el índice tras un spin-down (y también reentrenó los
+rostros con UltraFace); `modelo.cargada` es `false` hasta el primer `warmup` o inferencia
+porque la sesión es perezosa. `reindex` sirve para reentrenar sin volver a registrar a cada
+persona a mano, p. ej. tras cambiar de detector o de umbral.
 
 ## Hito 3 — Códigos de barras, asistencia facial y conteo por lotes
 
@@ -412,9 +398,10 @@ La respuesta de `status` incluye los dos modelos por separado:
 > [arquitectura.md](arquitectura.md) §3.2.
 >
 > **Implementado (12/10/2026):** el **detector de rostros UltraFace** (`version-RFB-320.onnx`,
-> MIT, 1.2 MB) corre también in-process y recorta el recuadro facial antes de ArcFace —
-> ver [arquitectura.md](arquitectura.md) §3.2. Suma `POST /face/reindex` (reentreno de rostros
-> existentes) y el campo `detector` en `GET /face/status`.
+> MIT, 1.2 MB) corre in-process en `backend/src/face/face-detector.ts`: cuando `POST /attendance/check`
+> o el reentreno no traen recorte de la app, localiza el recuadro facial y recorta solo eso
+> antes de ArcFace. Suma `POST /face/reindex` (reentreno bajo demanda) y el campo `detector`
+> en `GET /face/status`.
 >
 > **Descartado: conteo de piezas con IA/YOLO.** No hay modelo de **conteo de autopartes**,
 > ni dataset, ni microservicio de inferencia, ni `POST /inference/detect` en este proyecto

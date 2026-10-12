@@ -23,6 +23,62 @@ export const ARCFACE_DESVIACION = 128;
 
 export type Embedding = Float32Array | number[];
 
+/**
+ * Recorte cuadrado (en píxeles de la **foto ya girada por EXIF**) que la app
+ * envía junto con el multipart del rostro. Es la zona del óvalo de la guía de
+ * `FaceCamera`, calculada en el dispositivo: sin esto el backend encoge la escena
+ * completa a 112×112 y la cara queda como un detalle del fondo, así que ArcFace
+ * compara el entorno y cualquier persona se parece a cualquiera.
+ */
+export interface RecorteCara {
+  x: number;
+  y: number;
+  tamano: number;
+}
+
+/**
+ * Tamaño mínimo útil de recorte: por debajo de 32 px el rostro ya no tiene
+ * 112×112 de información y es señal de una conversión de coordenadas rota.
+ */
+export const RECORTE_MINIMO = 32;
+
+/**
+ * Traduce los tres campos de texto del multipart (`cropX`, `cropY`, `cropTamano`)
+ * a un `RecorteCara`. Devuelve `null` si vienen ausentes o no son enteros
+ * coherentes: el backend entonces usa el encuadre completo (compatibilidad con
+ * cámaras que no manden óvalo, p. ej. las fotos elegidas de la galería).
+ */
+export function parsearRecorteCara(
+  cropX: unknown,
+  cropY: unknown,
+  cropTamano: unknown,
+): RecorteCara | null {
+  const numeros = [Number(cropX), Number(cropY), Number(cropTamano)];
+  if (numeros.some((n) => !Number.isFinite(n))) return null;
+  const [x, y, tamano] = numeros;
+  if (![x, y, tamano].every(Number.isInteger)) return null;
+  if (x < 0 || y < 0 || tamano < 1) return null;
+  return { x, y, tamano };
+}
+
+/**
+ * Valida un recorte contra las dimensiones reales (ya giradas) de la imagen.
+ * Devuelve `null` si es inválido o queda fuera de la foto: la inferencia cae al
+ * encuadre completo con un warn en vez de reventar el request.
+ */
+export function recorteUtilizable(
+  recorte: RecorteCara | null | undefined,
+  ancho: number,
+  alto: number,
+): RecorteCara | null {
+  if (!recorte) return null;
+  const { x, y, tamano } = recorte;
+  if (![x, y, tamano].every(Number.isInteger)) return null;
+  if (tamano < RECORTE_MINIMO || x < 0 || y < 0) return null;
+  if (x + tamano > ancho || y + tamano > alto) return null;
+  return { x, y, tamano };
+}
+
 const esNumeroFinito = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v);
 

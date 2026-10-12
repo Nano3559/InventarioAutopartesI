@@ -9,7 +9,7 @@
 
 | Capa | Tecnologías | Despliegue |
 | :--- | :--- | :--- |
-| **Backend** | NestJS 11 + TypeORM + PostgreSQL + `onnxruntime-node` (ArcFace IA) | Render (`inventarioautopartesi.onrender.com`) |
+| **Backend** | NestJS 11 + TypeORM + PostgreSQL + `onnxruntime-node` (ArcFace + UltraFace IA) | Render (`inventarioautopartesi.onrender.com`) |
 | **Web Admin** | React 19 + Vite 8 + TypeScript + `@bwip-js/browser` | Vercel |
 | **App Móvil** | Expo 57 / React Native 0.86 + `expo-camera` | Expo EAS |
 | **Almacenamiento** | Supabase Storage (`products` público, `faces` privado) | Supabase Cloud |
@@ -56,9 +56,9 @@
 - **Escáner móvil**: Lectura instantánea con `expo-camera` en la app móvil que consulta en Render y muestra la ficha del repuesto (precio, stock total, stock por tienda e imagen).
 
 #### 2. Control de Asistencia Facial con IA (ArcFace in-process)
-- **Modelo de IA embebido**: Inferencia *in-process* dentro de NestJS con `onnxruntime-node` utilizando **ArcFace int8** (`onnxmodelzoo/arcfaceresnet100-11-int8`, Apache-2.0, embedding de 512 dimensiones) precedido por el detector de rostros **UltraFace RFB-320** (`version-RFB-320.onnx`, MIT, 1.2 MB), que recorta el recuadro facial antes de la inferencia. Sin microservicios externos ni dependencias pesadas de GPU.
+- **Modelo de IA embebido**: Inferencia *in-process* dentro de NestJS con `onnxruntime-node` utilizando **ArcFace int8** (`onnxmodelzoo/arcfaceresnet100-11-int8`, Apache-2.0, embedding de 512 dimensiones) y el detector de rostros **UltraFace RFB-320** (`version-RFB-320.onnx`, MIT, 1.2 MB), que recorta el recuadro facial cuando no viene el recorte de la app. Sin microservicios externos ni dependencias pesadas de GPU.
 - **Registro facial**: Formulario móvil con encuadre oval guiado (112×112) que extrae, promedia y normaliza el embedding, almacenando la fotografía de auditoría en el bucket privado `faces` de Supabase.
-- **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral calibrado en **0.70** (más margen ≥ 0.08 contra el 2º candidato). Registro automático de `entrada` o `salida` según el flujo diario del empleado.
+- **Marcaje inteligente**: Detección biométrica por similitud coseno con umbral **estricto en 0.8** (configurable por env). Registro automático de `entrada` o `salida` según el flujo diario; si nadie supera el umbral se avisa "usuario desconocido, debe registrarse" sin registrar nada.
 - **Privacidad y cumplimiento legal (Ley 26935 Bolivia)**: Fotografías servidas exclusivamente mediante URLs firmadas temporales (1 hora) y opción de supresión biométrica definitiva (`eliminarEmbedding: true`).
 
 #### 3. Módulos Web de Gestión y Auditoría (Web Admin)
@@ -93,7 +93,7 @@ Detalle técnico completo y justificaciones: [docs/stack-tecnologico.md](docs/st
 │   │   ├── users/         CRUD de empleados + baja biométrica
 │   │   ├── products/      catálogo + generación y consulta Code128
 │   │   ├── attendance/    historial, dashboard y marcaje de asistencia
-│   │   ├── face/          inferencia ArcFace ONNX + detector UltraFace + índice de memoria
+│   │   ├── face/          inferencia ArcFace ONNX + índice de memoria
 │   │   ├── entities/      15 entidades TypeORM (incluye Asistencia)
 │   │   └── seed.ts        siembra de datos reales (7 sucursales, productos)
 │   ├── schema.sql         esquema PostgreSQL de referencia

@@ -37,18 +37,16 @@ plan free, región Oregon):
    `false`, el reconocimiento sigue funcionando pero con el recorte de seguridad del centro
    de la foto, que empeora la similitud.
 
-> ℹ️ **`UMBRAL_CONFIANZA_FACIAL` ya no es variable de entorno**: es una constante de
-> `backend/src/common/constants.ts` (hoy `0.7`) y solo cambia con redeploy. Si el entorno de
-> Render todavía tiene esa variable definida (servía para el `feature/face`), se puede
-> borrar del dashboard: ya no la lee nadie.
+> ℹ️ **`UMBRAL_CONFIANZA_FACIAL` es una variable de entorno** (default `0.8`, ver
+> `docs/entornos.md` §2.2): se cambia en el dashboard de Render **sin redeploy**. Es el knob
+> de calibración de R5 — si un registrado sale "desconocido" en buena luz, bájalo ahí.
 
-> ⚠️ **PENDIENTE (06/10):** `SUPABASE_KEY` en el entorno de Render quedó con la clave
-> **`anon`** y el registro facial falla con `400 row-level security policy (bucket: faces)`
+> ✅ **RESUELTO (06/10):** `SUPABASE_KEY` en el entorno de Render quedó con la clave
+> **`anon`** y el registro facial fallaba con `400 row-level security policy (bucket: faces)`
 > (el bucket `faces` es privado, sin policies: solo `service_role` lo alcanza; `products`
-> funciona con `anon` porque tiene policy). **Acción manual:** dashboard de Render →
-> Web Service → Environment → `SUPABASE_KEY` = clave `service_role` de Supabase (la misma
-> del secret del ping en GitHub Actions) → Save → `Manual Deploy → Deploy latest commit`.
-> Ver `docs/entornos.md` §Backend.
+> funciona con `anon` porque tiene policy). Se corrigió poniendo la **`service_role`** de
+> Supabase como `SUPABASE_KEY` en el dashboard de Render (la misma del secret del ping en
+> GitHub Actions) + `Manual Deploy`. Ver `docs/entornos.md` §Backend.
 
 ### 1.1 Plan free: spin-down y cold start
 

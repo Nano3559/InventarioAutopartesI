@@ -11,6 +11,7 @@ import { IsNull, Not, Repository } from 'typeorm';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ort from 'onnxruntime-node';
+import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import { User } from '../entities/user.entity';
 import { UMBRAL_CONFIANZA_FACIAL } from '../common/constants';
@@ -22,7 +23,9 @@ import {
   esEmbeddingValido,
   normalizar,
   promediarYNormalizar,
+  recorteUtilizable,
   similitudCoseno,
+  type RecorteCara,
 } from './face-embedding';
 import { FaceDetector, NOMBRE_MODELO_ULTRAFACE } from './face-detector';
 
@@ -200,17 +203,63 @@ export class FaceService implements OnModuleInit {
   }
 
   /**
-   * Recorte 112x112 RGB → tensor `float32 [1, 3, 112, 112]`.
-   * Utiliza FaceDetector (UltraFace ONNX) para detectar la posición exacta del rostro
-   * y recortar solo el recuadro facial con margen, eliminando ruidos de ropa y fondo.
+   * Recorte facial → tensor `float32 [1, 3, 112, 112]`.
+   *
+   * Orden de operaciones que importa:
+   * 1. `.rotate()` aplica la orientación EXIF **antes** de recortar: la app calcula
+   *    el recorte sobre la imagen tal como se ve en el preview (que es la que
+   *    ArcFace"consume"), y sin rotar primero las coordenadas no coinciden.
+   * 2. Con recorte de la app, `.extract()` toma el cuadrado del óvalo y solo
+   *    entonces `.resize(112,112, fit:'cover')`.
+   * 3. **Sin recorte** (fotos de referencia del bucket, reindex) el detector
+   *    **UltraFace** encuentra la cara y recorta solo eso. Encoger la escena
+   *    completa dejaría caras de ~30 px: todo el mundo "se parece" y el marcaje
+   *    empata con cualquiera.
    */
-  private async preprocesar(buffer: Buffer): Promise<ort.Tensor> {
-    const { bufferRecortado } = await FaceDetector.recortarRostro(
-      buffer,
-      this.config.get<string>('ULTRAFACE_MODEL'),
-    );
+  private async preprocesar(
+    buffer: Buffer,
+    recorte?: RecorteCara | null,
+  ): Promise<ort.Tensor> {
+    const rotada = await sharp(buffer).rotate().toBuffer();
+    const region = await this.regionUtilizable(recorte, rotada);
 
-    const tensor = aTensorNchw(bufferRecortado, 3);
+    if (!region) {
+      // Sin recorte de la app (fotos de referencia del bucket `faces`, reindex,
+      // o clientes que no mandan cropX/cropY/cropTamano): el detector UltraFace
+      // localiza el recuadro facial y recorta solo eso (margen 15%), eliminando
+      // ropa y fondo del embedding. Si el modelo no está, o no hay cara con
+      // score ≥ 0.6, recortarRostro devuelve el encuadre completo escalado a
+      // 112×112: mismo contrato de forma, solo peor precisión.
+      const { bufferRecortado } = await FaceDetector.recortarRostro(
+        rotada,
+        this.config.get<string>('ULTRAFACE_MODEL'),
+      );
+      return this.tensorDesdeRaw(bufferRecortado);
+    }
+
+    const { data, info } = await sharp(rotada)
+      .extract({
+        left: region.x,
+        top: region.y,
+        width: region.tamano,
+        height: region.tamano,
+      })
+      .resize(ARCFACE_ENTRADA, ARCFACE_ENTRADA, { fit: 'cover' })
+      .flatten({ background: '#ffffff' })
+      .toColourspace('srgb')
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    return this.tensorDesdeRaw(data, info.channels);
+  }
+
+  /** Pixeles crudos ya en 112×112 → tensor `float32 [1, 3, 112, 112]`. */
+  private tensorDesdeRaw(data: Buffer, channels = 3): ort.Tensor {
+    const tensor = aTensorNchw(data, channels);
+    // Se pasa un `number[]` y no el `Float32Array`: onnxruntime valida el tipo con
+    // `instanceof Float32Array` **de su propio realm**, así que un typed array creado
+    // en otro realm (el sandbox de Jest, por ejemplo) lo rechaza. La conversión son
+    // 37 632 números, despreciable frente a los ~350 ms de inferencia.
     return new ort.Tensor('float32', Array.from(tensor), [
       1,
       3,
@@ -219,10 +268,38 @@ export class FaceService implements OnModuleInit {
     ]);
   }
 
+  /**
+   * Valida el recorte contra las dimensiones **ya rotadas** de la imagen. Si viene
+   * un recorte que no cabe (p. ej. un cliente viejo con otra geometría de cámara)
+   * se descarta con un warn: la inferencia cae al encuadre completo en vez de fallar.
+   */
+  private async regionUtilizable(
+    recorte: RecorteCara | null | undefined,
+    buffer: Buffer,
+  ): Promise<RecorteCara | null> {
+    if (!recorte) return null;
+    const meta = await sharp(buffer).metadata();
+    const valido = recorteUtilizable(
+      recorte,
+      meta.width ?? 0,
+      meta.height ?? 0,
+    );
+    if (!valido) {
+      this.logger.warn(
+        `Recorte facial descartado (fuera de ${meta.width}x${meta.height}): ` +
+          `${JSON.stringify(recorte)}. Se usa el encuadre completo.`,
+      );
+    }
+    return valido;
+  }
+
   /** Embedding **normalizado** de una foto (512 floats). */
-  async embeddingDeFoto(file: Express.Multer.File): Promise<number[]> {
+  async embeddingDeFoto(
+    file: Express.Multer.File,
+    recorte?: RecorteCara | null,
+  ): Promise<number[]> {
     try {
-      return await this.embeddingDeBuffer(file.buffer);
+      return await this.embeddingDeBuffer(file.buffer, recorte);
     } catch (err) {
       const e = err as Error;
       // Una foto corrupta o que no es una imagen no debe tumbar el registro entero.
@@ -238,7 +315,10 @@ export class FaceService implements OnModuleInit {
     }
   }
 
-  private async embeddingDeBuffer(buffer: Buffer): Promise<number[]> {
+  private async embeddingDeBuffer(
+    buffer: Buffer,
+    recorte?: RecorteCara | null,
+  ): Promise<number[]> {
     let sesion: ort.InferenceSession;
     try {
       sesion = await this.obtenerSesion();
@@ -251,7 +331,7 @@ export class FaceService implements OnModuleInit {
       );
     }
 
-    const tensor = await this.preprocesar(buffer);
+    const tensor = await this.preprocesar(buffer, recorte);
     const salida = await sesion.run({ [sesion.inputNames[0]]: tensor });
     const datos = salida[sesion.outputNames[0]].data as Float32Array;
     if (datos.length !== ARCFACE_DIMENSION) {
@@ -267,11 +347,14 @@ export class FaceService implements OnModuleInit {
    * no hay paralelismo real y así el error de una foto no se pierde en un
    * `Promise.all` (246.8 ms por foto según el spike B2).
    */
-  async embeddingsDeFotos(files: Express.Multer.File[]): Promise<number[][]> {
+  async embeddingsDeFotos(
+    files: Express.Multer.File[],
+    recorte?: RecorteCara | null,
+  ): Promise<number[][]> {
     const t0 = Date.now();
     const embeddings: number[][] = [];
     for (const file of files) {
-      embeddings.push(await this.embeddingDeFoto(file));
+      embeddings.push(await this.embeddingDeFoto(file, recorte));
     }
     this.logger.log(
       `${files.length} embedding(s) calculados en ${Date.now() - t0} ms`,

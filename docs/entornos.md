@@ -71,7 +71,11 @@ porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 | Variable | Default | Descripción |
 | :--- | :--- | :--- |
 | `ARCFACE_MODEL` | `models/arcfaceresnet100-11-int8.onnx` | Ruta al modelo ONNX (63 MB, Apache-2.0, **no** se versiona) |
-| `ULTRAFACE_MODEL` | `models/version-RFB-320.onnx` | Ruta al detector de rostros UltraFace RFB-320 (1.2 MB, MIT, **no** se versiona). Opcional: si falta, el backend sigue funcionando con el recorte de seguridad (centro de la foto) y `GET /face/status` reporta `detector.disponible: false` |
+| `ULTRAFACE_MODEL` | — (opcional) | Ruta al detector de rostros **UltraFace** `version-RFB-320.onnx` (1.2 MB, MIT, **no** se versiona). Si no se define (o el archivo no existe), se buscan `spike/models/` y `models/`; sin ninguna, el backend sigue funcionando con el **recorte central** de la foto y `GET /face/status` reporta `detector.disponible: false` |
+| `UMBRAL_CONFIANZA_FACIAL` | `0.8` | Umbral de similitud coseno del reconocimiento. Debe ser finito y `0 < v ≤ 1`; cualquier otro valor cae al default `0.8`. Por debajo, `POST /attendance/check` responde `reconocido: false` sin candidatos ("usuario desconocido, debe registrarse"). Es el knob de calibración de R5: bajar si un registrado sale "desconocido"; subir si un desconocido pasa |
+
+> El umbral por defecto vive en `backend/src/common/constants.ts`; la env lo sobreescribe al
+> arrancar. Se lee en `GET /face/status` y en cada respuesta de `POST /attendance/check`.
 
 El modelo no se versiona (63 MB) y **en Render tampoco viene en el repo**, así que
 `npm run start:prod` ejecuta antes `prestart:prod` →
@@ -88,8 +92,13 @@ funcionando (la `InferenceSession` se carga en la primera inferencia, no al arra
 
 - `POST /face/warmup` (admin) fuerza esa carga y devuelve los ms: sirve para medir el
   cold start de Render con el modelo en RAM.
-- `GET /face/status` (admin) dice si el modelo está disponible y si el índice en
-  memoria coincide con los rostros de la BD (rehidratación tras un spin-down).
+- `GET /face/status` (admin) dice si el modelo está disponible, si el detector UltraFace
+  encontró su archivo (`detector.disponible`) y si el índice en memoria coincide con los
+  rostros de la BD (rehidratación tras un spin-down).
+- `POST /face/reindex` (admin) **reentrena en el momento** los rostros ya registrados:
+  baja cada foto del bucket `faces`, recalcula el embedding (UltraFace + ArcFace) y
+  actualiza BD + índice. Sirve tras cambiar de pipeline o de umbral, sin re-registrar a
+  cada persona a mano.
 - Contrato del modelo en local: `npm run face:check`.
 
 ## 3. Frontend (`frontend/.env.local` y `.env.production`)
