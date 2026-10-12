@@ -149,6 +149,44 @@ export function aNumero(v: Embedding): number[] {
   return Array.from(v);
 }
 
+/** Candidato mínimo que necesita la decisión (estructura de `CandidatoRostro`). */
+export interface CoincidenciaRostro {
+  usuarioId: number;
+  similitud: number;
+}
+
+export interface DecisionReconocimiento<T extends CoincidenciaRostro> {
+  reconocido: boolean;
+  mejor: T | null;
+  /** `mejor.similitud - segundo.similitud`; con un solo candidato vale 1. */
+  margen: number;
+}
+
+/**
+ * Regla open-set pura: un marcaje es válido solo si el mejor candidato supera el
+ * umbral **y** se aparta del segundo al menos `margenMinimo`.
+ *
+ * Se evalúa la lista **ya ordenada** de mayor a menor (como la devuelve
+ * `FaceService.buscar`). Con un único candidato el margen es 1 (no hay con quién
+ * confundirlo). Vive acá, separada de ONNX y de TypeORM, para poder testearla.
+ */
+export function evaluarCoincidencia<T extends CoincidenciaRostro>(
+  candidatos: readonly T[],
+  umbral: number,
+  margenMinimo = 0,
+): DecisionReconocimiento<T> {
+  const mejor = candidatos[0] ?? null;
+  if (!mejor) return { reconocido: false, mejor: null, margen: 0 };
+
+  const segundo = candidatos[1];
+  const margen = segundo ? mejor.similitud - segundo.similitud : 1;
+  return {
+    reconocido: mejor.similitud >= umbral && margen >= margenMinimo,
+    mejor,
+    margen,
+  };
+}
+
 /**
  * Píxeles RGB planos (`width * height * 3`, en ese orden) → tensor NCHW
  * `[1, 3, 112, 112]` con `(x - 127.5) / 128`, que es lo que espera ArcFace.

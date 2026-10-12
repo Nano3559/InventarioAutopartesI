@@ -10,7 +10,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   colors,
@@ -32,6 +31,12 @@ const NEGRO = '#000000';
 /**
  * Mapea el óvalo de la guía (visto en la caja de la cámara) a un **cuadrado
  * centrado** en las coordenadas de la foto que se acaba de capturar.
+ *
+ * Este cuadrado viaja al backend como `recorte` y es solo un **respaldo**: el
+ * detector SCRFD del servidor ubica el rostro y lo alinea antes de ArcFace. El
+ * recorte solo se usa si el detector no está disponible, así que no hace falta
+ * recortar la imagen en el dispositivo (lo que sí hacía mal el pipeline viejo:
+ * recortar acá y volver a recortar sobre ese recorte en el servidor).
  *
  * El preview de `CameraView` rellena su caja recortando la foto (aspectFill),
  * siempre centrado: por eso el centro del óvalo ~ centro de la foto y no hace
@@ -124,47 +129,12 @@ export default function FaceCamera({
     try {
       const foto = await camaraRef.current.takePictureAsync({ quality: 0.85 });
       if (foto?.uri) {
-        let uriFinal = foto.uri;
-
-        // Recorte preciso centrado en el óvalo facial para que ArcFace
-        // reciba exactamente el rostro (ojos, nariz, boca) y no el fondo/techo.
-        if (caja.ancho > 0 && caja.alto > 0 && foto.width && foto.height) {
-          try {
-            const scaleX = foto.width / caja.ancho;
-            const scaleY = foto.height / caja.alto;
-
-            // Coordenadas del óvalo con margen de seguridad del 15%
-            const margenH = Math.round(anchoOvalo * 0.15);
-            const margenV = Math.round(altoOvalo * 0.15);
-
-            const cropWLayout = Math.min(caja.ancho, anchoOvalo + margenH * 2);
-            const cropHLayout = Math.min(caja.alto, altoOvalo + margenV * 2);
-
-            const cropLeftLayout = Math.max(0, (caja.ancho - cropWLayout) / 2);
-            const cropTopLayout = Math.max(0, (caja.alto - cropHLayout) / 2);
-
-            const originX = Math.max(0, Math.round(cropLeftLayout * scaleX));
-            const originY = Math.max(0, Math.round(cropTopLayout * scaleY));
-            const width = Math.min(foto.width - originX, Math.round(cropWLayout * scaleX));
-            const height = Math.min(foto.height - originY, Math.round(cropHLayout * scaleY));
-
-            if (width > 80 && height > 80) {
-              const recortada = await manipulateAsync(
-                foto.uri,
-                [{ crop: { originX, originY, width, height } }],
-                { compress: 0.85, format: SaveFormat.JPEG },
-              );
-              if (recortada?.uri) {
-                uriFinal = recortada.uri;
-              }
-            }
-          } catch {
-            // Si el recorte falla por cualquier razón, usamos la foto original
-          }
-        }
-
+        // Se manda el **frame completo**, tal como salió de la cámara. El backend
+        // detecta el rostro con SCRFD y lo alinea a la plantilla ArcFace antes de
+        // calcular el embedding; el `recorte` queda como respaldo por si el
+        // detector no está disponible. Recortar acá degradaba la precisión.
         onCaptura({
-          uri: uriFinal,
+          uri: foto.uri,
           name: `rostro-${Date.now()}.jpg`,
           type: 'image/jpeg',
           recorte: recorteDelOvalo(

@@ -11,11 +11,12 @@ import { Location } from '../entities/location.entity';
 import { FaceService } from '../face/face.service';
 import {
   METODOS_ASISTENCIA,
+  MARGEN_MINIMO_FACIAL,
   TIPOS_ASISTENCIA,
   UMBRAL_CONFIANZA_FACIAL,
 } from '../common/constants';
 import type { MetodoAsistencia, TipoAsistencia } from '../common/constants';
-import type { RecorteCara } from '../face/face-embedding';
+import { evaluarCoincidencia, type RecorteCara } from '../face/face-embedding';
 
 const LIMITE_PAGINA_MAX = 200;
 
@@ -562,20 +563,41 @@ export class AttendanceService {
       return this.registrarManual(usuarioId, tipo, locationId, actorId);
     }
 
-    const embedding = await this.faceService.embeddingDeFoto(file, recorte);
-    const candidatos = await this.faceService.buscar(embedding, 5);
-    const mejor = candidatos[0];
+    const analisis = await this.faceService.analizarRostro(file, recorte);
+
+    // Gate de presencia: si SCRFD está disponible y no hay rostro, no tiene sentido
+    // comparar contra la galería (un parche de fondo no es una persona y su
+    // embedding puede empatar con cualquiera).
+    if (analisis.deteccionDisponible && !analisis.rostroDetectado) {
+      return {
+        reconocido: false,
+        requiereConfirmacion: false,
+        sinRostro: true,
+        umbral: UMBRAL_CONFIANZA_FACIAL,
+        candidatos: [],
+      };
+    }
+
+    const candidatos = await this.faceService.buscar(analisis.embedding, 5);
 
     // Política del negocio: el reconocimiento es estricto. Por debajo del umbral
-    // (UMBRAL_CONFIANZA_FACIAL, 0.8 por defecto) NO se registra nada ni se sugieren
-    // candidatos: se responde "usuario desconocido" y la app pide registrarse.
-    // Sin esto, una cara que no está en la BD igualaba con la galería, marcaba
-    // confianza "alta" y registraba a la persona equivocada.
-    if (!mejor || mejor.similitud < UMBRAL_CONFIANZA_FACIAL) {
+    // (UMBRAL_CONFIANZA_FACIAL, 0.8 por defecto) **o** sin margen suficiente sobre
+    // el segundo candidato, NO se registra nada ni se sugieren candidatos: se
+    // responde "usuario desconocido" y la app pide registrarse. Sin esto, una cara
+    // que no está en la BD igualaba con la galería, marcaba confianza "alta" y
+    // registraba a la persona equivocada.
+    const decision = evaluarCoincidencia(
+      candidatos,
+      UMBRAL_CONFIANZA_FACIAL,
+      MARGEN_MINIMO_FACIAL,
+    );
+    const mejor = decision.mejor;
+    if (!mejor || !decision.reconocido) {
       return {
         reconocido: false,
         requiereConfirmacion: false,
         umbral: UMBRAL_CONFIANZA_FACIAL,
+        margen: decision.margen,
         candidatos: [],
       };
     }
@@ -610,6 +632,7 @@ export class AttendanceService {
       manual: false,
       requiereConfirmacion: false,
       umbral: UMBRAL_CONFIANZA_FACIAL,
+      margen: decision.margen,
       candidato: {
         usuarioId: usuario.id,
         nombreCompleto: [usuario.nombre, usuario.apellido]
