@@ -27,40 +27,46 @@ export function MarcasVehiculosView({
           </div>
 
           <div>
-            {porMarca.map((m, idx) => {
-              const percentage = maxMarcaTotal > 0 ? (m.total / maxMarcaTotal) * 100 : 0;
+            {porMarca.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                No se registran ventas clasificadas por marca aún.
+              </div>
+            ) : (
+              porMarca.map((m, idx) => {
+                const percentage = maxMarcaTotal > 0 ? (m.total / maxMarcaTotal) * 100 : 0;
 
-              return (
-                <div key={m.marca} className="ranking-item-card">
-                  <div className="ranking-item-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      {idx === 0 && <Award size={16} color="#fbbf24" />}
-                      <strong style={{ color: 'var(--text-strong)', fontSize: '0.92rem' }}>
-                        {m.marca}
-                      </strong>
+                return (
+                  <div key={m.marca} className="ranking-item-card">
+                    <div className="ranking-item-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {idx === 0 && <Award size={16} color="#fbbf24" />}
+                        <strong style={{ color: 'var(--text-strong)', fontSize: '0.92rem' }}>
+                          {m.marca}
+                        </strong>
+                      </div>
+                      <span style={{ fontWeight: 700, color: '#38bdf8', fontFamily: 'monospace' }}>
+                        Bs. {m.total.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
-                    <span style={{ fontWeight: 700, color: '#38bdf8', fontFamily: 'monospace' }}>
-                      Bs. {m.total.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
 
-                  <div className="ranking-progress-track">
-                    <div
-                      className="ranking-progress-fill"
-                      style={{
-                        width: `${percentage}%`,
-                        background: idx === 0 ? 'linear-gradient(90deg, #38bdf8, #3b82f6)' : 'linear-gradient(90deg, #818cf8, #c084fc)',
-                      }}
-                    />
-                  </div>
+                    <div className="ranking-progress-track">
+                      <div
+                        className="ranking-progress-fill"
+                        style={{
+                          width: `${percentage}%`,
+                          background: idx === 0 ? 'linear-gradient(90deg, #38bdf8, #3b82f6)' : 'linear-gradient(90deg, #818cf8, #c084fc)',
+                        }}
+                      />
+                    </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span>{m.unidades} repuestos vendidos</span>
-                    <span>Ranking #{idx + 1}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span>{m.unidades} repuestos vendidos</span>
+                      <span>Ranking #{idx + 1}</span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -74,23 +80,29 @@ export function MarcasVehiculosView({
           </div>
 
           <div>
-            {porVehiculo.slice(0, 6).map((v) => (
-              <div key={`${v.marca}-${v.modelo}`} className="ranking-item-card">
-                <div className="ranking-item-header">
-                  <strong style={{ color: 'var(--text-strong)', fontSize: '0.88rem' }}>
-                    {v.marca} {v.modelo}
-                  </strong>
-                  <span style={{ fontWeight: 700, color: '#34d399', fontFamily: 'monospace' }}>
-                    {v.unidades} uds.
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  <span>Facturado: <strong>Bs. {v.total.toFixed(2)}</strong></span>
-                  <span>Líder de venta</span>
-                </div>
+            {porVehiculo.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                No se registran ventas por modelo aún.
               </div>
-            ))}
+            ) : (
+              porVehiculo.slice(0, 6).map((v) => (
+                <div key={`${v.marca}-${v.modelo}`} className="ranking-item-card">
+                  <div className="ranking-item-header">
+                    <strong style={{ color: 'var(--text-strong)', fontSize: '0.88rem' }}>
+                      {v.marca} {v.modelo}
+                    </strong>
+                    <span style={{ fontWeight: 700, color: '#34d399', fontFamily: 'monospace' }}>
+                      {v.unidades} uds.
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span>Facturado: <strong>Bs. {v.total.toFixed(2)}</strong></span>
+                    <span>Líder de venta</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -113,27 +125,35 @@ export function MarcasVehiculosView({
               </tr>
             </thead>
             <tbody>
-              {topProductos.map((p, idx) => (
-                <tr key={p.id}>
-                  <td style={{ fontWeight: 700, color: idx === 0 ? '#fbbf24' : 'var(--text-muted)' }}>
-                    #{idx + 1}
-                  </td>
-                  <td>
-                    <strong style={{ color: 'var(--text-strong)' }}>{p.producto}</strong>
-                  </td>
-                  <td>
-                    <span className="brand-pill">
-                      {p.marca} {p.modelo}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 700, color: '#34d399' }}>{p.unidadesVendidas} uds.</span>
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#38bdf8', fontFamily: 'monospace' }}>
-                    Bs. {p.totalVendido.toFixed(2)}
+              {topProductos.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    No hay suficientes datos de repuestos vendidos para calcular el ranking.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                topProductos.map((p, idx) => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 700, color: idx === 0 ? '#fbbf24' : 'var(--text-muted)' }}>
+                      #{idx + 1}
+                    </td>
+                    <td>
+                      <strong style={{ color: 'var(--text-strong)' }}>{p.producto}</strong>
+                    </td>
+                    <td>
+                      <span className="brand-pill">
+                        {p.marca} {p.modelo}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: '#34d399' }}>{p.unidadesVendidas} uds.</span>
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#38bdf8', fontFamily: 'monospace' }}>
+                      Bs. {p.totalVendido.toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -86,48 +86,56 @@ export function ProveedoresComprasView() {
             </tr>
           </thead>
           <tbody>
-            {proveedores.map((p) => {
-              const percentage = totalInvertido > 0 ? (p.totalInvertido / totalInvertido) * 100 : 0;
+            {proveedores.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  No se registran facturas de compras a proveedores aún.
+                </td>
+              </tr>
+            ) : (
+              proveedores.map((p) => {
+                const percentage = totalInvertido > 0 ? (p.totalInvertido / totalInvertido) * 100 : 0;
 
-              return (
-                <tr key={p.proveedorId}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Building2 size={16} color="#38bdf8" />
-                      <strong style={{ color: 'var(--text-strong)' }}>{p.nombre}</strong>
-                    </div>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <Globe size={13} />
-                      <span>{p.pais}</span>
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 600 }}>{p.facturasCount} factura(s)</span>
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 600, color: '#34d399' }}>{p.unidadesCompradas} uds.</span>
-                  </td>
-                  <td style={{ width: '18%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div className="ranking-progress-track" style={{ flex: 1 }}>
-                        <div
-                          className="ranking-progress-fill"
-                          style={{ width: `${percentage}%`, background: 'linear-gradient(90deg, #38bdf8, #3b82f6)' }}
-                        />
+                return (
+                  <tr key={p.proveedorId}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Building2 size={16} color="#38bdf8" />
+                        <strong style={{ color: 'var(--text-strong)' }}>{p.nombre}</strong>
                       </div>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                        {percentage.toFixed(1)}%
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <Globe size={13} />
+                        <span>{p.pais}</span>
                       </span>
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#38bdf8', fontFamily: 'monospace' }}>
-                    Bs. {p.totalInvertido.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              );
-            })}
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{p.facturasCount} factura(s)</span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: '#34d399' }}>{p.unidadesCompradas} uds.</span>
+                    </td>
+                    <td style={{ width: '18%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div className="ranking-progress-track" style={{ flex: 1 }}>
+                          <div
+                            className="ranking-progress-fill"
+                            style={{ width: `${percentage}%`, background: 'linear-gradient(90deg, #38bdf8, #3b82f6)' }}
+                          />
+                        </div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                          {percentage.toFixed(1)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#38bdf8', fontFamily: 'monospace' }}>
+                      Bs. {p.totalInvertido.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
