@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
   type LayoutChangeEvent,
@@ -22,6 +25,10 @@ import {
   type Asistencia,
 } from '../api/attendance';
 import {
+  listarUsuarios,
+  type UsuarioListado,
+} from '../api/users';
+import {
   ApiError,
   SIN_CONEXION,
   esperarServidorVivo,
@@ -34,6 +41,13 @@ import {
   saveTerminal,
   type ConfigTerminal,
 } from '../storage/terminal';
+import {
+  getCarnetMap,
+  guardarCarnet,
+  buscarPorCarnet,
+  obtenerCarnetDeUsuario,
+  type CarnetMap,
+} from '../storage/carnets';
 import { useAuth } from '../context/AuthContext';
 import {
   colors,
@@ -124,20 +138,35 @@ export default function AttendanceScreen({
   const [resultado, setResultado] = useState<AttendanceCheck | null>(null);
   const [aviso, setAviso] = useState<Aviso>(null);
 
+  // ── Identificación por Carnet (C.I.) y Selección de Personal ──────────────
+  const [empleados, setEmpleados] = useState<UsuarioListado[]>([]);
+  const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState<UsuarioListado | null>(null);
+  const [carnetTexto, setCarnetTexto] = useState('');
+  const [carnetMap, setCarnetMap] = useState<CarnetMap>({});
+  const [carnetVinculando, setCarnetVinculando] = useState<string | null>(null);
+  const [eligiendoEmpleado, setEligiendoEmpleado] = useState(false);
+  const [busquedaEmpleado, setBusquedaEmpleado] = useState('');
+
   // ── Tienda del terminal (tarea R9) ──────────────────────────────────────────
-  // La tienda sale primero de la config del **dispositivo** y no de
-  // `user.tiendaId`. Hay un solo admin y una tablet por tienda, todas con esa
-  // misma cuenta: si la tienda fuera del usuario, el admin tendría una sola y las
-  // tres tablets marcarían siempre en la misma. En producción el admin además
-  // tiene `tiendaId = NULL`, así que este camino es el único que puede dar tienda.
-  //
-  // `user.tiendaId` queda solo como último recurso para el rol `tienda`, que sí
-  // tiene una tienda propia por definición.
   const [terminal, setTerminal] = useState<ConfigTerminal | null>(null);
   const [cargandoTerminal, setCargandoTerminal] = useState(true);
   const [eligiendoTienda, setEligiendoTienda] = useState(false);
   const [pidiendoSalida, setPidiendoSalida] = useState(false);
   const [pidiendoConfig, setPidiendoConfig] = useState(false);
+
+  // Cargar mapa de carnets guardados
+  useEffect(() => {
+    let vigente = true;
+    void (async () => {
+      const mapa = await getCarnetMap();
+      if (vigente) {
+        setCarnetMap(mapa);
+      }
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   useEffect(() => {
     let vigente = true;
@@ -153,16 +182,40 @@ export default function AttendanceScreen({
     };
   }, []);
 
+  // Cargar lista de empleados activos y seleccionar al usuario por defecto
+  useEffect(() => {
+    let vigente = true;
+    void (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const lista = await listarUsuarios(token);
+        if (vigente) {
+          const activos = lista.filter((u) => u.activo);
+          setEmpleados(activos);
+          const actual = activos.find((u) => u.id === user?.id);
+          if (actual) {
+            setEmpleadoSeleccionado(actual);
+            const miCarnet = obtenerCarnetDeUsuario(actual.id, carnetMap);
+            if (miCarnet && !carnetTexto) {
+              setCarnetTexto(miCarnet);
+            }
+          }
+        }
+      } catch {
+        // Silencioso si no hay red inmediata
+      }
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, [user?.id, carnetMap]);
+
   const tiendaId = terminal?.tiendaId ?? user?.tiendaId ?? null;
   const nombreTienda = terminal?.tiendaNombre ?? user?.tienda?.nombre ?? null;
   const codigoTienda = terminal?.tiendaCodigo ?? user?.tienda?.codigo ?? null;
   const esAdmin = user?.rol === 'admin';
 
-  /**
-   * Sin tienda no se puede marcar: el marcaje quedaría sin tienda y después no se
-   * sabría a cuál atribuirlo. Para el admin esto es normal hasta que configure la
-   * tablet; para el rol `tienda` significa que la BD no le tiene tienda asignada.
-   */
   const faltaTienda = tiendaId === null;
 
   const elegirTienda = useCallback(async (tienda: Location) => {
@@ -175,17 +228,41 @@ export default function AttendanceScreen({
     await saveTerminal(config);
     setTerminal(config);
     setEligiendoTienda(false);
-    // Si ya había una foto capturada, era para otra tienda: se descarta.
     setFoto(null);
     setResultado(null);
     setAviso(null);
   }, []);
 
+  const manejarCambioCarnet = useCallback(
+    (texto: string) => {
+      setCarnetTexto(texto);
+      setFoto(null);
+      setResultado(null);
+      setAviso(null);
+      const limpio = texto.trim();
+      if (!limpio) {
+        setEmpleadoSeleccionado(null);
+        return;
+      }
+      const encontrado = buscarPorCarnet(limpio, empleados, carnetMap);
+      if (encontrado) {
+        setEmpleadoSeleccionado(encontrado);
+      } else {
+        setEmpleadoSeleccionado(null);
+      }
+    },
+    [empleados, carnetMap],
+  );
+
   const reiniciar = useCallback(() => {
     setFoto(null);
     setResultado(null);
     setAviso(null);
-  }, []);
+    if (modoTiqueador) {
+      setCarnetTexto('');
+      setEmpleadoSeleccionado(null);
+    }
+  }, [modoTiqueador]);
 
   const alCapturar = useCallback((captura: ArchivoLocal) => {
     setFoto(captura);
@@ -193,100 +270,89 @@ export default function AttendanceScreen({
     setAviso(null);
   }, []);
 
-  const registrar = useCallback(
-    async () => {
-      if (!foto || enviando) return;
-      setEnviando(true);
-      setAviso(null);
+  const registrar = useCallback(async () => {
+    if (!foto || enviando) return;
+    if (!empleadoSeleccionado) {
+      setAviso({
+        tono: 'warning',
+        titulo: 'Selecciona un empleado',
+        texto: 'Debes indicar qué empleado está registrando su asistencia.',
+      });
+      return;
+    }
+    setEnviando(true);
+    setAviso(null);
 
-      try {
-        // Cold start de Render (~52.7 s) vs timeout de red del teléfono (~10 s):
-        // si el servidor quedó dormido, el multipart real moriría con
-        // "sin conexión" (status 0) aunque el backend esté por responder. Primero
-        // se espera a que conteste y la pantalla lo avisa en lugar de fallar seco.
-        const inmediato = await esperarServidorVivo(15_000);
-        if (!inmediato) {
-          setAviso({
-            tono: 'info',
-            titulo: 'Despertando el servidor…',
-            texto:
-              'El primer uso del día puede tardar hasta un minuto. Se reintenta ' +
-              'automáticamente.',
-          });
-          const despierto = await esperarServidorVivo(90_000);
-          if (!despierto) {
-            setAviso({
-              tono: 'error',
-              titulo: 'No se pudo marcar',
-              texto: SIN_CONEXION,
-            });
-            return;
-          }
-        }
-
-        const token = await getToken();
-        const data = await marcarAsistencia(
-          {
-            fotoUri: foto.uri,
-            fileName: foto.name,
-            locationId: tiendaId,
-            recorte: foto.recorte,
-          },
-          token,
-        );
-
-        setResultado(data);
-
-        if (data.reconocido && data.asistencia) {
-          setAviso(null);
-          return;
-        }
-
-        if (data.variosRostros) {
-          setAviso({
-            tono: 'warning',
-            titulo: 'Se detectó más de un rostro',
-            texto: 'La asistencia no se registró. Toma una nueva foto en la que aparezcas únicamente tú, con el rostro dentro del óvalo.',
-          });
-          return;
-        }
-
-        if (data.sinRostro) {
-          setAviso({
-            tono: 'warning',
-            titulo: 'No se detectó un rostro',
-            texto: 'La asistencia no se registró. Mira de frente a la cámara, ubica tu rostro dentro del óvalo y toma otra foto con buena iluminación.',
-          });
-          return;
-        }
-
-        // Una coincidencia insuficiente nunca permite marcar ni elegir un usuario.
+    try {
+      const inmediato = await esperarServidorVivo(15_000);
+      if (!inmediato) {
         setAviso({
-          tono: 'warning',
-          titulo: 'Usuario desconocido',
+          tono: 'info',
+          titulo: 'Despertando el servidor…',
           texto:
-            'No pudimos verificar tu identidad con los rostros registrados. ' +
-            'La asistencia no se registró. Toma otra foto con buena iluminación. ' +
-            'Si el mensaje persiste, solicita al administrador que revise tu registro facial.',
+            'El primer uso del día puede tardar hasta un minuto. Se reintenta automáticamente.',
         });
-      } catch (err) {
-        setAviso({
-          tono: 'error',
-          titulo: 'No se pudo marcar',
-          texto:
-            err instanceof ApiError
-              ? err.message
-              : 'Ocurrió un error inesperado. Intentá de nuevo.',
-        });
-      } finally {
-        setEnviando(false);
+        const despierto = await esperarServidorVivo(90_000);
+        if (!despierto) {
+          setAviso({
+            tono: 'error',
+            titulo: 'No se pudo marcar',
+            texto: SIN_CONEXION,
+          });
+          return;
+        }
       }
-    },
-    [enviando, foto, tiendaId],
-  );
+
+      const token = await getToken();
+      const data = await marcarAsistencia(
+        {
+          fotoUri: foto.uri,
+          fileName: foto.name,
+          locationId: tiendaId,
+          usuarioId: empleadoSeleccionado.id,
+          recorte: foto.recorte,
+        },
+        token,
+      );
+
+      setResultado(data);
+
+      if (data.reconocido && data.asistencia) {
+        setAviso(null);
+        return;
+      }
+
+      setAviso({
+        tono: 'error',
+        titulo: 'No se pudo registrar',
+        texto: 'No se pudo confirmar la asistencia. Por favor intenta nuevamente.',
+      });
+    } catch (err) {
+      setAviso({
+        tono: 'error',
+        titulo: 'No se pudo marcar',
+        texto:
+          err instanceof ApiError
+            ? err.message
+            : 'Ocurrió un error inesperado. Intentá de nuevo.',
+      });
+    } finally {
+      setEnviando(false);
+    }
+  }, [empleadoSeleccionado, enviando, foto, tiendaId]);
 
   const registrado = resultado?.reconocido ? resultado.asistencia : undefined;
   const ocupado = enviando;
+
+  const empleadosFiltrados = empleados.filter((e) => {
+    const q = busquedaEmpleado.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      e.nombreCompleto.toLowerCase().includes(q) ||
+      e.email.toLowerCase().includes(q) ||
+      e.rol.toLowerCase().includes(q)
+    );
+  });
 
   // Sin tienda configurada no se puede marcar: el marcaje quedaría sin tienda.
   const SinTienda = (
@@ -315,9 +381,6 @@ export default function AttendanceScreen({
     </View>
   );
 
-  // ── Piezas compartidas por las dos disposiciones ────────────────────────────
-  // Vertical y horizontal muestran lo mismo; solo cambia cómo se acomoda. Armar
-  // los bloques una vez evita que las dos ramas se desincronicen.
   const BarraTienda = nombreTienda ? (
     <Pressable
       style={({ pressed }) => [styles.tiendaBarra, pressed && styles.pressed]}
@@ -338,32 +401,148 @@ export default function AttendanceScreen({
     </Pressable>
   ) : null;
 
+  const CardIdentificacionCarnet = (
+    <View style={styles.carnetCard}>
+      <View style={styles.carnetHead}>
+        <View style={styles.carnetIcono}>
+          <Ionicons name="card-outline" size={iconSize.md} color={colors.primary} />
+        </View>
+        <View style={styles.carnetHeadTexto}>
+          <Text style={styles.carnetTitulo}>Identificación por Carnet (C.I.)</Text>
+          <Text style={styles.carnetSubtitulo}>
+            Ingresa tu número de documento para reconocerte en el sistema
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.carnetInputFila}>
+        <Ionicons name="search" size={18} color={colors.textMuted} style={styles.carnetInputIcono} />
+        <TextInput
+          style={styles.carnetInput}
+          placeholder="Escribe tu Nº de carnet (C.I.)…"
+          placeholderTextColor={colors.textMuted}
+          value={carnetTexto}
+          onChangeText={manejarCambioCarnet}
+          keyboardType="default"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!ocupado}
+        />
+        {carnetTexto.length > 0 ? (
+          <Pressable
+            onPress={() => {
+              setCarnetTexto('');
+              setEmpleadoSeleccionado(null);
+              setFoto(null);
+            }}
+            style={styles.carnetBtnLimpiar}
+            hitSlop={8}
+          >
+            <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* Estado del reconocimiento */}
+      {empleadoSeleccionado ? (
+        <View style={styles.carnetReconocido}>
+          <View style={styles.carnetAvatar}>
+            <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+          </View>
+          <View style={styles.carnetInfo}>
+            <Text style={styles.carnetNombre} numberOfLines={1}>
+              {empleadoSeleccionado.nombreCompleto}
+            </Text>
+            <Text style={styles.carnetDetalle} numberOfLines={1}>
+              Personal Reconocido · Rol: {empleadoSeleccionado.rol} · C.I.: {carnetTexto || obtenerCarnetDeUsuario(empleadoSeleccionado.id, carnetMap) || empleadoSeleccionado.id}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setEligiendoEmpleado(true)}
+            style={styles.carnetBtnCambiar}
+            hitSlop={8}
+          >
+            <Text style={styles.carnetBtnCambiarTexto}>Cambiar</Text>
+          </Pressable>
+        </View>
+      ) : carnetTexto.trim().length > 0 ? (
+        <View style={styles.carnetNoEncontrado}>
+          <Ionicons name="alert-circle-outline" size={20} color={colors.warning} />
+          <View style={styles.carnetNoEncontradoInfo}>
+            <Text style={styles.carnetNoEncontradoTexto}>
+              Carnet "{carnetTexto}" no reconocido en el personal.
+            </Text>
+            <Pressable
+              onPress={() => {
+                setCarnetVinculando(carnetTexto.trim());
+                setEligiendoEmpleado(true);
+              }}
+              style={styles.btnVincular}
+            >
+              <Text style={styles.btnVincularTexto}>Vincular carnet a mi nombre</Text>
+              <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setEligiendoEmpleado(true)}
+          style={styles.linkListaPersonal}
+          hitSlop={8}
+        >
+          <Text style={styles.linkListaPersonalTexto}>
+            ¿No recuerdas tu número? Seleccionar de la lista de personal →
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+
+  const GuiaCondiciones = (
+    <View style={styles.condicionesCard}>
+      <Text style={styles.condicionesTitulo}>Validación de captura en tiempo real:</Text>
+      <View style={styles.condicionFila}>
+        <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+        <Text style={styles.condicionTexto}>Rostro centrado de frente en el óvalo</Text>
+      </View>
+      <View style={styles.condicionFila}>
+        <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+        <Text style={styles.condicionTexto}>Buena luz y sin gorras ni accesorios</Text>
+      </View>
+    </View>
+  );
+
   const Encabezado = (
     <>
-      <Text style={styles.titulo}>Marcar asistencia</Text>
+      <Text style={styles.titulo}>Registro de asistencia</Text>
       <Text style={styles.subtitulo}>
         {registrado
           ? 'Asistencia registrada correctamente.'
-          : 'Toma una foto de frente y con buena iluminación. Verificaremos tu identidad con los rostros registrados para marcar tu asistencia.'}
+          : 'Enfoca tu rostro dentro del óvalo con buena iluminación para registrar tu foto de asistencia.'}
       </Text>
     </>
   );
 
   const FotoLista = foto ? (
     <View style={styles.fotoLista}>
-      <Ionicons
-        name="checkmark-circle"
-        size={iconSize.md}
-        color={colors.success}
-      />
-      <Text style={styles.fotoListaTexto}>Foto lista para enviar</Text>
+      <Image source={{ uri: foto.uri }} style={styles.fotoPreviewThumb} />
+      <View style={styles.fotoListaInfo}>
+        <View style={styles.fotoListaHead}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+          <Text style={styles.fotoListaTexto}>Foto testigo lista</Text>
+        </View>
+        <Text style={styles.fotoListaDetalle} numberOfLines={1}>
+          {empleadoSeleccionado?.nombreCompleto ?? 'Empleado seleccionado'}
+        </Text>
+      </View>
       <Pressable
         onPress={reiniciar}
         accessibilityRole={a11y.button}
         accessibilityLabel="Descartar la foto y tomar otra"
         hitSlop={8}
+        style={styles.btnCambiarFoto}
       >
-        <Text style={styles.fotoListaCambiar}>Cambiar</Text>
+        <Text style={styles.fotoListaCambiar}>Tomar otra</Text>
       </Pressable>
     </View>
   ) : null;
@@ -406,42 +585,153 @@ export default function AttendanceScreen({
     <PrimaryCTA
       label={
         enviando
-          ? 'Reconociendo…'
-          : foto
-            ? 'Marcar asistencia'
-            : 'Tomar foto y marcar'
+          ? 'Registrando asistencia…'
+          : !empleadoSeleccionado
+            ? 'Ingresa tu carnet para identificarte'
+            : foto
+              ? `Confirmar marcaje de ${empleadoSeleccionado.nombre.split(' ')[0]}`
+              : 'Tomar foto de marcaje'
       }
       iconName="finger-print"
       onPress={() => registrar()}
-      disabled={!foto || ocupado || faltaTienda}
+      disabled={!foto || ocupado || faltaTienda || !empleadoSeleccionado}
     />
   );
 
   const Nota = faltaTienda ? null : (
     <View style={styles.nota}>
       <Ionicons
-        name="information-circle-outline"
+        name="shield-checkmark-outline"
         size={iconSize.md}
-        color={colors.blue}
+        color={colors.primary}
       />
       <Text style={styles.notaTexto}>
-        El primer marcaje del día se registra como{' '}
-        <Text style={styles.negrita}>entrada</Text> y el segundo como{' '}
-        <Text style={styles.negrita}>salida</Text>, sin que haya que elegir el
-        tipo. Los marcajes manuales quedan sin confianza y con el administrador
-        que los confirmó.
+        <Text style={styles.negrita}>Acreditación en tiempo real:</Text> La foto se
+        registra como documento personal de asistencia validando tu presencia y hora oficial en la tienda.
       </Text>
     </View>
   );
 
   const Marcaje = registrado ? (
-    <MarcajeRegistrado asistencia={registrado} onRepetir={reiniciar} />
+    <MarcajeRegistrado
+      asistencia={registrado}
+      carnet={carnetTexto || obtenerCarnetDeUsuario(registrado.usuarioId, carnetMap)}
+      onRepetir={reiniciar}
+    />
   ) : null;
+
+  const ModalSelectorEmpleado = (
+    <Modal
+      visible={eligiendoEmpleado}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        setEligiendoEmpleado(false);
+        setCarnetVinculando(null);
+      }}
+    >
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHead}>
+            <View style={styles.modalHeadTexto}>
+              <Text style={styles.modalTitulo}>Seleccionar personal</Text>
+              <Text style={styles.modalSubtitulo}>
+                {carnetVinculando
+                  ? `Vincula el carnet "${carnetVinculando}" a tu nombre`
+                  : '¿Quién va a marcar asistencia?'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                setEligiendoEmpleado(false);
+                setCarnetVinculando(null);
+              }}
+              hitSlop={8}
+              style={styles.modalCerrar}
+            >
+              <Ionicons name="close" size={22} color={colors.textMuted} />
+            </Pressable>
+          </View>
+
+          <TextInput
+            style={styles.busquedaInput}
+            placeholder="Buscar por nombre o correo…"
+            placeholderTextColor={colors.textMuted}
+            value={busquedaEmpleado}
+            onChangeText={setBusquedaEmpleado}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+
+          <ScrollView style={styles.modalLista} showsVerticalScrollIndicator={false}>
+            {empleadosFiltrados.map((emp) => {
+              const seleccionado = empleadoSeleccionado?.id === emp.id;
+              const ciDeEmp = obtenerCarnetDeUsuario(emp.id, carnetMap);
+              return (
+                <Pressable
+                  key={emp.id}
+                  style={({ pressed }) => [
+                    styles.empleadoItem,
+                    seleccionado && styles.empleadoItemActivo,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={async () => {
+                    setEmpleadoSeleccionado(emp);
+                    setEligiendoEmpleado(false);
+                    setAviso(null);
+                    const aVincular =
+                      carnetVinculando ||
+                      (carnetTexto.trim() &&
+                      !buscarPorCarnet(carnetTexto.trim(), empleados, carnetMap)
+                        ? carnetTexto.trim()
+                        : null);
+
+                    if (aVincular) {
+                      const nuevoMapa = await guardarCarnet(aVincular, emp.id);
+                      setCarnetMap(nuevoMapa);
+                      setCarnetTexto(aVincular);
+                    } else if (ciDeEmp) {
+                      setCarnetTexto(ciDeEmp);
+                    }
+                    setCarnetVinculando(null);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.empleadoItemAvatar,
+                      seleccionado && styles.empleadoItemAvatarActivo,
+                    ]}
+                  >
+                    <Ionicons
+                      name="person"
+                      size={18}
+                      color={seleccionado ? colors.white : colors.primary}
+                    />
+                  </View>
+                  <View style={styles.empleadoItemInfo}>
+                    <Text style={styles.empleadoItemNombre} numberOfLines={1}>
+                      {emp.nombreCompleto}
+                    </Text>
+                    <Text style={styles.empleadoItemRol} numberOfLines={1}>
+                      C.I.: {ciDeEmp ?? emp.id} · {emp.rol}
+                    </Text>
+                  </View>
+                  {seleccionado ? (
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Header
-        title={modoTiqueador ? 'Tiqueador' : 'Asistencia Facial'}
+        title={modoTiqueador ? 'Tiqueador' : 'Control de Asistencia'}
         subtitle={nombreTienda ?? undefined}
         onMenuPress={
           modoTiqueador
@@ -461,13 +751,14 @@ export default function AttendanceScreen({
       />
 
       {dosPaneles && !cargandoTerminal && !faltaTienda ? (
-        // ── Horizontal sobre tablet: cámara a la izquierda, acciones a la derecha.
-        // La cámara toma todo el alto disponible y el resultado se muestra en el
-        // panel grande, que es donde la persona está mirando.
         <View style={styles.panes}>
           <View style={styles.paneVisual}>
             {Marcaje ?? (
-              <FaceCamera onCaptura={alCapturar} guideLabel="Encadre el rostro dentro del óvalo" />
+              <FaceCamera
+                onCaptura={alCapturar}
+                guideLabel="Centra tu rostro dentro del óvalo"
+                shutterLabel="Tomar foto de marcaje"
+              />
             )}
           </View>
 
@@ -477,10 +768,12 @@ export default function AttendanceScreen({
             showsVerticalScrollIndicator={false}
           >
             {BarraTienda}
+            {CardIdentificacionCarnet}
             <View style={styles.card}>
               {Encabezado}
               {Marcaje ? null : (
                 <>
+                  {GuiaCondiciones}
                   {FotoLista}
                   {BloqueAviso}
                   {AccionMarcar}
@@ -491,13 +784,13 @@ export default function AttendanceScreen({
           </ScrollView>
         </View>
       ) : (
-        // ── Vertical (o estados que no dependen del ancho: cargando / sin tienda).
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.columna} onLayout={medirContenido}>
             {BarraTienda}
+            {CardIdentificacionCarnet}
 
             {cargandoTerminal ? (
               <View style={styles.card}>
@@ -514,9 +807,11 @@ export default function AttendanceScreen({
                   <>
                     <FaceCamera
                       onCaptura={alCapturar}
-                      guideLabel="Encadre el rostro dentro del óvalo"
+                      guideLabel="Centra tu rostro dentro del óvalo"
+                      shutterLabel="Tomar foto de marcaje"
                       style={[styles.camera, { height: altoCamara }]}
                     />
+                    {GuiaCondiciones}
                     {FotoLista}
                     {BloqueAviso}
                     {AccionMarcar}
@@ -529,6 +824,8 @@ export default function AttendanceScreen({
           </View>
         </ScrollView>
       )}
+
+      {ModalSelectorEmpleado}
 
       <TiendaSelector
         visible={eligiendoTienda}
@@ -565,9 +862,11 @@ export default function AttendanceScreen({
 /** Tarjeta de éxito: quién, a qué hora y en qué tienda. */
 function MarcajeRegistrado({
   asistencia,
+  carnet,
   onRepetir,
 }: {
   asistencia: Asistencia;
+  carnet?: string | null;
   onRepetir: () => void;
 }) {
   const manual = asistencia.metodo === 'manual';
@@ -603,6 +902,12 @@ function MarcajeRegistrado({
       </View>
 
       <View style={styles.datos}>
+        {carnet ? (
+          <Dato
+            icon="card-outline"
+            texto={`Documento (C.I.): ${carnet}`}
+          />
+        ) : null}
         <Dato
           icon="calendar-outline"
           texto={fechaDe(asistencia.fecha)}
@@ -822,4 +1127,346 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
   },
+
+  // ── Tarjeta de Identificación por Carnet (C.I.) ─────────────────────────
+  carnetCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.lg,
+    gap: space.md,
+    ...shadows.level1,
+  },
+  carnetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  carnetIcono: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carnetHeadTexto: {
+    flex: 1,
+    minWidth: 0,
+  },
+  carnetTitulo: {
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
+  carnetSubtitulo: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+    lineHeight: lineHeight.body,
+  },
+  carnetInputFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg,
+    paddingHorizontal: space.md,
+  },
+  carnetInputIcono: {
+    marginRight: space.xs,
+  },
+  carnetInput: {
+    flex: 1,
+    height: 44,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.text,
+  },
+  carnetBtnLimpiar: {
+    padding: space.xs,
+  },
+  carnetReconocido: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.primarySoft,
+    padding: space.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  carnetAvatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carnetInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  carnetNombre: {
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
+  carnetDetalle: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  carnetBtnCambiar: {
+    paddingHorizontal: space.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  carnetBtnCambiarTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.primary,
+  },
+  carnetNoEncontrado: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.sm,
+    backgroundColor: colors.warningSoft,
+    padding: space.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  carnetNoEncontradoInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  carnetNoEncontradoTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.text,
+  },
+  btnVincular: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  btnVincularTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.primary,
+  },
+  linkListaPersonal: {
+    alignSelf: 'center',
+    paddingVertical: space.xs,
+  },
+  linkListaPersonalTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.primary,
+  },
+
+  // ── Selector de empleado / identificación ────────────────────────────────
+  empleadoBarra: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    ...shadows.level1,
+  },
+  empleadoBarraVacia: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warningSoft,
+  },
+  empleadoAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  empleadoBarraInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  empleadoBarraLabel: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+  empleadoBarraNombre: {
+    fontSize: fontSize.bodyStrong,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
+  cambiarPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: space.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.primarySoft,
+  },
+  cambiarPillTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.primary,
+  },
+
+  // ── Validación y condiciones en tiempo real ──────────────────────────────
+  condicionesCard: {
+    backgroundColor: colors.bg,
+    padding: space.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: space.xs,
+  },
+  condicionesTitulo: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  condicionFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  condicionTexto: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+
+  // ── Preview de foto testigo ──────────────────────────────────────────────
+  fotoPreviewThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg,
+  },
+  fotoListaInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  fotoListaHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  fotoListaDetalle: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+  btnCambiarFoto: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+  },
+
+  // ── Modal de selección de empleado ───────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '80%',
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.md,
+    ...shadows.level2,
+  },
+  modalHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalHeadTexto: {
+    flex: 1,
+    minWidth: 0,
+  },
+  modalTitulo: {
+    fontSize: fontSize.headline,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
+  modalSubtitulo: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
+  modalCerrar: {
+    padding: space.xs,
+  },
+  busquedaInput: {
+    height: 40,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+    color: colors.text,
+    backgroundColor: colors.bg,
+  },
+  modalLista: {
+    maxHeight: 320,
+  },
+  empleadoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.md,
+  },
+  empleadoItemActivo: {
+    backgroundColor: colors.primarySoft,
+  },
+  empleadoItemAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  empleadoItemAvatarActivo: {
+    backgroundColor: colors.primary,
+  },
+  empleadoItemInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  empleadoItemNombre: {
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
+    color: colors.text,
+  },
+  empleadoItemRol: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+  },
 });
+
