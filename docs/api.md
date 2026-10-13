@@ -589,8 +589,20 @@ y `pg_policies`. Revisar sus resultados antes de aplicar: `schema.sql` no define
 de roles, pero la BD remota puede tener uno que admita únicamente los tres roles previos.
 La guarda detiene ese caso frecuente sin modificar la restricción; una definición distinta
 requiere revisión manual y una migración explícita compatible. No eliminar constraints,
-desactivar RLS ni sustituir políticas para habilitar el cliente. Estas consultas no se han
-ejecutado automáticamente y la existencia de políticas remotas no se ha verificado.
+desactivar RLS ni sustituir políticas para habilitar el cliente. El archivo no se ejecuta
+al iniciar NestJS; los resultados remotos dependen del entorno y deben revisarse antes
+de cualquier cambio de esquema.
+
+Para crear únicamente una cuenta cliente de prueba autorizada, existe el operador
+`node scripts/create-client-test.mjs --create` desde `backend/`, después del build.
+Carga la configuración local de BD en memoria, ejecuta preflight de solo lectura y
+reutiliza `UsersService.create` con rol fijo `cliente`, contraseña aleatoria y bcrypt;
+no ejecuta synchronize/migraciones, no cambia cuentas existentes y usa un correo único
+si el inicial ya existe. Imprime solamente las credenciales de la cuenta recién creada.
+Sin `--create` solo inspecciona compatibilidad. También admite `--api URL` con
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` del operador para usar el alta admin existente, y
+`--verify` con `CLIENT_TEST_EMAIL`/`CLIENT_TEST_PASSWORD` para comprobar la autenticación
+sin emitir tokens en consola ni modificar usuarios. No existe registro público.
 
 Verificación aislada, sin conexión a BD: `npm run test:e2e -- --runTestsByPath test/part-recognition.e2e-spec.ts`.
 

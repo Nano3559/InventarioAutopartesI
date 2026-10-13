@@ -35,3 +35,15 @@ El modo siguiente necesita FastAPI con pesos disponibles y un puente Nest de int
 Este modo selecciona la primera imagen de prueba de `AIR COMPRESSOR`, encontrada desde el manifiesto local `artifacts/dataset.json`. La interfaz recibe una respuesta real del recorrido Nest → FastAPI → YOLO. Comprueba la clase, las 50 clases del modelo, la confianza, los conteos verificables, los metadatos CSV y las tres alternativas en ambos tamaños de pantalla. Guarda `live-report.json` y dos capturas reales.
 
 La autenticación usa una fixture autorizada exclusivamente para la integración; no verifica el login de producción ni usuarios de la BD. Chromium omite los bytes de archivos multipart en la inspección de peticiones: el interceptor reconstruye el multipart con la misma imagen seleccionada y lo envía a Nest. No simula predicciones ni conecta la aplicación directamente con Python. La imagen de prueba conocida verifica integración, no mide generalización del modelo.
+
+## Verificación de producción
+
+`test_recognition_cloud.py` abre el sitio desplegado, inicia sesión con una cuenta cliente real, carga la imagen de prueba y verifica la predicción, los metadatos, los tamaños de pantalla y el cierre de sesión. No intercepta ni simula peticiones.
+
+Configurar privadamente `UI_CLOUD_URL`, `UI_CLOUD_EMAIL` y `UI_CLOUD_PASSWORD`; no guardar las credenciales en código ni imprimirlas. Ejecutar:
+
+```powershell
+.venv/Scripts/python.exe tests-ui/test_recognition_cloud.py
+```
+
+La respuesta admite hasta 140 segundos para los arranques en frío de servicios gratuitos. Capturas y `cloud-report.json` quedan en `artifacts/ui/`. El reporte omite contraseñas y JWTs. Esta prueba requiere que Nest y el microservicio Python estén desplegados y conectados; verifica una cuenta real de la BD.

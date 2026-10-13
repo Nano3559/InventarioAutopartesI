@@ -34,7 +34,7 @@ export function RecognitionPage() {
     if (!file || busy) return;
     const controller = new AbortController();
     request.current = controller;
-    const timeout = window.setTimeout(() => controller.abort(), 65000);
+    const timeout = window.setTimeout(() => controller.abort(), 125000);
     setBusy(true); setError(null); setResult(null);
     try { setResult(await recognitionService.predict(file, controller.signal)); }
     catch (cause) {

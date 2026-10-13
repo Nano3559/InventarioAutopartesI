@@ -1,6 +1,7 @@
 import asyncio
 import hmac
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Header, UploadFile
@@ -14,6 +15,8 @@ from .upload_limit import UploadLimitMiddleware
 
 def create_app(settings: Settings | None = None, service: InferenceService | None = None):
     settings = settings or Settings()
+    if os.environ.get("RENDER", "").lower() == "true" and not settings.api_key:
+        raise RuntimeError("El servicio público en Render requiere AUTOPARTS_API_KEY.")
     service = service or InferenceService(settings)
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="autoparts")
     gate = asyncio.Lock()

@@ -168,3 +168,30 @@ Con los pesos importados y el dataset local disponible:
 El script usa exclusivamente las imágenes de **validación**, CPU y dos hilos; no entrena ni modifica pesos, métricas test o variables de entorno. Guarda `artifacts/models/validation-thresholds.json` con SHA-256, cobertura, precisión empírica entre predicciones aceptadas e intervalos Wilson 95% para umbrales de 0,50 a 0,95. Recomienda el menor umbral desde 0,70 con precisión empírica ≥0,97 y al menos 50 imágenes aceptadas. Estos criterios son revisables mediante `--target-precision` y `--minimum-accepted`.
 
 La recomendación utiliza una muestra del mismo dataset y no acredita comportamiento sobre imágenes fuera de distribución. La precisión observada no calibra las probabilidades del modelo ni garantiza precisión futura. Aplicar un cambio de umbral requiere revisar los resultados y configurar el entorno explícitamente.
+
+## Servicio de inferencia separado en Render
+
+Crear un **Web Service Python** conectado al mismo repositorio, separado del NestJS existente. No requiere Docker. Configuración:
+
+| Campo | Valor |
+| --- | --- |
+| Root Directory | `ai-service` |
+| Runtime | Python |
+| Build Command | `bash build_render.sh` |
+| Start Command | `uvicorn autoparts_ai.api:app --host 0.0.0.0 --port $PORT --workers 1` |
+| Health Check | Mantener comprobación de puerto; `/health` exige clave compartida |
+| Python | `PYTHON_VERSION=3.11.11` |
+
+Configurar las variables privadas del servicio desde Render, sin escribir sus valores en Git:
+
+- `AUTOPARTS_MODEL_ARCHIVE_URL`: URL HTTPS firmada/vigente del ZIP validado de Colab, disponible durante el build. No necesita SDK ni conexión a la base de datos.
+- `AUTOPARTS_MODEL_SHA256`: `b9bd44e58650ec5fab95705b5f4c1aa5f4b5a86008ffc60926dfea2dd481d7b2` para los pesos verificados actuales.
+- `AUTOPARTS_API_KEY`: secreto aleatorio compartido únicamente con NestJS. El proceso rechaza arrancar en Render sin esta clave.
+- `AUTOPARTS_DEVICE=cpu`, `AUTOPARTS_TORCH_THREADS=1`, `OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`.
+- `AUTOPARTS_CONFIDENCE_THRESHOLD=0.70`, `AUTOPARTS_HIGH_CONFIDENCE_THRESHOLD=0.90`.
+
+El build instala torch/torchvision CPU y dependencias de inferencia, sustituye OpenCV por su variante headless y descarga los artefactos una sola vez. El cargador limita descarga a 20 MiB y contenido ZIP a 30 MiB, rechaza rutas y enlaces, valida SHA-256 y metadatos antes de publicar archivos. Reutiliza un modelo existente solo si conserva hash y metadatos válidos. Los errores de descarga no muestran la URL firmada ni su token. No se instala KaggleHub ni scikit-learn ni se entrena durante el build o startup.
+
+Después del despliegue, configurar **el backend NestJS existente** con la URL HTTPS del nuevo servicio en `AUTOPARTS_AI_URL` y la misma clave en `AUTOPARTS_AI_API_KEY`. El frontend conserva su comunicación con NestJS. Renovar la URL firmada antes de un nuevo build si ha caducado. Verificar `/health` usando `X-API-Key` y una inferencia real después de iniciar; el consumo de memoria y el tiempo de arranque deben comprobarse en los logs del servicio desplegado.
+
+El plan gratuito puede suspender el proceso por inactividad y provocar un primer acceso lento. Un build exitoso no garantiza que la instancia disponga de memoria suficiente; revisar las métricas reales del servicio. Ningún despliegue se da por operativo hasta comprobar el flujo público NestJS → Python → modelo.
