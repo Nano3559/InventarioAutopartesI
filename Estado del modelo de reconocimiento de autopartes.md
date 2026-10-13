@@ -1,6 +1,6 @@
 # Estado del modelo de reconocimiento de autopartes
 
-Fecha de corte: **13 de octubre de 2026**. Este documento registra lo implementado, lo comprobado y los pendientes del plan solicitado. El modelo está entrenado y funciona localmente; **la prueba de reconocimiento en producción sigue bloqueada por la conexión entre Render y el servicio Python**. El despliegue correctivo está en curso y todavía no se considera finalizado.
+Fecha de corte: **13 de octubre de 2026**. Este documento registra lo implementado, lo comprobado y los pendientes del plan solicitado. El modelo está entrenado y funciona localmente **y en producción**: el servicio Python quedó desplegado en Render, el backend NestJS quedó conectado a él y una predicción autenticada real devolvió el resultado esperado. Quedan pendientes menores (licencia, generalización con fotos propias y merge a `main`), no bloqueantes.
 
 ## Contexto y alcance
 
@@ -22,11 +22,11 @@ Este módulo no sustituye el reconocimiento facial ArcFace/SCRFD, la búsqueda p
 | 1. Análisis | Completa | Inspección de módulos, roles, autenticación, estilos e integración; conservación de dependencias npm existentes | Sin pendientes específicos de esta fase |
 | 2. Dataset | Completa | Descarga KaggleHub, inspección de variantes, clases y CSV; conteos y preparación de particiones; test separado físicamente del entrenamiento | Confirmar licencia antes de publicar imágenes de referencia |
 | 3. Inteligencia artificial | Completa | Entrenamiento real en Colab, evaluación en test, importación y verificación de pesos, clases y métricas; inferencia local real | Validar comportamiento con fotografías nuevas ajenas al dataset |
-| 4. Servicio Python | Parcial | FastAPI, cuatro endpoints, carga única del modelo, validación de imágenes, configuración, límites y errores controlados | Alojar el servicio con los pesos y comprobar su arranque en nube |
+| 4. Servicio Python | Completa | FastAPI, cuatro endpoints, carga única del modelo, validación de imágenes, configuración, límites y errores controlados; desplegado en Render (`autoparts-ai`) con descarga privada de pesos verificada por SHA-256 y arranque en nube comprobado | Sin pendientes de esta fase |
 | 5. Base de datos y cliente | Completa | Rol cliente compatible con `users.rol`; asignación autorizada por backend; cuenta cliente real verificada | No se requiere ampliar un enum ni modificar roles anteriores |
-| 6. NestJS | Parcial | Módulo aislado, cuatro rutas protegidas, validación, proxy HTTP y pruebas de errores/timeouts | Configurar URL y secreto del Python remoto; verificar conexión de producción |
-| 7. React | Completa | Página corporativa, carga y preview, drag & drop, estados de procesamiento/error, confianza, top 3 y metadatos; web publicada en Vercel | Repetir prueba manual contra el servicio remoto operativo |
-| 8. Verificaciones | Parcial | Pruebas unitarias, HTTP, navegador y flujo local con pesos reales; servicios públicos auditados | Verificar flujo completo en producción después del despliegue Python |
+| 6. NestJS | Completa | Módulo aislado, cuatro rutas protegidas, validación, proxy HTTP y pruebas de errores/timeouts; URL, secreto y timeout del Python remoto configurados en Render y conexión de producción verificada | Sin pendientes de esta fase |
+| 7. React | Completa | Página corporativa, carga y preview, drag & drop, estados de procesamiento/error, confianza, top 3 y metadatos; web publicada en Vercel | Prueba manual en el navegador contra el servicio remoto (ya operativo) con una foto de test y una propia |
+| 8. Verificaciones | Completa | Pruebas unitarias, HTTP, navegador, flujo local con pesos reales y **flujo completo en producción** (login cliente real → NestJS → Python → pesos reales) verificado | Repetir con una fotografía propia fuera del dataset |
 
 ## Dataset realmente utilizado
 
