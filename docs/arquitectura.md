@@ -35,7 +35,7 @@ autenticación/RBAC y los flujos de negocio críticos.
 
 | Entidad | Tabla | Propósito |
 | :--- | :--- | :--- |
-| `User` | `users` | Usuarios con `rol` (admin/tienda/inventario) + FK `tienda` + Hito 3: `embedding`, `facePhoto`, `faceRegisteredAt`, `activo` (registro facial) |
+| `User` | `users` | Usuarios con `rol` (admin/tienda/inventario/cliente) + FK `tienda` + Hito 3: `embedding`, `facePhoto`, `faceRegisteredAt`, `activo` (registro facial) |
 | `Location` | `locations` | 7 ubicaciones: 4 almacenes + 3 tiendas (`tipo`, `codigo`) |
 | `Product` | `products` | Catálogo: fabricante, marca, modelo, años, OEM, fábrica, código de barras (`codigo`, Hito 3), precios, costo, stock mínimo |
 | `Inventory` | `inventory` | Stock por producto + ubicación (UNIQUE product+location) |
@@ -313,3 +313,25 @@ Pantallas del Hito 3 y quién las ve:
   `PATCH /attendance/:id`, que deja rastro de quién lo confirmó.
 - **Los datos del usuario salen por columnas explícitas** en toda respuesta con join: nunca
   `password` ni `embedding`.
+
+## Reconocimiento de autopartes (clasificación)
+
+Flujo independiente: **React → NestJS `/api/part-recognition` → FastAPI local → YOLO11n-cls**.
+Python prepara el dataset Kaggle, entrena, evalúa y consulta metadatos de archivos locales;
+no se conecta a Supabase. NestJS es el único backend público: verifica JWT/rol `cliente`,
+valida imágenes con Sharp, limita recursos, aplica timeout, valida el JSON de respuesta
+y traduce errores internos. El modelo se carga una sola vez en FastAPI; iniciar servidores
+no descarga datasets ni entrena. Sin pesos/metadatos verificados se responde 503, sin simulaciones.
+
+`backend/src/part-recognition/` separa controller, service, DTOs y módulo. El proxy usa fetch
+nativo, rechaza redirects y limita JSON a 2 MiB. La foto no se persiste. No hay nuevas
+entidades/tablas, enriquecimiento automático con el catálogo ni cambios en asistencia facial.
+Los modelos ArcFace/SCRFD continúan dentro de NestJS como antes.
+
+El rol `cliente` aprovecha `users.rol` varchar y el alta/edición de usuarios exclusiva de
+administradores. Los controllers de negocio declaran los tres roles anteriores a nivel
+clase para impedir que lecturas antes abiertas a cualquier JWT filtren información al
+cliente; los permisos específicos de cada método prevalecen y conservan su comportamiento.
+`/auth/me` permite consultar la propia sesión. No se cambian roles ni RLS automáticamente;
+el repositorio no contiene políticas RLS para `users`, y la configuración remota debe revisarse
+en Supabase antes de cualquier despliegue. SQL idempotente de verificación: `sql/cliente-role.sql`.

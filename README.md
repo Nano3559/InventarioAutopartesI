@@ -13,6 +13,7 @@
 | **Web Admin** | React 19 + Vite 8 + TypeScript + `@bwip-js/browser` | Vercel |
 | **App Móvil** | Expo 57 / React Native 0.86 + `expo-camera` | Expo EAS |
 | **Almacenamiento** | Supabase Storage (`products` público, `faces` privado) | Supabase Cloud |
+| **Reconocimiento de autopartes** | Python + FastAPI + YOLO11n-cls, acceso web para `cliente` mediante NestJS | Servicio interno, configuración independiente |
 
 ---
 
@@ -35,6 +36,10 @@
 ---
 
 ## Características principales
+
+### Reconocimiento inteligente para clientes
+
+Nuevo módulo web `/reconocimiento`: carga de fotografías, clasificación de autopartes con confianza y alternativas, nombres originales y metadatos verificables del dataset Kaggle. No se mezcla con productos, stock o precios del catálogo. Requiere descargar el dataset, entrenar y evaluar pesos reales; sin modelo disponible devuelve un estado controlado. Instalación Windows, entrenamiento, rol cliente y verificación: [ai-service/README.md](ai-service/README.md).
 
 ### Inventario y Catálogo
 - **Control multi-ubicación**: Stock desagregado en 7 sucursales (4 almacenes y 3 tiendas físicas).
@@ -129,6 +134,7 @@ Detalle técnico completo y justificaciones: [docs/stack-tecnologico.md](docs/st
 | **`admin`** | Acceso total: inventario global, precios, costos, reportes, personal, auditoría de asistencia, dashboard en vivo y modo tiqueador. |
 | **`tienda`** | Operación de sucursal: Punto de Venta (POS), venta mayor, devoluciones, solicitudes al almacén y escáner de códigos de barras. |
 | **`inventario`** | Control de almacén: recepción de stock, traslados entre sucursales y escaneo de autopartes. |
+| **`cliente`** | Reconocimiento inteligente de autopartes en la web (`/reconocimiento`), sin permisos administrativos. |
 
 ---
 

@@ -2,7 +2,7 @@
 
 Backend NestJS expuesto bajo el prefijo global **`/api`** (puerto 3000 en local).
 Todos los endpoints requieren `Authorization: Bearer <JWT>` salvo los marcados con `+ público`.
-La autorización por rol (`admin` / `tienda` / `inventario`) se aplica vía `@Roles` + `RolesGuard`.
+La autorización por rol (`admin` / `tienda` / `inventario` / `cliente`) se aplica vía `@Roles` + `RolesGuard`. El rol `cliente` accede exclusivamente al reconocimiento de autopartes y a su propia sesión; las rutas de negocio mantienen acceso para los tres roles anteriores.
 
 Base local: `http://localhost:3000/api` — Producción: `https://inventarioautopartesi.onrender.com/api`
 
@@ -526,3 +526,92 @@ biométrico) a la respuesta y a la memoria del proceso.
 - La exportación de `xlsx` devuelve el archivo binario con headers de descarga.
 - Errores: la API responde con estructura estándar de NestJS (`{ statusCode, message, error }`).
 - Mobile agrega `/api` a su base por sí solo (`src/config.ts`); web lo incluye en `VITE_API_URL`.
+
+## Reconocimiento inteligente de autopartes
+
+Módulo independiente de la búsqueda por imagen del catálogo y del reconocimiento facial.
+Todas las rutas requieren JWT y rol **`cliente`**. React consume solamente NestJS;
+FastAPI recibe llamadas internas con una clave opcional `X-API-Key`, nunca el JWT del usuario.
+
+| Método | Ruta | Entrada / respuesta |
+| :--- | :--- | :--- |
+| POST | `/part-recognition/predict` | Multipart con un único archivo `file`; devuelve HTTP 200 con clasificación real |
+| GET | `/part-recognition/health` | `{ status: "ok" \| "model_unavailable", model_available: boolean }` |
+| GET | `/part-recognition/model/info` | Modelo, procedencia del dataset, cantidad de clases, hash de pesos y métricas disponibles; 503 sin modelo |
+| GET | `/part-recognition/classes` | Lista de clases y metadatos reales disponibles; puede consultarse antes de entrenar si existe el manifiesto del dataset |
+
+El archivo debe ser JPG/JPEG, PNG o WebP con MIME coincidente y contenido decodificable,
+sin animación. Límite inicial: 10 MiB y 20 millones de píxeles. Nest valida con Sharp antes
+de enviar el archivo original al servicio. No guarda fotos ni vincula resultados con productos,
+precios, stock o compatibilidades del catálogo.
+
+Contrato de clasificación:
+
+```json
+{
+  "prediction": { "class_info": "ClassMetadata", "confidence": 0.82 },
+  "top_predictions": ["Prediction (hasta 3, incluyendo la principal)"],
+  "confidence_state": "medium",
+  "conclusive": true,
+  "thresholds": { "conclusive": 0.70, "high": 0.90 },
+  "analysis": "AnalysisInfo"
+}
+```
+
+Los valores anteriores ilustran el contrato, no una predicción ni métricas de un modelo entrenado.
+`ClassMetadata` contiene `id`, `original_name`, `training_label`, `spanish_name` y
+`translation_source` (ambos anulables), `image_counts` y `metadata`. Las traducciones
+son un mapeo revisable; no son descripciones originales. `AnalysisInfo` contiene `model`,
+`dataset` (`slug`, `url`, `version`, `license` cuando se conozcan), `class_count`,
+`created_at` anulable, `weights_sha256` y `metrics` anulable.
+La confianza es una probabilidad de clasificación entre 0 y 1; no garantiza identidad
+ni detecta automáticamente objetos ajenos al dataset. Los umbrales se configuran en Python
+y requieren calibración en validación; `conclusive:false` exige mostrar un resultado no concluyente.
+
+Errores controlados del proxy tienen `{ code, message }`: `model_unavailable` (503),
+`service_unavailable` (503, conexión fallida), `inference_timeout` (504), `service_busy`
+(429), `invalid_image` (400), `image_too_large` (413), `upstream_error` (502).
+Las validaciones locales de archivo/contrato y autenticación conservan errores NestJS.
+No se devuelven mensajes técnicos ni rutas internas del servicio.
+
+### Alta autorizada de clientes
+
+`users.rol` es `varchar`, no enum ni tabla de roles. `USER_ROLES` admite `cliente`;
+`POST /users` y `PATCH /users/:id` siguen restringidos a `admin` y validan el rol en backend.
+Un administrador puede crear una cuenta con nombre, email, contraseña y `rol:"cliente"`
+mediante el formulario existente o estas rutas; no existe registro público ni se reasignan
+usuarios automáticamente. La contraseña se almacena con bcrypt y no sale en respuestas.
+`backend/sql/cliente-role.sql` verifica el esquema y documenta la columna de forma idempotente;
+no modifica filas, privilegios, constraints ni políticas. Revisar/aplicar manualmente sobre
+la BD real, cuya configuración RLS no puede deducirse de los archivos del repositorio.
+El script incluye preflight de solo lectura para los CHECK de `users.rol`, los flags RLS
+y `pg_policies`. Revisar sus resultados antes de aplicar: `schema.sql` no define CHECK
+de roles, pero la BD remota puede tener uno que admita únicamente los tres roles previos.
+La guarda detiene ese caso frecuente sin modificar la restricción; una definición distinta
+requiere revisión manual y una migración explícita compatible. No eliminar constraints,
+desactivar RLS ni sustituir políticas para habilitar el cliente. El archivo no se ejecuta
+al iniciar NestJS; los resultados remotos dependen del entorno y deben revisarse antes
+de cualquier cambio de esquema.
+
+Para crear únicamente una cuenta cliente de prueba autorizada, existe el operador
+`node scripts/create-client-test.mjs --create` desde `backend/`, después del build.
+Carga la configuración local de BD en memoria, ejecuta preflight de solo lectura y
+reutiliza `UsersService.create` con rol fijo `cliente`, contraseña aleatoria y bcrypt;
+no ejecuta synchronize/migraciones, no cambia cuentas existentes y usa un correo único
+si el inicial ya existe. Imprime solamente las credenciales de la cuenta recién creada.
+Sin `--create` solo inspecciona compatibilidad. También admite `--api URL` con
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` del operador para usar el alta admin existente, y
+`--verify` con `CLIENT_TEST_EMAIL`/`CLIENT_TEST_PASSWORD` para comprobar la autenticación
+sin emitir tokens en consola ni modificar usuarios. No existe registro público.
+
+Verificación aislada, sin conexión a BD: `npm run test:e2e -- --runTestsByPath test/part-recognition.e2e-spec.ts`.
+
+Verificación del puente con un modelo real: iniciar FastAPI, ejecutar `npm run build`
+en `backend/` y luego `node scripts/part-recognition-check.mjs --image ruta/foto.jpg`.
+Sin `--image`, usa una fotografía del conjunto test descargado localmente. El script
+levanta NestJS temporalmente en loopback con un secreto JWT efímero, comprueba 401/403,
+salud, clases, información del modelo e inferencia real; no carga `.env`, no abre la BD
+ni crea usuarios. Guarda el resumen en `ai-service/artifacts/bridge-check.json`.
+Para una prueba de navegador, `--serve` mantiene el servidor aislado hasta cinco minutos
+o SIGINT y escribe URL/token efímero en `ai-service/artifacts/live-ui-session.json`
+(ignorado por Git); al cerrar elimina únicamente su propio archivo de sesión.

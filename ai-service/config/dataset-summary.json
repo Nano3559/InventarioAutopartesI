@@ -1,0 +1,1719 @@
+{
+  "schema_version": 1,
+  "source": {
+    "slug": "gpiosenka/car-parts-40-classes",
+    "url": "https://www.kaggle.com/datasets/gpiosenka/car-parts-40-classes",
+    "version": "3",
+    "license": null,
+    "license_files": [],
+    "selection_rule": "largest_coherent_classification_variant",
+    "variants": [
+      {
+        "relative_root": "car parts",
+        "class_count": 40,
+        "coherent": true,
+        "splits": [
+          "train",
+          "val",
+          "test"
+        ]
+      },
+      {
+        "relative_root": "car parts 50",
+        "class_count": 50,
+        "coherent": true,
+        "splits": [
+          "train",
+          "val",
+          "test"
+        ]
+      }
+    ]
+  },
+  "selected_variant": "car parts 50",
+  "class_count": 50,
+  "total_images": 9239,
+  "splits": {
+    "train": {
+      "image_count": 8739
+    },
+    "val": {
+      "image_count": 250
+    },
+    "test": {
+      "image_count": 250
+    }
+  },
+  "classes": [
+    {
+      "id": 0,
+      "original_name": "AIR COMPRESSOR",
+      "training_label": "AIR COMPRESSOR",
+      "spanish_name": "Compresor de aire",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 185,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 195,
+            "fields": {
+              "class index": [
+                "0"
+              ],
+              "labels": [
+                "AIR COMPRESSOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "original_name": "ALTERNATOR",
+      "training_label": "ALTERNATOR",
+      "spanish_name": "Alternador",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 190,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 200,
+            "fields": {
+              "class index": [
+                "1"
+              ],
+              "labels": [
+                "ALTERNATOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "original_name": "BATTERY",
+      "training_label": "BATTERY",
+      "spanish_name": "Batería",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 177,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 187,
+            "fields": {
+              "class index": [
+                "2"
+              ],
+              "labels": [
+                "BATTERY"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "original_name": "BRAKE CALIPER",
+      "training_label": "BRAKE CALIPER",
+      "spanish_name": "Pinza de freno",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 174,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 184,
+            "fields": {
+              "class index": [
+                "3"
+              ],
+              "labels": [
+                "BRAKE CALIPER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "original_name": "BRAKE PAD",
+      "training_label": "BRAKE PAD",
+      "spanish_name": "Pastilla de freno",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 188,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 198,
+            "fields": {
+              "class index": [
+                "4"
+              ],
+              "labels": [
+                "BRAKE PAD"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "original_name": "BRAKE ROTOR",
+      "training_label": "BRAKE ROTOR",
+      "spanish_name": "Disco de freno",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 176,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 186,
+            "fields": {
+              "class index": [
+                "5"
+              ],
+              "labels": [
+                "BRAKE ROTOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "original_name": "CAMSHAFT",
+      "training_label": "CAMSHAFT",
+      "spanish_name": "Árbol de levas",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 156,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 166,
+            "fields": {
+              "class index": [
+                "6"
+              ],
+              "labels": [
+                "CAMSHAFT"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "original_name": "CARBERATOR",
+      "training_label": "CARBERATOR",
+      "spanish_name": "Carburador",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 192,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 202,
+            "fields": {
+              "class index": [
+                "7"
+              ],
+              "labels": [
+                "CARBERATOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "original_name": "CLUTCH PLATE",
+      "training_label": "CLUTCH PLATE",
+      "spanish_name": "Disco de embrague",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 181,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 191,
+            "fields": {
+              "class index": [
+                "8"
+              ],
+              "labels": [
+                "CLUTCH PLATE"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "original_name": "COIL SPRING",
+      "training_label": "COIL SPRING",
+      "spanish_name": "Resorte helicoidal",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 155,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 165,
+            "fields": {
+              "class index": [
+                "9"
+              ],
+              "labels": [
+                "COIL SPRING"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "original_name": "CRANKSHAFT",
+      "training_label": "CRANKSHAFT",
+      "spanish_name": "Cigüeñal",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 180,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 190,
+            "fields": {
+              "class index": [
+                "10"
+              ],
+              "labels": [
+                "CRANKSHAFT"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "original_name": "CYLINDER HEAD",
+      "training_label": "CYLINDER HEAD",
+      "spanish_name": "Culata",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 184,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 194,
+            "fields": {
+              "class index": [
+                "11"
+              ],
+              "labels": [
+                "CYLINDER HEAD"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "original_name": "DISTRIBUTOR",
+      "training_label": "DISTRIBUTOR",
+      "spanish_name": "Distribuidor",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 148,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 158,
+            "fields": {
+              "class index": [
+                "12"
+              ],
+              "labels": [
+                "DISTRIBUTOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "original_name": "ENGINE BLOCK",
+      "training_label": "ENGINE BLOCK",
+      "spanish_name": "Bloque del motor",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 188,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 198,
+            "fields": {
+              "class index": [
+                "13"
+              ],
+              "labels": [
+                "ENGINE BLOCK"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "original_name": "ENGINE VALVE",
+      "training_label": "ENGINE VALVE",
+      "spanish_name": "Válvula del motor",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 166,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 176,
+            "fields": {
+              "class index": [
+                "14"
+              ],
+              "labels": [
+                "ENGINE VALVE"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "original_name": "FUEL INJECTOR",
+      "training_label": "FUEL INJECTOR",
+      "spanish_name": "Inyector de combustible",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 188,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 198,
+            "fields": {
+              "class index": [
+                "15"
+              ],
+              "labels": [
+                "FUEL INJECTOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 16,
+      "original_name": "FUSE BOX",
+      "training_label": "FUSE BOX",
+      "spanish_name": "Caja de fusibles",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 166,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 176,
+            "fields": {
+              "class index": [
+                "16"
+              ],
+              "labels": [
+                "FUSE BOX"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 17,
+      "original_name": "GAS CAP",
+      "training_label": "GAS CAP",
+      "spanish_name": "Tapa del depósito de combustible",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 186,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 196,
+            "fields": {
+              "class index": [
+                "17"
+              ],
+              "labels": [
+                "GAS CAP"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 18,
+      "original_name": "HEADLIGHTS",
+      "training_label": "HEADLIGHTS",
+      "spanish_name": "Faros delanteros",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 159,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 169,
+            "fields": {
+              "class index": [
+                "18"
+              ],
+              "labels": [
+                "HEADLIGHTS"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 19,
+      "original_name": "IDLER ARM",
+      "training_label": "IDLER ARM",
+      "spanish_name": "Brazo auxiliar de dirección",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 198,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 208,
+            "fields": {
+              "class index": [
+                "19"
+              ],
+              "labels": [
+                "IDLER ARM"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "original_name": "IGNITION COIL",
+      "training_label": "IGNITION COIL",
+      "spanish_name": "Bobina de encendido",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 200,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 210,
+            "fields": {
+              "class index": [
+                "20"
+              ],
+              "labels": [
+                "IGNITION COIL"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 21,
+      "original_name": "INSTRUMENT CLUSTER",
+      "training_label": "INSTRUMENT CLUSTER",
+      "spanish_name": "Cuadro de instrumentos",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 180,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 190,
+            "fields": {
+              "class index": [
+                "21"
+              ],
+              "labels": [
+                "INSTRUMENT CLUSTER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 22,
+      "original_name": "LEAF SPRING",
+      "training_label": "LEAF SPRING",
+      "spanish_name": "Ballesta",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 110,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 120,
+            "fields": {
+              "class index": [
+                "22"
+              ],
+              "labels": [
+                "LEAF SPRING"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 23,
+      "original_name": "LOWER CONTROL ARM",
+      "training_label": "LOWER CONTROL ARM",
+      "spanish_name": "Brazo inferior de suspensión",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 169,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 179,
+            "fields": {
+              "class index": [
+                "23"
+              ],
+              "labels": [
+                "LOWER CONTROL ARM"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 24,
+      "original_name": "MUFFLER",
+      "training_label": "MUFFLER",
+      "spanish_name": "Silenciador de escape",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 150,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 160,
+            "fields": {
+              "class index": [
+                "24"
+              ],
+              "labels": [
+                "MUFFLER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 25,
+      "original_name": "OIL FILTER",
+      "training_label": "OIL FILTER",
+      "spanish_name": "Filtro de aceite",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 169,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 179,
+            "fields": {
+              "class index": [
+                "25"
+              ],
+              "labels": [
+                "OIL FILTER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 26,
+      "original_name": "OIL PAN",
+      "training_label": "OIL PAN",
+      "spanish_name": "Cárter de aceite",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 187,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 197,
+            "fields": {
+              "class index": [
+                "26"
+              ],
+              "labels": [
+                "OIL PAN"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 27,
+      "original_name": "OIL PRESSURE SENSOR",
+      "training_label": "OIL PRESSURE SENSOR",
+      "spanish_name": "Sensor de presión de aceite",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 187,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 197,
+            "fields": {
+              "class index": [
+                "27"
+              ],
+              "labels": [
+                "OIL PRESSURE SENSOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 28,
+      "original_name": "OVERFLOW TANK",
+      "training_label": "OVERFLOW TANK",
+      "spanish_name": "Depósito de expansión",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 189,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 199,
+            "fields": {
+              "class index": [
+                "28"
+              ],
+              "labels": [
+                "OVERFLOW TANK"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 29,
+      "original_name": "OXYGEN SENSOR",
+      "training_label": "OXYGEN SENSOR",
+      "spanish_name": "Sensor de oxígeno",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 182,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 192,
+            "fields": {
+              "class index": [
+                "29"
+              ],
+              "labels": [
+                "OXYGEN SENSOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 30,
+      "original_name": "PISTON",
+      "training_label": "PISTON",
+      "spanish_name": "Pistón",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 113,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 123,
+            "fields": {
+              "class index": [
+                "30"
+              ],
+              "labels": [
+                "PISTON"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 31,
+      "original_name": "PRESSURE PLATE",
+      "training_label": "PRESSURE PLATE",
+      "spanish_name": "Plato de presión del embrague",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 182,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 192,
+            "fields": {
+              "class index": [
+                "31"
+              ],
+              "labels": [
+                "PRESSURE PLATE"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 32,
+      "original_name": "RADIATOR",
+      "training_label": "RADIATOR",
+      "spanish_name": "Radiador",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 169,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 179,
+            "fields": {
+              "class index": [
+                "32"
+              ],
+              "labels": [
+                "RADIATOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 33,
+      "original_name": "RADIATOR FAN",
+      "training_label": "RADIATOR FAN",
+      "spanish_name": "Ventilador del radiador",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 160,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 170,
+            "fields": {
+              "class index": [
+                "33"
+              ],
+              "labels": [
+                "RADIATOR FAN"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 34,
+      "original_name": "RADIATOR HOSE",
+      "training_label": "RADIATOR HOSE",
+      "spanish_name": "Manguera del radiador",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 175,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 185,
+            "fields": {
+              "class index": [
+                "34"
+              ],
+              "labels": [
+                "RADIATOR HOSE"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 35,
+      "original_name": "RADIO",
+      "training_label": "RADIO",
+      "spanish_name": "Radio",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 189,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 199,
+            "fields": {
+              "class index": [
+                "35"
+              ],
+              "labels": [
+                "RADIO"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 36,
+      "original_name": "RIM",
+      "training_label": "RIM",
+      "spanish_name": "Aro de rueda",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 179,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 189,
+            "fields": {
+              "class index": [
+                "36"
+              ],
+              "labels": [
+                "RIM"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 37,
+      "original_name": "SHIFT KNOB",
+      "training_label": "SHIFT KNOB",
+      "spanish_name": "Pomo de la palanca de cambios",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 189,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 199,
+            "fields": {
+              "class index": [
+                "37"
+              ],
+              "labels": [
+                "SHIFT KNOB"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 38,
+      "original_name": "SIDE MIRROR",
+      "training_label": "SIDE MIRROR",
+      "spanish_name": "Espejo lateral",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 186,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 196,
+            "fields": {
+              "class index": [
+                "38"
+              ],
+              "labels": [
+                "SIDE MIRROR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 39,
+      "original_name": "SPARK PLUG",
+      "training_label": "SPARK PLUG",
+      "spanish_name": "Bujía",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 155,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 165,
+            "fields": {
+              "class index": [
+                "39"
+              ],
+              "labels": [
+                "SPARK PLUG"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 40,
+      "original_name": "SPOILER",
+      "training_label": "SPOILER",
+      "spanish_name": "Alerón",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 185,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 195,
+            "fields": {
+              "class index": [
+                "40"
+              ],
+              "labels": [
+                "SPOILER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 41,
+      "original_name": "STARTER",
+      "training_label": "STARTER",
+      "spanish_name": "Motor de arranque",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 195,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 205,
+            "fields": {
+              "class index": [
+                "41"
+              ],
+              "labels": [
+                "STARTER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 42,
+      "original_name": "TAILLIGHTS",
+      "training_label": "TAILLIGHTS",
+      "spanish_name": "Luces traseras",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 161,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 171,
+            "fields": {
+              "class index": [
+                "42"
+              ],
+              "labels": [
+                "TAILLIGHTS"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 43,
+      "original_name": "THERMOSTAT",
+      "training_label": "THERMOSTAT",
+      "spanish_name": "Termostato",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 182,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 192,
+            "fields": {
+              "class index": [
+                "43"
+              ],
+              "labels": [
+                "THERMOSTAT"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 44,
+      "original_name": "TORQUE CONVERTER",
+      "training_label": "TORQUE CONVERTER",
+      "spanish_name": "Convertidor de par",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 187,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 197,
+            "fields": {
+              "class index": [
+                "44"
+              ],
+              "labels": [
+                "TORQUE CONVERTER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 45,
+      "original_name": "TRANSMISSION",
+      "training_label": "TRANSMISSION",
+      "spanish_name": "Transmisión",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 164,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 174,
+            "fields": {
+              "class index": [
+                "45"
+              ],
+              "labels": [
+                "TRANSMISSION"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 46,
+      "original_name": "VACUUM BRAKE BOOSTER",
+      "training_label": "VACUUM BRAKE BOOSTER",
+      "spanish_name": "Servofreno de vacío",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 178,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 188,
+            "fields": {
+              "class index": [
+                "46"
+              ],
+              "labels": [
+                "VACUUM BRAKE BOOSTER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 47,
+      "original_name": "VALVE LIFTER",
+      "training_label": "VALVE LIFTER",
+      "spanish_name": "Taqué de válvula",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 175,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 185,
+            "fields": {
+              "class index": [
+                "47"
+              ],
+              "labels": [
+                "VALVE LIFTER"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 48,
+      "original_name": "WATER PUMP",
+      "training_label": "WATER PUMP",
+      "spanish_name": "Bomba de agua",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 176,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 186,
+            "fields": {
+              "class index": [
+                "48"
+              ],
+              "labels": [
+                "WATER PUMP"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 49,
+      "original_name": "WINDOW REGULATOR",
+      "training_label": "WINDOW REGULATOR",
+      "spanish_name": "Mecanismo elevalunas",
+      "translation_source": "manual_reviewable_mapping",
+      "image_counts": {
+        "train": 179,
+        "val": 5,
+        "test": 5
+      },
+      "metadata": {
+        "csv": [
+          {
+            "source_file": "car parts.csv",
+            "matching_row_count": 189,
+            "fields": {
+              "class index": [
+                "49"
+              ],
+              "labels": [
+                "WINDOW REGULATOR"
+              ],
+              "data set": [
+                "test",
+                "train",
+                "valid"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "csv_metadata": [
+    {
+      "file": "car parts.csv",
+      "columns": [
+        "class index",
+        "filepaths",
+        "labels",
+        "data set"
+      ],
+      "row_count": 9239
+    }
+  ],
+  "original_files": [
+    "car parts.csv",
+    "EfficientNetB0-50-(224 X 224)- 97.99.h5"
+  ],
+  "cross_split_duplicate_count": 0,
+  "reference_images_published": false,
+  "license_note": "No se encontró archivo de licencia en la descarga; pendiente verificar en Kaggle antes de redistribuir imágenes.",
+  "translations_note": "Traducciones manuales revisables, externas a los metadatos originales."
+}

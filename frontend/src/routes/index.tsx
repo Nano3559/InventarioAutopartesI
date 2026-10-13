@@ -19,6 +19,7 @@ import { SearchByImagePage } from '../pages/inventory/SearchByImagePage';
 import { PersonalPage } from '../pages/personal/PersonalPage';
 import { AttendancePage } from '../pages/attendance/AttendancePage';
 import { AttendanceDashboardPage } from '../pages/attendance/AttendanceDashboardPage';
+import { RecognitionPage } from '../pages/recognition/RecognitionPage';
 
 export function AppRoutes() {
   return (
@@ -36,7 +37,8 @@ export function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="dashboard" element={<ProtectedRoute allowedRoles={['admin', 'tienda', 'inventario']}><DashboardPage /></ProtectedRoute>} />
+        <Route path="reconocimiento" element={<ProtectedRoute allowedRoles={['cliente']}><RecognitionPage /></ProtectedRoute>} />
 
         {/* Módulo de Inventario */}
         <Route

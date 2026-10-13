@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth, useNotifications } from '../context';
-import { LogOut, Menu, Store, Warehouse, Shield, Bell } from 'lucide-react';
+import { LogOut, Menu, Store, Warehouse, Shield, Bell, UserRound } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { NotificationDrawer } from '../components/notifications/NotificationDrawer';
 import '../styles/notifications.css';
@@ -31,19 +31,21 @@ export function Navbar({ onToggleMobileSidebar }: NavbarProps) {
       costos: 'Costos y Proveedores',
       reportes: 'Reportes y Métricas',
       devoluciones: 'Devoluciones de Clientes',
+      reconocimiento: 'Reconocimiento de autopartes',
     };
 
     return titles[segments[0]] || segments[0].charAt(0).toUpperCase() + segments[0].slice(1);
   };
 
   const getRoleIcon = () => {
+    if (user?.rol === 'cliente') return <UserRound size={14} />;
     if (user?.rol === 'admin') return <Shield size={14} color="#38bdf8" />;
     if (user?.rol === 'tienda') return <Store size={14} color="#60a5fa" />;
     return <Warehouse size={14} color="#a78bfa" />;
   };
 
   return (
-    <header className="app-navbar">
+    <header className={`app-navbar ${user?.rol === 'cliente' ? 'client-navbar' : ''}`}>
       <div className="navbar-left">
         <button
           type="button"
@@ -70,12 +72,12 @@ export function Navbar({ onToggleMobileSidebar }: NavbarProps) {
         ) : (
           <div className="location-indicator" title="Acceso Global">
             {getRoleIcon()}
-            <span>Vista Centralizada</span>
+            <span>{user?.rol === 'cliente' ? 'Cliente' : 'Vista Centralizada'}</span>
           </div>
         )}
 
         {/* Campana de Notificaciones */}
-        <div className="notifications-menu-wrapper">
+        {user?.rol !== 'cliente' && <div className="notifications-menu-wrapper">
           <button
             type="button"
             className="notification-bell-btn"
@@ -95,7 +97,7 @@ export function Navbar({ onToggleMobileSidebar }: NavbarProps) {
             isOpen={notificationsOpen}
             onClose={() => setNotificationsOpen(false)}
           />
-        </div>
+        </div>}
 
         <button
           type="button"

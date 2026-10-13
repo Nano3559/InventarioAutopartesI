@@ -24,6 +24,7 @@ import type { SaleInput } from './sales.service';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class SalesController {
   constructor(private salesService: SalesService) {}
 

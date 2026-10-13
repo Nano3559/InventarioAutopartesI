@@ -8,6 +8,7 @@ import { DevolucionesService } from './devoluciones.service';
 
 @Controller('devoluciones')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class DevolucionesController {
   constructor(private devolucionesService: DevolucionesService) {}
 

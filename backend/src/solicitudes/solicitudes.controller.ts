@@ -17,6 +17,7 @@ import { SolicitudesService } from './solicitudes.service';
 
 @Controller('solicitudes')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class SolicitudesController {
   constructor(private solicitudesService: SolicitudesService) {}
 

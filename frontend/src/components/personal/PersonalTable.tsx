@@ -141,7 +141,7 @@ export function PersonalTable({
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
                       <span className={`role-badge ${u.rol}`}>
-                        {u.rol === 'admin'
+                        {u.rol === 'cliente' ? 'Cliente' : u.rol === 'admin'
                           ? 'Administrador'
                           : u.rol === 'tienda'
                           ? 'Vendedor'

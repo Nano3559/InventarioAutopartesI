@@ -22,13 +22,18 @@ Documentación del negocio y plan: `requerimientos.md` (ejercicio), `Plan Hito 3
 backend/    API NestJS (prefijo /api, puerto 3000)
 frontend/   SPA React (Vite) para admin y tienda
 mobile/     App Expo para admin, tienda e inventario
+ai-service/ Servicio Python independiente para clasificación de autopartes (YOLO11n-cls)
 ```
 
 Archivos raíz: `Plan Hito 3.md`, `requerimientos.md`, `README.md` y `docs/` (documentación técnica indexada en `docs/README.md`).
 
 ### Roles
 
-`admin` | `tienda` | `inventario` (en los requerimientos figura como "encargado de inventario"). Definidos en `backend/src/common/constants.ts` y aplicados por JWT/RBAC tanto en web como móvil.
+`admin` | `tienda` | `inventario` (en los requerimientos figura como "encargado de inventario") | `cliente` (solo reconocimiento web). Definidos en `backend/src/common/constants.ts` y aplicados por JWT/RBAC. El móvil mantiene sus tres roles originales y no incorpora pantallas para cliente.
+
+## Reconocimiento de autopartes (módulo independiente)
+
+`ai-service/` usa KaggleHub y el dataset obligatorio `gpiosenka/car-parts-40-classes`, inspeccionado antes de decidir clases. Entrenamiento YOLO11n-cls clasificación, nunca detección; `test` queda físicamente fuera del entrenamiento. FastAPI interno (`127.0.0.1:8001`) sirve `/health`, `/predict`, `/model/info` y `/classes`; web accede únicamente mediante `/api/part-recognition` en NestJS con rol `cliente`. No reemplaza ArcFace/SCRFD facial, ni la búsqueda por imagen del catálogo. Pesos, dataset y uploads no se versionan. Ver [ai-service/README.md](ai-service/README.md) y [ai-service/VERIFICATION.md](ai-service/VERIFICATION.md). `users.rol` es varchar, asignado por admin; no se aplican roles automáticamente. Python nunca accede a Supabase.
 
 ## Hito 3 — en curso (29/09 → 06/10/2026)
 

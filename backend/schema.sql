@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS "users" (
     "nombre"           varchar NOT NULL,
     "email"            varchar NOT NULL UNIQUE,
     "password"         varchar NOT NULL,
-    "rol"              varchar NOT NULL,         -- 'admin' | 'tienda' | 'inventario'
+    "rol"              varchar NOT NULL,         -- 'admin' | 'tienda' | 'inventario' | 'cliente'
     "tiendaId"         integer REFERENCES "locations" ("id") ON DELETE SET NULL,
     -- Hito 3: registro facial (asistencia). Ver sql/hito3.sql
     "apellido"         varchar,

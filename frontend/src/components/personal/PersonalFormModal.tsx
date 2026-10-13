@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, UserPlus, UserCheck, Loader2 } from 'lucide-react';
 import type { UserItem, CreateUserDto, UpdateUserDto } from '../../types/user.types';
 import type { LocationItem } from '../../types/product.types';
+import type { UserRole } from '../../types/auth.types';
 
 interface PersonalFormModalProps {
   userToEdit: UserItem | null;
@@ -23,7 +24,7 @@ function PersonalFormInner({ userToEdit, onClose, onSave, locations }: FormInner
   const [apellido, setApellido] = useState(userToEdit?.apellido || '');
   const [email, setEmail] = useState(userToEdit?.email || '');
   const [password, setPassword] = useState('');
-  const [rol, setRol] = useState<'admin' | 'tienda' | 'inventario'>(userToEdit?.rol || 'tienda');
+  const [rol, setRol] = useState<UserRole>(userToEdit?.rol || 'tienda');
   const [tiendaId, setTiendaId] = useState<string>(
     userToEdit?.tiendaId ? String(userToEdit.tiendaId) : ''
   );
@@ -172,11 +173,12 @@ function PersonalFormInner({ userToEdit, onClose, onSave, locations }: FormInner
               <select
                 className="form-select"
                 value={rol}
-                onChange={(e) => setRol(e.target.value as 'admin' | 'tienda' | 'inventario')}
+                onChange={(e) => setRol(e.target.value as UserRole)}
               >
                 <option value="tienda">Tienda / Vendedor</option>
                 <option value="inventario">Inventario / Almacén</option>
                 <option value="admin">Administrador</option>
+                <option value="cliente">Cliente / Reconocimiento</option>
               </select>
             </div>
 

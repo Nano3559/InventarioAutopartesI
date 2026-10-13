@@ -98,3 +98,14 @@ Thumbs.db
 .temp/
 *.tmp
 *.temp
+
+# Artefactos de Colab entregados localmente (no versionar pesos ni exportaciones)
+/autoparts-model.zip
+/autoparts-colab-artifacts.zip
+/*.pt
+/model-info.json
+/metrics.json
+/dataset-summary.json
+/train-config.json
+/translations.json
+/environment.txt

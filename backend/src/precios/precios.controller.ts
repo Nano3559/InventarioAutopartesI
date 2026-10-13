@@ -21,6 +21,7 @@ const EXCEL_MIME =
 
 @Controller('precios')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class PreciosController {
   constructor(private preciosService: PreciosService) {}
 

@@ -19,6 +19,10 @@ entender, correr, mantener y desplegar el proyecto.
 
 ## Documentos de negocio (raíz)
 
+- [Estado del modelo de reconocimiento de autopartes](../Estado%20del%20modelo%20de%20reconocimiento%20de%20autopartes.md) — avance por fases, métricas verificadas, funcionalidad y pendientes de conexión en nube al 13/10/2026.
+- [Reconocimiento inteligente de autopartes](../ai-service/README.md) — instalación Windows, dataset real, entrenamiento YOLO11n-cls, API interna, integración web y rol cliente.
+- [Estado de verificación de reconocimiento](../ai-service/VERIFICATION.md) — pruebas ejecutadas y estado real de pesos/métricas.
+
 - [requerimientos.md](../requerimientos.md) — ejercicio completo del cliente: roles, módulos, flujos y criterio principal.
 - [Plan Hito 3.md](../Plan%20Hito%203.md) — plan día a día del Hito 3 (códigos de barras + asistencia facial), códigos de tarea (B/M/R) y fases.
 
