@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useTiendaActiva } from '../context/TiendaActivaContext';
 import { getProducts } from '../api/products';
 import { createSale, getNotaVenta, updateSale, getSale, type SaleItem, type SaleInput, type Sale } from '../api/sales';
 import { getToken } from '../storage/token';
@@ -34,7 +34,7 @@ import {
   iconSize,
   a11y,
 } from '../theme';
-import { Header, Badge, TableRow, TableCard, PrimaryCTA } from '../components';
+import { Header, Badge, TableRow, TableCard, PrimaryCTA, SelectorTiendaActiva } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -75,6 +75,10 @@ interface SalesScreenProps {
 export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const navigation = useNavigation();
   const { user, loading: authLoading } = useAuth();
+  const { tiendaId: tiendaActivaId } = useTiendaActiva();
+  // Tienda contra la que se vende: la fija del rol `tienda` o, para el admin
+  // (que supervisa las 7), la que eligió en el selector del POS/dashboard.
+  const tiendaIdEfectiva = user?.tiendaId ?? tiendaActivaId ?? null;
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Array<{ product: any; stock: number }>>([]);
   const [cart, setCart] = useState<SaleItem[]>([]);
@@ -103,7 +107,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         setProducts([]);
         return;
       }
-      const tiendaId = user?.tiendaId ?? undefined;
+      const tiendaId = tiendaIdEfectiva ?? undefined;
       const data = await getProducts({ search: searchTerm || undefined, locationId: tiendaId }, token);
       setProducts(data.map(p => ({
         product: p,
@@ -114,7 +118,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     } finally {
       setLoadingProducts(false);
     }
-  }, [user?.tiendaId]);
+  }, [tiendaIdEfectiva]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -208,12 +212,6 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const paymentMismatch = Math.abs(totalPagado - total) > 0.01;
   const remaining = total - totalPagado;
 
-  // Verificar que el usuario tiene tienda asignada
-  const hasTienda = !!user?.tiendaId;
-  if (!hasTienda && cart.length > 0) {
-    console.warn('Usuario sin tiendaId intentando vender:', user?.rol);
-  }
-
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -245,6 +243,11 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   };
 
   const addToCart = (product: any, availableStock: number) => {
+    if (!tiendaIdEfectiva) {
+      showToast('Primero elige la tienda donde estás vendiendo', 'error');
+      return;
+    }
+
     const inCart = cart.find(i => i.productId === product.id)?.cantidad ?? 0;
 
     if (inCart >= availableStock) {
@@ -353,7 +356,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         requiereFactura,
         lugarEntrega: lugarEntrega || undefined,
         paraQuien: paraQuien || undefined,
-        locationId: user?.tiendaId || undefined,
+        locationId: tiendaIdEfectiva ?? undefined,
       };
       const token = await getToken();
       if (!token) throw new Error('No hay sesión activa');
@@ -396,11 +399,12 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     );
   }
 
-  const renderProductItem = useCallback(({ item }: { item: { product: any; stock: number } }) => {
+  const renderProductItem = useCallback((item: { product: any; stock: number }) => {
     const outOfStock = item.stock <= 0;
     const inCartQty = cart.find(i => i.productId === item.product.id)?.cantidad ?? 0;
     return (
     <TableRow
+      key={String(item.product.id)}
       onPress={() => !outOfStock && addToCart(item.product, item.stock)}
       accessibilityLabel={`${item.product.producto}, ${item.product.marca} ${item.product.modelo}, ${item.stock === 0 ? 'Sin stock' : item.stock <= (item.product.stockMinimo || 1) ? `Stock bajo: ${item.stock}` : `Disponible: ${item.stock}`}, Bs ${item.product.precio1?.toFixed(2) || '—'}`}
       accessibilityHint={outOfStock ? 'Sin stock disponible' : "Tocar para agregar al carrito"}
@@ -450,14 +454,14 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     );
   }, [cart]);
 
-  const renderCartItem = useCallback(({ item }: { item: SaleItem }) => {
+  const renderCartItem = useCallback((item: SaleItem) => {
     const prod = products.find(p => p.product.id === item.productId)?.product;
     const productStock = products.find(p => p.product.id === item.productId)?.stock ?? 0;
     const hasError = stockErrorProductId === item.productId;
     const atMaxStock = item.cantidad >= productStock;
 
     return (
-      <TableRow borderTop={true} accessibilityLabel={`${prod?.producto || 'Producto'}, cantidad ${item.cantidad}, precio unitario Bs ${item.precio.toFixed(2)}`}>
+      <TableRow key={String(item.productId)} borderTop={true} accessibilityLabel={`${prod?.producto || 'Producto'}, cantidad ${item.cantidad}, precio unitario Bs ${item.precio.toFixed(2)}`}>
         <View style={styles.cartItemInfo}>
           <Text style={styles.cartItemName}>{prod?.producto || 'Producto'}</Text>
           <View style={styles.cartItemControls}>
@@ -538,8 +542,8 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     );
   }, [products, submitting, stockError, stockErrorProductId]);
 
-  const renderPaymentItem = useCallback(({ item, index }: { item: { metodo: string; monto: number }; index: number }) => (
-    <TableRow borderTop={index > 0} accessibilityLabel={`Pago ${item.metodo}, Bs ${item.monto.toFixed(2)}`}>
+  const renderPaymentItem = useCallback((item: { metodo: string; monto: number }, index: number) => (
+    <TableRow key={`${item.metodo}-${index}`} borderTop={index > 0} accessibilityLabel={`Pago ${item.metodo}, Bs ${item.monto.toFixed(2)}`}>
       <View style={styles.paymentInfo}>
         <Text style={styles.paymentMetodo}>{item.metodo}</Text>
         <Text style={styles.paymentMonto}>Bs {item.monto.toFixed(2)}</Text>
@@ -580,6 +584,21 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Tienda activa (solo admin: el rol `tienda` ya tiene la suya) */}
+          {!user?.tiendaId && (
+            <View style={styles.section}>
+              <SelectorTiendaActiva />
+              {!tiendaIdEfectiva && (
+                <View style={styles.noTiendaNotice}>
+                  <Ionicons name="alert-circle" size={iconSize.lg} color={colors.warning} />
+                  <Text style={styles.noTiendaText}>
+                    Elige la tienda donde estás vendiendo: de ahí sale el stock mostrado y el registro de la venta.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Search */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Buscar producto</Text>
@@ -610,21 +629,14 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
             </View>
           ) : (
             <TableCard>
-              <FlatList
-                data={filteredProducts}
-                keyExtractor={item => String(item.product.id)}
-                renderItem={renderProductItem}
-                ListEmptyComponent={
-                  <View style={styles.emptyList}>
-                    <Ionicons name="search" size={iconSize['2xl']} color={colors.textMuted} />
-                    <Text style={styles.emptyText}>No se encontraron productos</Text>
-                  </View>
-                }
-                removeClippedSubviews
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                initialNumToRender={10}
-              />
+              {filteredProducts.length === 0 ? (
+                <View style={styles.emptyList}>
+                  <Ionicons name="search" size={iconSize['2xl']} color={colors.textMuted} />
+                  <Text style={styles.emptyText}>No se encontraron productos</Text>
+                </View>
+              ) : (
+                filteredProducts.map((item) => renderProductItem(item))
+              )}
             </TableCard>
           )}
 
@@ -636,12 +648,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
                 <Text style={styles.cartTotal}>Total: Bs {total.toFixed(2)}</Text>
               </View>
               <TableCard>
-                <FlatList
-                  data={cart}
-                  keyExtractor={item => String(item.productId)}
-                  renderItem={renderCartItem}
-                  removeClippedSubviews
-                />
+                {cart.map((item) => renderCartItem(item))}
               </TableCard>
             </View>
           )}
@@ -697,11 +704,7 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
               ) : (
                 <>
                   <TableCard>
-                    <FlatList
-                      data={payments}
-                      keyExtractor={(_, i) => String(i)}
-                      renderItem={renderPaymentItem}
-                    />
+                    {payments.map((item, index) => renderPaymentItem(item, index))}
                   </TableCard>
                   <Pressable
                     style={styles.addPaymentBtn}
@@ -941,6 +944,22 @@ const styles = StyleSheet.create({
   },
   loadingList: { padding: space.xl, alignItems: 'center', gap: space.md },
   loadingText: { fontSize: fontSize.caption, fontFamily: fontFamily.sans, color: colors.textMuted },
+  noTiendaNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.md,
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.md,
+  },
+  noTiendaText: {
+    flex: 1,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sans,
+    color: colors.text,
+  },
   emptyList: { padding: space.xl, alignItems: 'center', gap: space.md },
   emptyText: { fontSize: fontSize.body, fontFamily: fontFamily.sans, color: colors.textMuted },
   productInfo: { flex: 1, marginRight: space.md, minWidth: 0 },

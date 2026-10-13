@@ -342,11 +342,9 @@ export default function SolicitudesScreen() {
               </View>
             ) : (
               <TableCard>
-                <FlatList
-                  data={filteredSolicitudes}
-                  keyExtractor={(item) => String(item.id)}
-                  renderItem={({ item }) => (
+                {filteredSolicitudes.map((item) => (
                     <TableRow
+                      key={String(item.id)}
                       borderTop={item.id !== filteredSolicitudes[0].id}
                       onPress={isAdminOrInventario ? () => setEstadoModal({ solicitud: item }) : undefined}
                       accessibilityLabel={`Solicitud ${item.id}, ${item.producto?.producto}, ${item.cantidad} unidades, ${item.estado}`}
@@ -378,12 +376,7 @@ export default function SolicitudesScreen() {
                         </View>
                       </View>
                     </TableRow>
-                  )}
-                  removeClippedSubviews
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                  initialNumToRender={10}
-                />
+                ))}
               </TableCard>
             )}
           </View>

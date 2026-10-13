@@ -60,6 +60,8 @@ function ProductFormModalContent({
         stock: {} as Record<number, number>,
       };
     }
+    // `fabricante` = fabricante de la PIEZA (Tyc, Depo) y `marca` = marca del
+    // VEHÍCULO (Toyota, Nissan), igual que el resto de la app y el seed.
     return {
       producto: '',
       fabricante: 'Depo',
@@ -207,7 +209,7 @@ function ProductFormModalContent({
                   type="text"
                   className="form-input"
                   style={{ paddingLeft: '1rem' }}
-                  placeholder="Ej. Depo, TYC, Denso, Koyo, Toyota"
+                  placeholder="Ej. Depo, Tyc, Denso, Koyo"
                   value={formData.fabricante}
                   onChange={(e) => handleChange('fabricante', e.target.value)}
                   required

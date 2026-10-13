@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -42,19 +42,6 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-
-  // Si el pedido de login supera unos segundos es casi seguro que el backend de
-  // Render estaba dormido (spin-down a los 15 min, cold start ~52.7 s). Mientras
-  // espera, la app avisa en lugar de dejar un spinner mudo.
-  const [despertando, setDespertando] = useState(false);
-  useEffect(() => {
-    if (!submitting) {
-      setDespertando(false);
-      return;
-    }
-    const timer = setTimeout(() => setDespertando(true), 6000);
-    return () => clearTimeout(timer);
-  }, [submitting]);
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !submitting;
 
@@ -232,15 +219,6 @@ export default function LoginScreen() {
               )}
             </Pressable>
 
-            {despertando ? (
-              <View style={styles.wakingBox} accessible={true} accessibilityRole={a11y.alert}>
-                <ActivityIndicator size="small" color={colors.textMuted} />
-                <Text style={styles.wakingText}>
-                  Despertando el servidor… la primera vez del día puede tardar hasta
-                  un minuto.
-                </Text>
-              </View>
-            ) : null}
           </View>
 
         </ScrollView>
@@ -399,22 +377,5 @@ const styles = StyleSheet.create({
   },
   submitBtnTextDisabled: {
     color: colors.primaryStrong,
-  },
-  wakingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    backgroundColor: colors.blueSoft,
-    borderWidth: 1,
-    borderColor: colors.blue,
-    borderRadius: radius.sm,
-    padding: space.md,
-  },
-  wakingText: {
-    flex: 1,
-    color: colors.text,
-    fontSize: fontSize.caption,
-    fontFamily: fontFamily.sans,
-    lineHeight: fontSize.caption * lineHeight.relaxed,
   },
 });

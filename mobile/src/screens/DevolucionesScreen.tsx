@@ -406,11 +406,9 @@ export default function DevolucionesScreen() {
               </View>
             ) : (
               <TableCard>
-                <FlatList
-                  data={devoluciones}
-                  keyExtractor={(item) => String(item.id)}
-                  renderItem={({ item }) => (
+                {devoluciones.map((item) => (
                     <TableRow
+                      key={String(item.id)}
                       borderTop={item.id !== devoluciones[0].id}
                       accessibilityLabel={`Devolución ${item.id}, ${item.producto?.producto}, ${item.cantidad} unidades, Bs ${item.monto.toFixed(2)}`}
                     >
@@ -438,12 +436,7 @@ export default function DevolucionesScreen() {
                         </View>
                       </View>
                     </TableRow>
-                  )}
-                  removeClippedSubviews
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                  initialNumToRender={10}
-                />
+                ))}
               </TableCard>
             )}
           </View>

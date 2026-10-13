@@ -20,16 +20,23 @@ const VEHICLE_BRANDS = [
   'Mazda',
 ];
 
+// Fabricantes de PIEZA, o sea los valores reales de `p.marca` en la BD.
+// El backend filtra con igualdad exacta (`p.marca = :marca`), así que importa
+// el case: 'TYC' no encontraría nada porque en la BD está escrito 'Tyc'.
+// Antes esta lista decía Depo, TYC, Tong Yang, Gordon, Toyota Genuine y
+// Nissan Genuine — casi todo inventado: 4 de esas marcas no existen en ningún
+// producto y faltaban Tyc, Kage, Sankei, Capris, Protzalee y Finar.
 const MANUFACTURERS = [
+  'Tyc',
   'Depo',
-  'TYC',
-  'Tong Yang',
-  'Gordon',
   'Denso',
   'Koyo',
+  'Kage',
+  'Sankei',
   'Valeo',
-  'Toyota Genuine',
-  'Nissan Genuine',
+  'Capris',
+  'Protzalee',
+  'Finar',
 ];
 
 const PRODUCT_CATEGORIES = [
@@ -109,7 +116,8 @@ export function ProductFiltersBar({
       {/* Filtros avanzados colapsables */}
       {showAdvanced && (
         <div className="filters-expanded-grid">
-          {/* Marca de vehículo */}
+          {/* Marca de vehículo — `filters.marca` filtra `p.marca`, que es
+              donde vive la marca del vehículo (Toyota, Nissan). */}
           <div className="filter-control">
             <label className="filter-label">Marca Vehículo</label>
             <select
@@ -124,7 +132,8 @@ export function ProductFiltersBar({
             </select>
           </div>
 
-          {/* Fabricante / Calidad */}
+          {/* Fabricante / Calidad — `filters.fabricante` filtra `p.fabricante`,
+              que es el fabricante de la pieza (Tyc, Depo, Denso). */}
           <div className="filter-control">
             <label className="filter-label">Fabricante / Marca Pieza</label>
             <select

@@ -13,7 +13,7 @@ describe('Locations (e2e)', () => {
     await app.close();
   });
 
-  it('GET /api/locations devuelve las 7 ubicaciones (4 almacenes + 3 tiendas)', async () => {
+  it('GET /api/locations devuelve las 4 ubicaciones (1 almacén + 3 tiendas)', async () => {
     const token = await login(
       app,
       TEST_USERS.admin.email,
@@ -25,7 +25,7 @@ describe('Locations (e2e)', () => {
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThanOrEqual(7);
+    expect(res.body.length).toBeGreaterThanOrEqual(4);
 
     const almacenes = (res.body as Array<{ tipo: string }>).filter(
       (l) => l.tipo === 'almacen',
@@ -33,7 +33,7 @@ describe('Locations (e2e)', () => {
     const tiendas = (res.body as Array<{ tipo: string }>).filter(
       (l) => l.tipo === 'tienda',
     );
-    expect(almacenes.length).toBeGreaterThanOrEqual(4);
+    expect(almacenes.length).toBeGreaterThanOrEqual(1);
     expect(tiendas.length).toBeGreaterThanOrEqual(3);
 
     const first = res.body[0] as { codigo: string; nombre: string };

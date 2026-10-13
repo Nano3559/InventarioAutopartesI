@@ -270,7 +270,8 @@ src/
 ├── storage/      SecureStore (nativo) / localStorage (web)
 ├── screens/      Login, dashboards por rol, Venta (POS), Venta Mayor, Inventario,
 │                 Producto, Historial, Ventas, Devoluciones, Solicitudes, Reportes,
-│                 Búsqueda por imagen, Escáner, Registro facial, Marcaje, Historial asistencia
+│                 Buscar Producto (agrupa Escáner + Búsqueda por imagen en pestañas),
+│                 Registro facial, Marcaje, Historial asistencia
 ├── components/   AppDrawer (menu por rol), StatCard, Badge, Header, FaceCamera...
 └── theme.ts      design tokens (paletas light/dark, tipografía, espaciado)
 ```
@@ -282,13 +283,14 @@ Pantallas del Hito 3 y quién las ve:
 
 | Pantalla | Rol | Qué hace |
 | :--- | :--- | :--- |
-| `ScannerScreen` | `admin`, `tienda`, `inventario` | Lee un Code128 con la cámara (multiscan, dedup 2.5 s) y muestra la ficha del producto. **Solo consulta** |
+| `BuscarProductoScreen` | `admin`, `tienda`, `inventario` | Una sola entrada del drawer con pestañas **Código de barras** / **Imagen**; embebe `ScannerScreen` y `SearchByImageScreen` (con `embebido`, sin SafeArea/Header propios) |
+| `ScannerScreen` | `admin`, `tienda`, `inventario` | Lee un Code128 con la cámara (multiscan, dedup 2.5 s) y muestra la ficha del producto. **Solo consulta**. Se ve dentro de la pestaña de `BuscarProductoScreen` |
 | `FaceRegisterScreen` | `admin` | Consentimiento (Ley 26935) + nombre/apellido + N fotos del rostro |
-| `AttendanceScreen` | `admin` | Foto en vivo → marcaje → nombre completo + hora + tienda; si no reconoce, aviso "usuario desconocido, debe registrarse" (no hay selección manual) |
+| `AttendanceScreen` | `admin` | Foto en vivo → marcaje → nombre completo + hora + tienda; si no reconoce, aviso "usuario desconocido, debe registrarse" (no hay selección manual). En el drawer no hay entrada directa: se llega por el **Tiqueador** (modo kiosco, R9) |
 | `AttendanceHistoryScreen` | `admin` | Historial con hora, método y confianza |
 | `components/FaceCamera` | (compartida) | Cámara + linterna + permisos + guía oval 112×112; la usan registro y marcaje |
 
-> `SalesScreen` y `ScannerScreen` son pantallas **hermanas** del drawer, no una pila: por eso
+> `SalesScreen` y `BuscarProductoScreen` son pantallas **hermanas** del drawer, no una pila: por eso
 > el escaneo desde el POS (tarea pendiente) va a ser un **modal** sobre el POS, no navegación.
 
 ## 8. Decisiones relevantes

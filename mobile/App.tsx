@@ -23,6 +23,7 @@ import {
   TiqueadorProvider,
   useTiqueador,
 } from './src/context/TiqueadorContext';
+import { TiendaActivaProvider } from './src/context/TiendaActivaContext';
 import AppDrawer from './src/components/AppDrawer';
 import LoginScreen from './src/screens/LoginScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
@@ -36,9 +37,8 @@ import VentaMayorScreen from './src/screens/VentaMayorScreen';
 import InventarioScreen from './src/screens/InventarioScreen';
 import SalesHistoryScreen from './src/screens/SalesHistoryScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
-import SearchByImageScreen from './src/screens/SearchByImageScreen';
+import BuscarProductoScreen from './src/screens/BuscarProductoScreen';
 import ProductDetailScreen from './src/screens/ProductDetailScreen';
-import ScannerScreen from './src/screens/ScannerScreen';
 import FaceRegisterScreen from './src/screens/FaceRegisterScreen';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import AttendanceHistoryScreen from './src/screens/AttendanceHistoryScreen';
@@ -73,11 +73,9 @@ function AdminDrawer() {
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
-      <Drawer.Screen name="Scanner" component={ScannerScreen} />
+      <Drawer.Screen name="BuscarProducto" component={BuscarProductoScreen} />
       <Drawer.Screen name="FaceRegister" component={FaceRegisterScreen} />
-      <Drawer.Screen name="Attendance" component={AttendanceScreen} />
       <Drawer.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
-      <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
     </Drawer.Navigator>
   );
 }
@@ -96,8 +94,7 @@ function TiendaDrawer() {
       <Drawer.Screen name="Devoluciones" component={DevolucionesScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
-      <Drawer.Screen name="Scanner" component={ScannerScreen} />
-      <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
+      <Drawer.Screen name="BuscarProducto" component={BuscarProductoScreen} />
     </Drawer.Navigator>
   );
 }
@@ -112,8 +109,7 @@ function InventarioDrawer() {
       <Drawer.Screen name="Inventario" component={InventarioScreen} />
       <Drawer.Screen name="Solicitudes" component={SolicitudesScreen} />
       <Drawer.Screen name="Reportes" component={ReportesScreen} />
-      <Drawer.Screen name="Scanner" component={ScannerScreen} />
-      <Drawer.Screen name="SearchByImage" component={SearchByImageScreen} />
+      <Drawer.Screen name="BuscarProducto" component={BuscarProductoScreen} />
     </Drawer.Navigator>
   );
 }
@@ -209,10 +205,14 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <TiqueadorProvider>
-            <NavigationContainer>
-              <RootNavigator />
-              <StatusBar style="dark" animated />
-            </NavigationContainer>
+            {/* Tienda activa del admin (POS): fuera de NavigationContainer para
+                que esté disponible en cualquier pantalla, incluido el login. */}
+            <TiendaActivaProvider>
+              <NavigationContainer>
+                <RootNavigator />
+                <StatusBar style="dark" animated />
+              </NavigationContainer>
+            </TiendaActivaProvider>
           </TiqueadorProvider>
         </AuthProvider>
       </SafeAreaProvider>

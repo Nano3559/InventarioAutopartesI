@@ -227,17 +227,10 @@ export default function FaceRegisterScreen() {
       }
       // Lo mismo que en el marcaje: Render duerme a los 15 min y arrancar tarda
       // ~52.7 s. Si el multipart se manda estando dormido, la XHR de subida se
-      // queda sin respuesta mucho rato sin mostrar nada. Primero se asegura de que
-      // el servidor conteste y se le dice al operador qué está pasando.
+      // queda sin respuesta mucho rato. Primero se asegura de que el servidor
+      // conteste antes de mandar las fotos.
       const responde = await esperarServidorVivo(15_000);
       if (!responde) {
-        setAviso({
-          tono: 'info',
-          titulo: 'Despertando el servidor…',
-          texto:
-            'El primer uso del día puede tardar hasta un minuto. Se reintenta ' +
-            'automáticamente.',
-        });
         const despierto = await esperarServidorVivo(90_000);
         if (!despierto) {
           setAviso({

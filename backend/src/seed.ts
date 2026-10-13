@@ -90,33 +90,6 @@ const LOCATIONS: LocationSeed[] = [
     contacto: 'importadora1@autopartes.bo / 4451-1001',
   },
   {
-    codigo: 'ALM-2',
-    nombre: 'Almacén 2',
-    tipo: 'almacen',
-    numero: 2,
-    ubicacion: 'Av. Petrolera Nro. 1500, Zona Sud, Cochabamba',
-    horarios: 'Lun-Vie 08:00-18:00 / Sáb 08:00-13:00',
-    contacto: 'importadora2@autopartes.bo / 4452-2002',
-  },
-  {
-    codigo: 'ALM-3',
-    nombre: 'Almacén 3',
-    tipo: 'almacen',
-    numero: 3,
-    ubicacion: 'Av. Beijing Nro. 300, Zona Norte, Cochabamba',
-    horarios: 'Lun-Vie 08:00-18:00 / Sáb 08:00-13:00',
-    contacto: 'importadora3@autopartes.bo / 4453-3003',
-  },
-  {
-    codigo: 'ALM-4',
-    nombre: 'Almacén 4',
-    tipo: 'almacen',
-    numero: 4,
-    ubicacion: 'Av. América Nro. 800, Zona Cala Cala, Cochabamba',
-    horarios: 'Lun-Sáb 08:30-18:30',
-    contacto: 'importadora4@autopartes.bo / 4454-4004',
-  },
-  {
     codigo: 'TDA-1',
     nombre: 'Tienda 1',
     tipo: 'tienda',
@@ -210,9 +183,9 @@ const PROVEEDORES = [
 const PRODUCTS: ProductSeed[] = [
   {
     producto: 'Farol',
-    fabricante: 'Toyota',
+    fabricante: 'Tyc',
     empresaFabricante: 'Taiwán',
-    marca: 'Tyc',
+    marca: 'Toyota',
     modelo: 'Hilux',
     anio: '2015-2020',
     detalle: 'Farol derecho. Lente de cristal, carcasa negra.',
@@ -225,9 +198,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Farol',
-    fabricante: 'Toyota',
+    fabricante: 'Tyc',
     empresaFabricante: 'China',
-    marca: 'Tyc',
+    marca: 'Toyota',
     modelo: 'Corolla',
     anio: '2014-2019',
     detalle: 'Farol derecho. Lente de cristal, carcasa negra.',
@@ -240,9 +213,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Farol',
-    fabricante: 'Mitsubishi',
+    fabricante: 'Tyc',
     empresaFabricante: 'Tailandia',
-    marca: 'Tyc',
+    marca: 'Mitsubishi',
     modelo: 'L200',
     anio: '2015-2021',
     detalle: 'Farol derecho. Lente de cristal, carcasa negra.',
@@ -255,9 +228,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Guiñador',
-    fabricante: 'Nissan',
+    fabricante: 'Sankei',
     empresaFabricante: 'Tailandia',
-    marca: 'Sankei',
+    marca: 'Nissan',
     modelo: 'NP300',
     anio: '2016-2021',
     detalle: 'Guiñador lateral. Luz ámbar, lente transparente.',
@@ -270,9 +243,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Guiñador',
-    fabricante: 'Jeep',
+    fabricante: 'Depo',
     empresaFabricante: 'China',
-    marca: 'Depo',
+    marca: 'Jeep',
     modelo: 'Cherokee',
     anio: '2014-2020',
     detalle: 'Guiñador delantero. Lente ámbar.',
@@ -285,9 +258,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Stop',
-    fabricante: 'Toyota',
+    fabricante: 'Tyc',
     empresaFabricante: 'Taiwán',
-    marca: 'Tyc',
+    marca: 'Toyota',
     modelo: 'RAV4',
     anio: '2013-2018',
     detalle: 'Stop trasero. Lente cristal-rojo, con portalámpara.',
@@ -300,9 +273,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Stop',
-    fabricante: 'Renault',
+    fabricante: 'Valeo',
     empresaFabricante: 'Tailandia',
-    marca: 'Valeo',
+    marca: 'Renault',
     modelo: 'Duster',
     anio: '2015-2021',
     detalle: 'Stop trasero derecho. Con portalámpara.',
@@ -315,9 +288,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Stop',
-    fabricante: 'Dodge',
+    fabricante: 'Depo',
     empresaFabricante: 'China',
-    marca: 'Depo',
+    marca: 'Dodge',
     modelo: 'Ram 1500',
     anio: '2013-2018',
     detalle: 'Stop trasero. Lente rojo-cristal.',
@@ -330,9 +303,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Espejo',
-    fabricante: 'Nissan',
+    fabricante: 'Depo',
     empresaFabricante: 'China',
-    marca: 'Depo',
+    marca: 'Nissan',
     modelo: 'Frontier',
     anio: '2017-2022',
     detalle: 'Espejo retrovisor derecho. Eléctrico, sin calefacción.',
@@ -345,9 +318,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Espejo',
-    fabricante: 'Mazda',
+    fabricante: 'Kage',
     empresaFabricante: 'Taiwán',
-    marca: 'Kage',
+    marca: 'Mazda',
     modelo: 'CX-5',
     anio: '2017-2023',
     detalle: 'Espejo retrovisor derecho. Eléctrico y rebatible.',
@@ -360,9 +333,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Espejo',
-    fabricante: 'Hyundai',
+    fabricante: 'Kage',
     empresaFabricante: 'China',
-    marca: 'Kage',
+    marca: 'Hyundai',
     modelo: 'Tucson',
     anio: '2015-2020',
     detalle: 'Espejo retrovisor izquierdo. Eléctrico.',
@@ -375,9 +348,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Capot',
-    fabricante: 'Toyota',
+    fabricante: 'Finar',
     empresaFabricante: 'China',
-    marca: 'Finar',
+    marca: 'Toyota',
     modelo: 'Hilux',
     anio: '2012-2017',
     detalle: 'Capot de acero, sin imprimación.',
@@ -390,9 +363,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Capot',
-    fabricante: 'Dodge',
+    fabricante: 'Capris',
     empresaFabricante: 'Taiwán',
-    marca: 'Capris',
+    marca: 'Dodge',
     modelo: 'Ram 1500',
     anio: '2013-2018',
     detalle: 'Capot de acero, con bisagras.',
@@ -405,9 +378,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Puerta',
-    fabricante: 'Toyota',
+    fabricante: 'Finar',
     empresaFabricante: 'Tailandia',
-    marca: 'Finar',
+    marca: 'Toyota',
     modelo: 'Corolla',
     anio: '2013-2019',
     detalle: 'Puerta delantera derecha. Acero, con vidrio.',
@@ -420,9 +393,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Puerta',
-    fabricante: 'Hyundai',
+    fabricante: 'Capris',
     empresaFabricante: 'China',
-    marca: 'Capris',
+    marca: 'Hyundai',
     modelo: 'Tucson',
     anio: '2015-2020',
     detalle: 'Puerta trasera izquierda. Acero.',
@@ -435,9 +408,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Parachoques',
-    fabricante: 'Nissan',
+    fabricante: 'Tyc',
     empresaFabricante: 'Taiwán',
-    marca: 'Tyc',
+    marca: 'Nissan',
     modelo: 'Frontier',
     anio: '2016-2021',
     detalle: 'Parachoques delantero. ABS, sin pintar.',
@@ -450,9 +423,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Parachoques',
-    fabricante: 'Toyota',
+    fabricante: 'Tyc',
     empresaFabricante: 'Tailandia',
-    marca: 'Tyc',
+    marca: 'Toyota',
     modelo: 'Hilux',
     anio: '2015-2020',
     detalle: 'Parachoques delantero. ABS, con rejillas.',
@@ -465,9 +438,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Parachoques',
-    fabricante: 'Jeep',
+    fabricante: 'Depo',
     empresaFabricante: 'China',
-    marca: 'Depo',
+    marca: 'Jeep',
     modelo: 'Cherokee',
     anio: '2014-2020',
     detalle: 'Parachoques delantero. ABS.',
@@ -480,9 +453,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Parachoques',
-    fabricante: 'Toyota',
+    fabricante: 'Capris',
     empresaFabricante: 'Taiwán',
-    marca: 'Capris',
+    marca: 'Toyota',
     modelo: 'RAV4',
     anio: '2013-2018',
     detalle: 'Parachoques trasero. ABS, sin pintar.',
@@ -495,9 +468,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Máscara',
-    fabricante: 'Renault',
+    fabricante: 'Sankei',
     empresaFabricante: 'China',
-    marca: 'Sankei',
+    marca: 'Renault',
     modelo: 'Duster',
     anio: '2015-2021',
     detalle: 'Máscara frontal con rejilla, negra.',
@@ -510,9 +483,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Máscara',
-    fabricante: 'Mitsubishi',
+    fabricante: 'Sankei',
     empresaFabricante: 'Tailandia',
-    marca: 'Sankei',
+    marca: 'Mitsubishi',
     modelo: 'L200',
     anio: '2015-2021',
     detalle: 'Máscara frontal con rejilla, negra.',
@@ -525,9 +498,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Radiador',
-    fabricante: 'Toyota',
+    fabricante: 'Denso',
     empresaFabricante: 'China',
-    marca: 'Denso',
+    marca: 'Toyota',
     modelo: 'Yaris',
     anio: '2012-2020',
     detalle: 'Radiador aluminio-plástico, con tapa.',
@@ -540,9 +513,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Radiador',
-    fabricante: 'Nissan',
+    fabricante: 'Koyo',
     empresaFabricante: 'Tailandia',
-    marca: 'Koyo',
+    marca: 'Nissan',
     modelo: 'Tiida',
     anio: '2011-2018',
     detalle: 'Radiador aluminio-plástico, con tapa.',
@@ -555,9 +528,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Radiador',
-    fabricante: 'Dodge',
+    fabricante: 'Denso',
     empresaFabricante: 'Taiwán',
-    marca: 'Denso',
+    marca: 'Dodge',
     modelo: 'Durango',
     anio: '2014-2020',
     detalle: 'Radiador de alta capacidad V6.',
@@ -570,9 +543,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Radiador',
-    fabricante: 'Jeep',
+    fabricante: 'Denso',
     empresaFabricante: 'Taiwán',
-    marca: 'Denso',
+    marca: 'Jeep',
     modelo: 'Grand Cherokee',
     anio: '2011-2017',
     detalle: 'Radiador de alta capacidad V6.',
@@ -585,9 +558,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Condensador',
-    fabricante: 'Toyota',
+    fabricante: 'Koyo',
     empresaFabricante: 'Tailandia',
-    marca: 'Koyo',
+    marca: 'Toyota',
     modelo: 'Hilux',
     anio: '2015-2020',
     detalle: 'Condensador aire acondicionado.',
@@ -600,9 +573,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Condensador',
-    fabricante: 'Renault',
+    fabricante: 'Valeo',
     empresaFabricante: 'China',
-    marca: 'Valeo',
+    marca: 'Renault',
     modelo: 'Logan',
     anio: '2013-2021',
     detalle: 'Condensador aire acondicionado.',
@@ -615,9 +588,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Condensador',
-    fabricante: 'Nissan',
+    fabricante: 'Valeo',
     empresaFabricante: 'Tailandia',
-    marca: 'Valeo',
+    marca: 'Nissan',
     modelo: 'Sentra',
     anio: '2013-2019',
     detalle: 'Condensador aire acondicionado.',
@@ -630,9 +603,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Tanque de agua',
-    fabricante: 'Hyundai',
+    fabricante: 'Koyo',
     empresaFabricante: 'China',
-    marca: 'Koyo',
+    marca: 'Hyundai',
     modelo: 'Accent',
     anio: '2012-2018',
     detalle: 'Tanque de agua (depósito de refrigerante).',
@@ -645,9 +618,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Tanque de agua',
-    fabricante: 'Mazda',
+    fabricante: 'Denso',
     empresaFabricante: 'Taiwán',
-    marca: 'Denso',
+    marca: 'Mazda',
     modelo: 'Mazda3',
     anio: '2014-2019',
     detalle: 'Tanque de agua (depósito de refrigerante).',
@@ -660,9 +633,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Tanque de agua',
-    fabricante: 'Toyota',
+    fabricante: 'Koyo',
     empresaFabricante: 'Tailandia',
-    marca: 'Koyo',
+    marca: 'Toyota',
     modelo: 'Corolla',
     anio: '2014-2019',
     detalle: 'Tanque de agua (depósito de refrigerante).',
@@ -675,9 +648,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Manivela',
-    fabricante: 'Toyota',
+    fabricante: 'Protzalee',
     empresaFabricante: 'Taiwán',
-    marca: 'Protzalee',
+    marca: 'Toyota',
     modelo: 'Hilux',
     anio: '2005-2011',
     detalle: 'Manivela de ventana. Interior.',
@@ -690,9 +663,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Manivela',
-    fabricante: 'Nissan',
+    fabricante: 'Protzalee',
     empresaFabricante: 'China',
-    marca: 'Protzalee',
+    marca: 'Nissan',
     modelo: 'Frontier',
     anio: '2008-2014',
     detalle: 'Manivela de ventana. Interior.',
@@ -705,9 +678,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Jalador',
-    fabricante: 'Mitsubishi',
+    fabricante: 'Kage',
     empresaFabricante: 'Taiwán',
-    marca: 'Kage',
+    marca: 'Mitsubishi',
     modelo: 'Montero',
     anio: '2006-2012',
     detalle: 'Jalador de puerta. Cromado.',
@@ -720,9 +693,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Jalador',
-    fabricante: 'Toyota',
+    fabricante: 'Kage',
     empresaFabricante: 'China',
-    marca: 'Kage',
+    marca: 'Toyota',
     modelo: 'Prado',
     anio: '2010-2017',
     detalle: 'Jalador de puerta. Cromado.',
@@ -735,9 +708,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Rejilla',
-    fabricante: 'Jeep',
+    fabricante: 'Depo',
     empresaFabricante: 'Tailandia',
-    marca: 'Depo',
+    marca: 'Jeep',
     modelo: 'Wrangler',
     anio: '2012-2018',
     detalle: 'Rejilla frontal clásica 7 ranuras.',
@@ -750,9 +723,9 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     producto: 'Rejilla',
-    fabricante: 'Renault',
+    fabricante: 'Sankei',
     empresaFabricante: 'China',
-    marca: 'Sankei',
+    marca: 'Renault',
     modelo: 'Sandero',
     anio: '2014-2020',
     detalle: 'Rejilla frontal negra.',
@@ -931,8 +904,13 @@ async function seedInventory(
     const product = products[i];
     const stockMap = new Map<number, number>();
 
+    // Con un solo almacén ambas líneas escribirían la misma clave del Map y la
+    // segunda pisaría a la primera, así que el segundo reparto solo se aplica si
+    // hay más de un almacén.
     stockMap.set(almacenes[i % almacenes.length], 15 + ((i * 5) % 60));
-    stockMap.set(almacenes[(i + 2) % almacenes.length], (i * 3) % 25);
+    if (almacenes.length > 1) {
+      stockMap.set(almacenes[(i + 2) % almacenes.length], (i * 3) % 25);
+    }
 
     if (i % 3 === 0) stockMap.set(tiendas[0], 6 + (i % 5));
     if (i % 2 === 0) stockMap.set(tiendas[1], 4 + (i % 7));
@@ -972,7 +950,7 @@ async function seed(): Promise<void> {
 
     const locations = await seedLocations();
     console.log(
-      `[seed] ubicaciones: ${locations.length} (4 almacenes + 3 tiendas)`,
+      `[seed] ubicaciones: ${locations.length} (1 almacén + 3 tiendas)`,
     );
 
     await seedUsers(locations);

@@ -6,7 +6,9 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../context/AuthContext';
@@ -29,20 +31,28 @@ export default function ReportesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedYear] = useState(new Date().getFullYear());
   const [printLoading, setPrintLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!token) return;
+    // `GET /reportes/mensual` es solo admin (`reportes.controller.ts`). Pedirlo con
+    // un rol sin permiso devuelve 403 y, como `request()` lanza en todo `!response.ok`,
+    // un `Promise.all` hubiera tirado abajo también al dashboard y dejado la pantalla
+    // entera en ceros y sin aviso. Por eso el mensual solo se pide a admin.
+    const tareas: [Promise<DashboardData>, Promise<ReporteMensualItem[]>] = [
+      getDashboard(token),
+      isAdmin ? getReporteMensual(selectedYear, token) : Promise.resolve([]),
+    ];
     try {
-      const [dashData, mensualData] = await Promise.all([
-        getDashboard(token),
-        getReporteMensual(selectedYear, token),
-      ]);
+      const [dashData, mensualData] = await Promise.all(tareas);
       setDashboard(dashData);
       setMensual(mensualData);
+      setError(null);
     } catch (err) {
-      console.error('Error cargando reportes:', err);
+      // Sin datos no tiene sentido pintar la pantalla en ceros: se muestra el error.
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar los reportes.');
     }
-  }, [token, selectedYear]);
+  }, [token, selectedYear, isAdmin]);
 
   useEffect(() => {
     setLoading(true);
@@ -61,6 +71,10 @@ export default function ReportesScreen() {
     try {
       const ven = dashboard.ventas;
       const inv = dashboard.inventario;
+      // El backend de `/reportes/dashboard` hoy no envía `topProductos`
+      // (docs/api.md: inventario, ventas, solicitudes), así que sin filas no
+      // se imprime la sección: antes salía una tabla con el encabezado vacío.
+      const topProd = dashboard.topProductos ?? [];
       const html = `
         <html><head><title>Reporte - ${user?.nombre || 'Tienda'}</title>
         <style>
@@ -81,14 +95,16 @@ export default function ReportesScreen() {
           <div class="stat"><div class="label">Ventas de Hoy</div><div class="value">Bs. ${ven?.hoy?.total?.toFixed(2) || '0.00'}</div></div>
           <div class="stat"><div class="label">Total Productos</div><div class="value">${inv?.totalProductos || 0}</div></div>
           <div class="stat"><div class="label">Sin Stock</div><div class="value" style="color:#ef4444">${inv?.sinStock || 0}</div></div>
+          ${(ven?.porMarca?.length ?? 0) > 0 ? `
           <h2>Ventas por Marca</h2>
           <table><thead><tr><th>Marca</th><th>Unidades</th><th>Total (Bs.)</th></tr></thead><tbody>
           ${(ven?.porMarca || []).map(m => `<tr><td>${m.marca}</td><td>${m.unidades}</td><td>${m.total.toFixed(2)}</td></tr>`).join('')}
-          </tbody></table>
+          </tbody></table>` : ''}
+          ${topProd.length > 0 ? `
           <h2>Top Productos Más Vendidos</h2>
           <table><thead><tr><th>Producto</th><th>Marca</th><th>Unid.</th><th>Total</th></tr></thead><tbody>
-          ${(dashboard.topProductos || []).map(p => `<tr><td>${p.producto}</td><td>${p.marca}</td><td>${p.unidadesVendidas}</td><td>${p.totalVendido.toFixed(2)}</td></tr>`).join('')}
-          </tbody></table>
+          ${topProd.map(p => `<tr><td>${p.producto}</td><td>${p.marca}</td><td>${p.unidadesVendidas}</td><td>${p.totalVendido.toFixed(2)}</td></tr>`).join('')}
+          </tbody></table>` : ''}
           <div class="footer">AutoRepuestos Pro — Reporte generado automáticamente</div>
         </body></html>`;
 
@@ -105,10 +121,42 @@ export default function ReportesScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Cargando reportes...</Text>
-      </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Sin dashboard no hay nada que mostrar: antes esto quedaba en ceros silenciosos.
+  if (error && !dashboard) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Header
+          title="Reportes"
+          subtitle={isAdmin ? 'Métricas del sistema' : 'Resumen de mi tienda'}
+          onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        />
+        <View style={styles.errorContainer}>
+          <StatCard
+            label="Error"
+            value="Sin datos"
+            iconName="alert-circle"
+            color={colors.danger}
+          />
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => {
+              setLoading(true);
+              loadData().finally(() => setLoading(false));
+            }}
+            accessibilityRole="button"
+          >
+            <Text style={styles.retryText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -118,7 +166,7 @@ export default function ReportesScreen() {
   const maxMensual = Math.max(...safeMensual.map(m => m.total), 1);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Header
         title="Reportes"
         subtitle={isAdmin ? 'Métricas del sistema' : 'Resumen de mi tienda'}
@@ -164,52 +212,58 @@ export default function ReportesScreen() {
           />
         </View>
 
-        {/* Evolución Mensual */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Evolución Mensual ({selectedYear})</Text>
-          <View style={styles.chartCard}>
-            <View style={styles.barChart}>
-              {safeMensual.map((item) => {
-                const heightPercent = maxMensual > 0 ? (item.total / maxMensual) * 100 : 0;
-                const isZero = item.total === 0;
-                return (
-                  <View key={item.mes} style={styles.barCol}>
-                    {!isZero && (
-                      <Text style={styles.barAmount}>
-                        {item.total >= 1000 ? `${(item.total / 1000).toFixed(1)}k` : item.total.toFixed(0)}
-                      </Text>
-                    )}
-                    <View
-                      style={[
-                        styles.bar,
-                        {
-                          height: isZero ? 4 : Math.max(8, (heightPercent / 100) * 120),
-                          opacity: isZero ? 0.25 : 1,
-                          backgroundColor: item.total === maxMensual ? colors.emerald : colors.primary,
-                        },
-                      ]}
-                    />
-                    <Text style={styles.barLabel}>{MESES[item.mes - 1]}</Text>
-                  </View>
-                );
-              })}
+        {/* Evolución Mensual. En tienda/inventario no se pide el mensual (es solo
+            admin), así que sin datos esta sección no se dibuja en vez de mostrar un
+            gráfico vacío. */}
+        {safeMensual.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Evolución Mensual ({selectedYear})</Text>
+            <View style={styles.chartCard}>
+              <View style={styles.barChart}>
+                {safeMensual.map((item) => {
+                  const heightPercent = maxMensual > 0 ? (item.total / maxMensual) * 100 : 0;
+                  const isZero = item.total === 0;
+                  return (
+                    <View key={item.mes} style={styles.barCol}>
+                      {!isZero && (
+                        <Text style={styles.barAmount}>
+                          {item.total >= 1000 ? `${(item.total / 1000).toFixed(1)}k` : item.total.toFixed(0)}
+                        </Text>
+                      )}
+                      <View
+                        style={[
+                          styles.bar,
+                          {
+                            height: isZero ? 4 : Math.max(8, (heightPercent / 100) * 120),
+                            opacity: isZero ? 0.25 : 1,
+                            backgroundColor: item.total === maxMensual ? colors.emerald : colors.primary,
+                          },
+                        ]}
+                      />
+                      <Text style={styles.barLabel}>{MESES[item.mes - 1]}</Text>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
-        {/* Resumen Mensual en Cards */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalle Mensual</Text>
-          <View style={styles.monthlyGrid}>
-            {safeMensual.filter(m => m.total > 0).map((item) => (
-              <View key={item.mes} style={styles.monthCard}>
-                <Text style={styles.monthName}>{MESES[item.mes - 1]}</Text>
-                <Text style={styles.monthTotal}>Bs. {item.total.toLocaleString()}</Text>
-                <Text style={styles.monthCount}>{item.cantidad} ventas</Text>
-              </View>
-            ))}
+        {/* Resumen Mensual en Cards (solo admin, por el mismo motivo de arriba) */}
+        {safeMensual.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Detalle Mensual</Text>
+            <View style={styles.monthlyGrid}>
+              {safeMensual.filter(m => m.total > 0).map((item) => (
+                <View key={item.mes} style={styles.monthCard}>
+                  <Text style={styles.monthName}>{MESES[item.mes - 1]}</Text>
+                  <Text style={styles.monthTotal}>Bs. {item.total.toLocaleString()}</Text>
+                  <Text style={styles.monthCount}>{item.cantidad} ventas</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Ventas por Marca */}
         {ven?.porMarca && ven.porMarca.length > 0 && (
@@ -279,7 +333,7 @@ export default function ReportesScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -299,6 +353,30 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: space['2xl'],
+    gap: space.lg,
+  },
+  errorText: {
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sans,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: space.xl,
+    borderRadius: radius.md,
+  },
+  retryText: {
+    color: colors.white,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
   },
   scroll: {
     flex: 1,
