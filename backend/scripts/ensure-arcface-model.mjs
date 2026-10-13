@@ -1,7 +1,8 @@
 /**
  * Descarga los modelos de reconocimiento y detección facial si no están en el servidor:
  * 1. ArcFace int8 (Apache-2.0, 63 MB): embeddings de identidad (512 dims)
- * 2. UltraFace RFB-320 (MIT, 1.2 MB): detector de rostros y recorte automático
+ * 2. SCRFD-2.5G bnkps (Apache-2.0, ~3.3 MB): detector de rostros con 5 landmarks,
+ *    que es lo que permite **alinear** la cara antes de ArcFace.
  *
  * Corre como `prestart:prod` antes del arranque del servicio en Render.
  */
@@ -23,12 +24,12 @@ const MODELOS = [
     etiqueta: 'arcface',
   },
   {
-    nombre: 'version-RFB-320.onnx',
-    url: 'https://github.com/onnx/models/raw/main/validated/vision/body_analysis/ultraface/models/version-RFB-320.onnx',
-    envVar: 'ULTRAFACE_MODEL',
-    minSize: 1024 * 1024,
-    maxSize: 3 * 1024 * 1024,
-    etiqueta: 'ultraface',
+    nombre: 'scrfd_2.5g_bnkps.onnx',
+    url: 'https://huggingface.co/RuteNL/SCRFD-face-detection-ONNX/resolve/main/2.5g_bnkps.onnx',
+    envVar: 'SCRFD_MODEL',
+    minSize: 3 * 1024 * 1024,
+    maxSize: 6 * 1024 * 1024,
+    etiqueta: 'scrfd',
   },
 ];
 
@@ -82,7 +83,7 @@ for (const m of MODELOS) {
     } catch (err) {
       avisos(
         m.etiqueta,
-        `no se pudo descargar el modelo (${err.message}). Se usará modo alternativo si está disponible.`,
+        `no se pudo descargar el modelo (${err.message}). El reconocimiento facial no estará disponible hasta instalar ambos modelos; no hay modo alternativo sin alineación.`,
       );
     }
   }

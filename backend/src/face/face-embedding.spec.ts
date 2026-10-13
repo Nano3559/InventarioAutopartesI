@@ -5,6 +5,7 @@ import {
   aNumero,
   aTensorNchw,
   esEmbeddingValido,
+  evaluarCoincidencia,
   normalizar,
   parsearRecorteCara,
   promediarYNormalizar,
@@ -27,6 +28,39 @@ const norma = (v: Float32Array | number[]) =>
   Math.sqrt(Array.from(v).reduce((a, x) => a + x * x, 0));
 
 describe('face-embedding (Hito 3)', () => {
+  describe('decisión para identidades desconocidas', () => {
+    it('con un único registrado sigue exigiendo umbral absoluto', () => {
+      expect(
+        evaluarCoincidencia([{ usuarioId: 1, similitud: 0.79 }], 0.8, 0.05)
+          .reconocido,
+      ).toBe(false);
+      expect(
+        evaluarCoincidencia([{ usuarioId: 1, similitud: 0.9 }], 0.8, 0.05)
+          .reconocido,
+      ).toBe(true);
+    });
+    it('rechaza dos candidatos cercanos aunque ambos superen umbral', () => {
+      expect(
+        evaluarCoincidencia(
+          [
+            { usuarioId: 1, similitud: 0.88 },
+            { usuarioId: 2, similitud: 0.86 },
+          ],
+          0.8,
+          0.05,
+        ).reconocido,
+      ).toBe(false);
+    });
+    it.each([Number.NaN, Number.POSITIVE_INFINITY, 1.01, -1.01])(
+      'rechaza similitud inválida %s',
+      (similitud) => {
+        expect(
+          evaluarCoincidencia([{ usuarioId: 1, similitud }], 0.8, 0.05)
+            .reconocido,
+        ).toBe(false);
+      },
+    );
+  });
   describe('normalizar', () => {
     it('deja el vector con norma 1', () => {
       expect(norma(normalizar(vector()))).toBeCloseTo(1, 6);
@@ -135,6 +169,7 @@ describe('face-embedding (Hito 3)', () => {
         esEmbeddingValido(vector(ARCFACE_DIMENSION, 5).fill(Number.NaN)),
       ).toBe(false);
       expect(esEmbeddingValido('[]')).toBe(false);
+      expect(esEmbeddingValido(new Array<number>(512).fill(0))).toBe(false);
     });
   });
 

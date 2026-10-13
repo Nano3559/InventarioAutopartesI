@@ -48,9 +48,37 @@ export type MetodoAsistencia = (typeof METODOS_ASISTENCIA)[number];
  */
 const umbralConfianza = Number(process.env.UMBRAL_CONFIANZA_FACIAL);
 export const UMBRAL_CONFIANZA_FACIAL =
-  Number.isFinite(umbralConfianza) && umbralConfianza > 0 && umbralConfianza <= 1
+  Number.isFinite(umbralConfianza) &&
+  umbralConfianza > 0 &&
+  umbralConfianza <= 1
     ? umbralConfianza
     : 0.8;
+
+/**
+ * Diferencia mínima de similitud entre el primer y el segundo candidato para dar
+ * por válido un marcaje automático.
+ *
+ * Sin margen, un impostor que empata por ruido con dos registrados (0.81 y 0.80)
+ * pasa igual. Con margen, el reconocimiento exige que el mejor sea **claramente**
+ * mejor que el siguiente. `0` lo desactiva. Se configura con `MARGEN_MINIMO_FACIAL`.
+ */
+const margenMinimo = Number(process.env.MARGEN_MINIMO_FACIAL);
+export const MARGEN_MINIMO_FACIAL =
+  Number.isFinite(margenMinimo) && margenMinimo >= 0 && margenMinimo <= 1
+    ? margenMinimo
+    : 0.05;
+
+/**
+ * Score mínimo de detección de SCRFD para aceptar una caja de rostro (0-1).
+ * Configurable con `DETECCION_CONFIANZA_FACIAL`.
+ */
+const deteccionConfianza = Number(process.env.DETECCION_CONFIANZA_FACIAL);
+export const DETECCION_CONFIANZA_FACIAL =
+  Number.isFinite(deteccionConfianza) &&
+  deteccionConfianza > 0 &&
+  deteccionConfianza <= 1
+    ? deteccionConfianza
+    : 0.5;
 
 /** Registro facial: cuántas fotos del rostro se aceptan y cuántas se recomiendan. */
 export const FOTOS_MINIMO_REGISTRO = 1;

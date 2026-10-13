@@ -11,6 +11,7 @@ import { IsNull, Not, Repository } from 'typeorm';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ort from 'onnxruntime-node';
+import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import { User } from '../entities/user.entity';
 import { UMBRAL_CONFIANZA_FACIAL } from '../common/constants';
@@ -22,11 +23,15 @@ import {
   esEmbeddingValido,
   normalizar,
   promediarYNormalizar,
-  recorteUtilizable,
   similitudCoseno,
   type RecorteCara,
 } from './face-embedding';
-import { FaceDetector, NOMBRE_MODELO_ULTRAFACE } from './face-detector';
+import {
+  FaceDetector,
+  NOMBRE_MODELO_SCRFD,
+  type RostroDetectado,
+} from './face-detector';
+import { alinearRostro, type ImagenRgb } from './face-align';
 
 /** Nombre del modelo publicado por `onnxmodelzoo` (Apache-2.0). */
 const NOMBRE_MODELO = 'arcfaceresnet100-11-int8.onnx';
@@ -36,16 +41,39 @@ const NOMBRE_MODELO = 'arcfaceresnet100-11-int8.onnx';
  * `spike/models/` en desarrollo (lo baja el spike B2) y `models/` para despliegue.
  */
 const RUTAS_MODELO = [
-  path.join('spike', 'models', NOMBRE_MODELO),
-  path.join('models', NOMBRE_MODELO),
+  path.resolve(__dirname, '..', '..', 'spike', 'models', NOMBRE_MODELO),
+  path.resolve(__dirname, '..', '..', 'models', NOMBRE_MODELO),
 ];
 
 /** Bucket **privado** de Supabase Storage con las fotos de rostro (Ley 26935). */
 const BUCKET_FACES_POR_DEFECTO = 'faces';
 
+/**
+ * Lado máximo de la imagen de trabajo sobre la que se detecta y alinea. Acota la
+ * memoria (una foto de celular sin tope son decenas de MB en `raw`) sin perder
+ * precisión: el recorte final es de 112×112.
+ */
+const LADO_MAXIMO_TRABAJO = 1024;
+
 export interface CandidatoRostro {
   usuarioId: number;
   similitud: number;
+}
+
+/** Resultado de analizar una foto: embedding + qué hizo el pipeline con el rostro. */
+export interface AnalisisRostro {
+  /** Embedding ArcFace de 512 dims; vacío si no hay un único rostro. */
+  embedding: number[];
+  /** `true` si el modelo SCRFD está presente en el servidor. */
+  deteccionDisponible: boolean;
+  /** `true` si SCRFD encontró y alineó (o halló) un rostro. */
+  rostroDetectado: boolean;
+  /** Score de la detección elegida (0-1), o `null` si no hubo detección. */
+  score: number | null;
+  /** Cuántos rostros detectó SCRFD (para avisar de "varios rostros"). */
+  rostros: number;
+  /** Solo una entrada alineada puede usarse para reconocer o registrar. */
+  estrategia: 'alineado' | 'sin-rostro';
 }
 
 @Injectable()
@@ -75,7 +103,8 @@ export class FaceService implements OnModuleInit {
       this.logger.log(
         `Índice de rostros rehidratado: ${n} usuario(s) con embedding`,
       );
-      // Actualiza en background los embeddings existentes usando el detector UltraFace
+      // Actualiza en background los embeddings existentes con el pipeline alineado
+      // (SCRFD): los registrados antes de la alineación quedan comparables.
       this.reprocesarRostrosExistentes().catch((err) => {
         this.logger.warn(
           `No se pudieron reprocesar rostros en background: ${(err as Error).message}`,
@@ -153,7 +182,10 @@ export class FaceService implements OnModuleInit {
     return [...this.indice.entries()]
       .map(([usuarioId, registrado]) => ({
         usuarioId,
-        similitud: similitudCoseno(consulta, registrado),
+        similitud: Math.max(
+          -1,
+          Math.min(1, similitudCoseno(consulta, registrado)),
+        ),
       }))
       .sort((a, b) => b.similitud - a.similitud)
       .slice(0, topK);
@@ -202,47 +234,90 @@ export class FaceService implements OnModuleInit {
   }
 
   /**
-   * Recorte facial → tensor `float32 [1, 3, 112, 112]`.
+   * De la foto cruda a la entrada de ArcFace, **detectando y alineando** el rostro
+   * único con SCRFD. Si falta el detector se responde 503; si no hay exactamente
+   * un rostro no se ejecuta ArcFace ni se compara el fondo con la galería.
    *
-   * Orden de operaciones que importa:
-   * 1. `.rotate()` aplica la orientación EXIF **antes** de recortar: la app calcula
-   *    el recorte sobre la imagen tal como se ve en el preview (que es la que
-   *    ArcFace"consume"), y sin rotar primero las coordenadas no coinciden.
-   * 2. `.extract()` toma el cuadrado del óvalo (coordenadas de la foto) y solo
-   *    entonces `.resize(112,112, fit:'cover')`.
-   * Sin recorte se encoge la escena completa y las caras quedan como 30 px de
-   * fondo: todo el mundo "se parece" y el marcaje empata con cualquiera.
+   * Se trabaja sobre una imagen acotada a `LADO_MAXIMO_TRABAJO` (memoria) y la
+   * detección escala internamente a 640. Registro, verificación y reindexado pasan
+   * por acá, así que los tres usan **el mismo** preprocesado.
    */
-  private async preprocesar(
+  private async analizarBuffer(
     buffer: Buffer,
-    recorte?: RecorteCara | null,
-  ): Promise<ort.Tensor> {
-    const rotada = await sharp(buffer).rotate().toBuffer();
-    const region = await this.regionUtilizable(recorte, rotada);
+    _recorte?: RecorteCara | null,
+  ): Promise<AnalisisRostro> {
+    // Campo legado de la app: SCRFD obtiene la región real, nunca un recorte sin alinear.
+    void _recorte;
+    const trabajo = await sharp(buffer)
+      .rotate()
+      .resize({
+        width: LADO_MAXIMO_TRABAJO,
+        height: LADO_MAXIMO_TRABAJO,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .toBuffer();
 
-    let pipe = sharp(rotada);
-    if (region) {
-      pipe = pipe.extract({
-        left: region.x,
-        top: region.y,
-        width: region.tamano,
-        height: region.tamano,
-      });
+    const rutaScrfd = this.config.get<string>('SCRFD_MODEL');
+    const deteccionDisponible = FaceDetector.rutaModelo(rutaScrfd) !== null;
+
+    if (!deteccionDisponible) {
+      throw new ServiceUnavailableException(
+        'El reconocimiento facial requiere SCRFD para detectar y alinear el rostro.',
+      );
+    }
+    let rostros: RostroDetectado[] = [];
+    if (deteccionDisponible) {
+      try {
+        rostros = await FaceDetector.detectar(trabajo, rutaScrfd);
+      } catch (err) {
+        this.logger.warn(`Falló la detección SCRFD: ${(err as Error).message}`);
+        throw new ServiceUnavailableException(
+          'No se pudo detectar y alinear el rostro. El reconocimiento facial no está disponible.',
+        );
+      }
     }
 
-    const { data, info } = await pipe
-      .resize(ARCFACE_ENTRADA, ARCFACE_ENTRADA, { fit: 'cover' })
-      .flatten({ background: '#ffffff' })
-      .toColourspace('srgb')
-      .raw()
-      .toBuffer({ resolveWithObject: true });
+    if (rostros.length === 1) {
+      const { data, info } = await sharp(trabajo)
+        .removeAlpha()
+        .toColourspace('srgb')
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const imagen: ImagenRgb = {
+        datos: data,
+        ancho: info.width,
+        alto: info.height,
+      };
+      // NMS confirmó un único rostro; no se elige arbitrariamente un acompañante.
+      const alineado = alinearRostro(imagen, rostros[0].landmarks);
+      return {
+        embedding: await this.inferir(this.tensorArcface(alineado)),
+        deteccionDisponible: true,
+        rostroDetectado: true,
+        score: rostros[0].score,
+        rostros: rostros.length,
+        estrategia: 'alineado',
+      };
+    }
 
-    const tensor = aTensorNchw(data, info.channels);
-    // Se pasa un `number[]` y no el `Float32Array`: onnxruntime valida el tipo con
-    // `instanceof Float32Array` **de su propio realm**, así que un typed array creado
-    // en otro realm (el sandbox de Jest, por ejemplo) lo rechaza. La conversión son
-    // 37 632 números, despreciable frente a los ~350 ms de inferencia.
-    return new ort.Tensor('float32', Array.from(tensor), [
+    return {
+      embedding: [],
+      deteccionDisponible,
+      rostroDetectado: rostros.length > 0,
+      score: null,
+      rostros: rostros.length,
+      estrategia: 'sin-rostro',
+    };
+  }
+
+  /**
+   * Píxeles RGB 112×112 → tensor `[1,3,112,112]` de ArcFace. Se pasa
+   * `Array.from(...)` y no el `Float32Array`: onnxruntime valida con
+   * `instanceof Float32Array` de su propio realm y el sandbox de Jest usa otro.
+   */
+  private tensorArcface(pixeles: Uint8Array): ort.Tensor {
+    return new ort.Tensor('float32', Array.from(aTensorNchw(pixeles)), [
       1,
       3,
       ARCFACE_ENTRADA,
@@ -250,57 +325,8 @@ export class FaceService implements OnModuleInit {
     ]);
   }
 
-  /**
-   * Valida el recorte contra las dimensiones **ya rotadas** de la imagen. Si viene
-   * un recorte que no cabe (p. ej. un cliente viejo con otra geometría de cámara)
-   * se descarta con un warn: la inferencia cae al encuadre completo en vez de fallar.
-   */
-  private async regionUtilizable(
-    recorte: RecorteCara | null | undefined,
-    buffer: Buffer,
-  ): Promise<RecorteCara | null> {
-    if (!recorte) return null;
-    const meta = await sharp(buffer).metadata();
-    const valido = recorteUtilizable(
-      recorte,
-      meta.width ?? 0,
-      meta.height ?? 0,
-    );
-    if (!valido) {
-      this.logger.warn(
-        `Recorte facial descartado (fuera de ${meta.width}x${meta.height}): ` +
-          `${JSON.stringify(recorte)}. Se usa el encuadre completo.`,
-      );
-    }
-    return valido;
-  }
-
-  /** Embedding **normalizado** de una foto (512 floats). */
-  async embeddingDeFoto(
-    file: Express.Multer.File,
-    recorte?: RecorteCara | null,
-  ): Promise<number[]> {
-    try {
-      return await this.embeddingDeBuffer(file.buffer, recorte);
-    } catch (err) {
-      const e = err as Error;
-      // Una foto corrupta o que no es una imagen no debe tumbar el registro entero.
-      if (
-        e instanceof ServiceUnavailableException ||
-        e instanceof BadRequestException
-      ) {
-        throw e;
-      }
-      throw new BadRequestException(
-        `No se pudo procesar la foto "${file.originalname}": ${e.message}`,
-      );
-    }
-  }
-
-  private async embeddingDeBuffer(
-    buffer: Buffer,
-    recorte?: RecorteCara | null,
-  ): Promise<number[]> {
+  /** Corre ArcFace sobre un tensor ya preparado y devuelve el embedding normalizado. */
+  private async inferir(tensor: ort.Tensor): Promise<number[]> {
     let sesion: ort.InferenceSession;
     try {
       sesion = await this.obtenerSesion();
@@ -313,7 +339,6 @@ export class FaceService implements OnModuleInit {
       );
     }
 
-    const tensor = await this.preprocesar(buffer, recorte);
     const salida = await sesion.run({ [sesion.inputNames[0]]: tensor });
     const datos = salida[sesion.outputNames[0]].data as Float32Array;
     if (datos.length !== ARCFACE_DIMENSION) {
@@ -322,6 +347,62 @@ export class FaceService implements OnModuleInit {
       );
     }
     return aNumero(normalizar(datos));
+  }
+
+  /**
+   * Analiza una foto: embedding + si se detectó rostro. Lo usa el marcaje para
+   * poder responder "no se detectó rostro" en vez de forzar un match.
+   */
+  async analizarRostro(
+    file: Express.Multer.File,
+    recorte?: RecorteCara | null,
+  ): Promise<AnalisisRostro> {
+    try {
+      return await this.analizarBuffer(file.buffer, recorte);
+    } catch (err) {
+      const e = err as Error;
+      if (
+        e instanceof ServiceUnavailableException ||
+        e instanceof BadRequestException
+      ) {
+        throw e;
+      }
+      throw new BadRequestException(
+        `No se pudo procesar la foto "${file.originalname}": ${e.message}`,
+      );
+    }
+  }
+
+  /**
+   * Embedding **normalizado** de una foto (512 floats). Si SCRFD está disponible y
+   * no encuentra exactamente un rostro, es un 400: no sirve para registrar.
+   */
+  async embeddingDeFoto(
+    file: Express.Multer.File,
+    recorte?: RecorteCara | null,
+  ): Promise<number[]> {
+    const analisis = await this.analizarRostro(file, recorte);
+    if (
+      !analisis.rostroDetectado ||
+      analisis.rostros !== 1 ||
+      analisis.estrategia !== 'alineado'
+    ) {
+      throw new BadRequestException(
+        `Se requiere exactamente un rostro en "${file.originalname}". Volvé a tomarla con la ` +
+          'cara bien encuadrada, de frente y con buena luz.',
+      );
+    }
+    return analisis.embedding;
+  }
+
+  private async embeddingDeBuffer(
+    buffer: Buffer,
+    recorte?: RecorteCara | null,
+  ): Promise<number[]> {
+    return this.embeddingDeFoto(
+      { buffer, originalname: 'foto de referencia' } as Express.Multer.File,
+      recorte,
+    );
   }
 
   /**
@@ -388,13 +469,13 @@ export class FaceService implements OnModuleInit {
     });
 
     const rutaDetector = FaceDetector.rutaModelo(
-      this.config.get<string>('ULTRAFACE_MODEL'),
+      this.config.get<string>('SCRFD_MODEL'),
     );
 
     return {
       umbral: UMBRAL_CONFIANZA_FACIAL,
       umbralCriterio:
-        'similitud coseno sobre embeddings ArcFace normalizados (512 dims) con detector UltraFace',
+        'similitud coseno sobre embeddings ArcFace normalizados (512 dims), rostros alineados con SCRFD',
       rostrosEnBase,
       indiceEnMemoria: this.indice.size,
       indiceCompleto: this.indice.size === rostrosEnBase,
@@ -406,15 +487,16 @@ export class FaceService implements OnModuleInit {
         dimension: ARCFACE_DIMENSION,
       },
       detector: {
-        nombre: NOMBRE_MODELO_ULTRAFACE,
+        nombre: NOMBRE_MODELO_SCRFD,
         ruta: rutaDetector,
         disponible: rutaDetector !== null,
+        alineacion: true,
       },
     };
   }
 
   /**
-   * Carga las sesiones de ArcFace y UltraFace a pedido y devuelve cuánto tardó.
+   * Carga las sesiones de ArcFace y SCRFD a pedido y devuelve cuánto tardó.
    */
   async warmup() {
     const ruta = this.rutaModelo();
@@ -422,7 +504,7 @@ export class FaceService implements OnModuleInit {
     const t0 = Date.now();
     await Promise.all([
       this.obtenerSesion(),
-      FaceDetector.obtenerSesion(this.config.get<string>('ULTRAFACE_MODEL')),
+      FaceDetector.obtenerSesion(this.config.get<string>('SCRFD_MODEL')),
     ]);
     return {
       ruta,
@@ -433,8 +515,12 @@ export class FaceService implements OnModuleInit {
   }
 
   /**
-   * Reprocesa las fotos de referencia guardadas en Supabase con el detector UltraFace
-   * para actualizar los embeddings a la máxima precisión y eliminar falsos positivos.
+   * Reprocesa las fotos de referencia guardadas en Supabase con el pipeline
+   * **SCRFD + alineación** para actualizar los embeddings a la máxima precisión y
+   * eliminar falsos positivos de los registros viejos (calculados sin alinear).
+   *
+   * Ojo: recalcula el embedding desde la foto guardada, que es la que subió el
+   * registro (una sola, la primera). Se reindexa en memoria al vuelo.
    */
   async reprocesarRostrosExistentes(): Promise<{
     actualizados: number;
@@ -466,7 +552,7 @@ export class FaceService implements OnModuleInit {
         this.indice.set(u.id, normalizar(nuevoEmbedding));
         actualizados++;
         this.logger.log(
-          `Embedding actualizado con UltraFace para usuario ${u.id} (${u.nombre})`,
+          `Embedding actualizado con alineación SCRFD para usuario ${u.id} (${u.nombre})`,
         );
       } catch (err) {
         this.logger.warn(

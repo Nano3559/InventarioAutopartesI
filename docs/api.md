@@ -291,6 +291,20 @@ explícitas: nunca `password` ni `embedding`.
 
 ### `POST /attendance/check` (B4 + B5)
 
+**Actualización 12/10/2026:** SCRFD y alineación son obligatorios. Se exige
+exactamente un rostro antes de comparar; sin rostro o con varios se devuelve
+`reconocido:false`, sin candidatos ni asistencia. Si el detector falta o falla,
+se responde 503. No se compara el fondo ni se usa el recorte sin alinear.
+Además del umbral (0.8 por defecto), se exige margen sobre el segundo candidato
+(`MARGEN_MINIMO_FACIAL`, 0.05 por defecto). Registro y reprocesado aplican la misma
+regla; una foto inválida no sustituye el embedding anterior. Los campos `crop*`
+se conservan por compatibilidad. La precisión requiere pruebas con personas reales.
+
+La app presenta «Usuario desconocido» cuando no hay coincidencia suficiente y no
+se registra asistencia. Una captura sin rostro o con varios solicita una nueva
+foto. Una coincidencia aceptada confirma «Asistencia registrada» con el nombre
+obtenido de la BD y la hora del marcaje guardado.
+
 `multipart/form-data` con `foto` (obligatoria, `image/*` ≤ 10 MB, cualquier formato que
 `sharp` sepa abrir), más:
 
@@ -299,15 +313,11 @@ explícitas: nunca `password` ni `embedding`.
 | `tipo` | `entrada` \| `salida`. Opcional: si falta, se alterna según el último marcaje del día |
 | `locationId` | Tienda del marcaje. Se valida: debe existir → si no, `404` |
 | `usuarioId` | **B5.** Fuerza el marcaje manual: el operador ya eligió a quién pertenece la foto |
-| `cropX`, `cropY`, `cropTamano` | **Recorte cuadrado** (px) en la foto original, calculado por la app sobre la guía oval. Opcionales: sin ellos se procesa la escena completa y baja la precisión |
+| `cropX`, `cropY`, `cropTamano` | Campos conservados por compatibilidad; no sustituyen la detección y alineación con SCRFD |
 
-Sin `usuarioId` el servicio normaliza la foto (`sharp`: normaliza EXIF, extrae el recorte
-`cropX/cropY/cropTamano` si viene, deja `112×112` con `fit: 'cover'`), corre ArcFace int8 y
-compara por similitud coseno contra el índice en memoria (umbral `UMBRAL_CONFIANZA_FACIAL` =
-0.8, configurable por env). **La guía oval es de la app móvil**: ella calcula el recorte y lo
-manda, para que el backend no compare la escena completa. Ojo: hoy los embeddings se calculan
-**sin alineación** (recorte → 112×112); para que ArcFace reconozca bien (y el 0.8 sea
-alcanzable) falta el fix de alineación SCRFD en el backend — ver `Plan Hito 3.md`.
+Sin `usuarioId` el servicio normaliza EXIF, detecta y alinea un rostro con SCRFD,
+corre ArcFace int8 y compara por similitud coseno contra el índice en memoria.
+La guía oval de la app ayuda al encuadre; la detección real se hace en el backend.
 
 ```jsonc
 // nadie reconoce (índice vacío o por debajo del umbral): NO se inserta nada y NO se

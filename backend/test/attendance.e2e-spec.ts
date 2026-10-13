@@ -34,6 +34,17 @@ class RostroFalso {
     return Promise.resolve(RostroFalso.vectorDe(file.buffer));
   }
 
+  async analizarRostro(file: Express.Multer.File) {
+    return {
+      embedding: await this.embeddingDeFoto(file),
+      deteccionDisponible: true,
+      rostroDetectado: true,
+      score: 0.99,
+      rostros: 1,
+      estrategia: 'alineado' as const,
+    };
+  }
+
   buscar(
     embedding: number[],
     topK = 5,
@@ -229,7 +240,7 @@ describe('Attendance (e2e)', () => {
       await marcarCon(FOTO_ROSTRO_A, { locationId: '999999' }, 404);
     });
 
-    it('bajo umbral devuelve candidatos y no registra nada', async () => {
+    it('bajo umbral oculta candidatos y no registra nada', async () => {
       const antes = await ds.getRepository(Asistencia).count();
       const res = await marcarCon(FOTO_ROSTRO_B);
       const body = res.body as {
@@ -241,13 +252,9 @@ describe('Attendance (e2e)', () => {
       };
 
       expect(body.reconocido).toBe(false);
-      expect(body.requiereConfirmacion).toBe(true);
+      expect(body.requiereConfirmacion).toBe(false);
       expect(body.umbral).toBe(UMBRAL_CONFIANZA_FACIAL);
-      expect(body.candidatos.length).toBeGreaterThan(0);
-      expect(body.candidatos[0].usuarioId).toBe(usuarioMarcaje);
-      expect(body.candidatos[0].similitud).toBeLessThan(
-        UMBRAL_CONFIANZA_FACIAL,
-      );
+      expect(body.candidatos).toEqual([]);
       expect(body.asistencia).toBeUndefined();
 
       const despues = await ds.getRepository(Asistencia).count();
