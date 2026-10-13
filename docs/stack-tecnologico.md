@@ -6,6 +6,8 @@ introducir librerías incompatibles con el ecosistema actual.
 
 ## 1. Resumen por capa
 
+El módulo independiente `ai-service/` añade Python compatible 3.10+, FastAPI/Uvicorn/Pydantic, Ultralytics **YOLO11n-cls** con PyTorch/torchvision, KaggleHub, Pillow y scikit-learn. Versiones instaladas en `ai-service/requirements-lock.txt`; rangos compatibles en `requirements.txt`. `truststore` permite usar confianza TLS del sistema al descargar. Pytest/httpx se usan para pruebas Python. No agrega dependencias npm ni modifica versiones existentes. La clasificación de autopartes es separada del reconocimiento facial ONNX in-process.
+
 | Capa | Tecnología | Versión | Entry point |
 | :--- | :--- | :--- | :--- |
 | Monorepo | npm independientes (sin workspaces) | — | `package.json` en cada carpeta |

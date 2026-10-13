@@ -17,6 +17,7 @@ import { PreciosModule } from './precios/precios.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { FaceModule } from './face/face.module';
+import { PartRecognitionModule } from './part-recognition/part-recognition.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { FaceModule } from './face/face.module';
     ReportesModule,
     AttendanceModule,
     FaceModule,
+    PartRecognitionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

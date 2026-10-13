@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom';
 import { AlertTriangle, Home } from 'lucide-react';
+import { useAuth } from '../context';
 
 export function NotFoundPage() {
+  const { user } = useAuth();
   return (
     <div className="placeholder-container" style={{ minHeight: '60vh' }}>
       <div className="placeholder-icon-box" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>
@@ -13,7 +15,7 @@ export function NotFoundPage() {
       </p>
 
       <NavLink
-        to="/dashboard"
+        to={user?.rol === 'cliente' ? '/reconocimiento' : '/dashboard'}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -27,7 +29,7 @@ export function NotFoundPage() {
         }}
       >
         <Home size={16} />
-        <span>Ir al Dashboard</span>
+        <span>{user?.rol === 'cliente' ? 'Ir al reconocimiento' : 'Ir al Dashboard'}</span>
       </NavLink>
     </div>
   );

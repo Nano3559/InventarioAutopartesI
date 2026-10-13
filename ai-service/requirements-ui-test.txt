@@ -1,0 +1,2 @@
+# Optional browser QA only; not a frontend or inference dependency.
+playwright==1.63.0

@@ -122,3 +122,23 @@ funcionando (la `InferenceSession` se carga en la primera inferencia, no al arra
 2. Si agregas una variable nueva, actualizar esta página (el `.env.example` local correspondiente si lo conservas).
 3. `VERCEL_TOKEN` es opcional y solo para despliegue por script; no versionarlo.
 4. No anides secretos en JSON/`vercel.json` dentro del repo.
+
+## 6. Reconocimiento de autopartes (NestJS → FastAPI)
+
+Variables nuevas en `backend/.env`, nunca en el frontend:
+
+| Variable | Valor inicial | Uso |
+| :--- | :--- | :--- |
+| `AUTOPARTS_AI_URL` | `http://127.0.0.1:8001` | URL interna de FastAPI, HTTP(S), sin credenciales/query/fragmento |
+| `AUTOPARTS_AI_API_KEY` | vacío | Clave opcional enviada como `X-API-Key`; debe coincidir con `AUTOPARTS_API_KEY` en Python |
+| `AUTOPARTS_AI_TIMEOUT_MS` | `30000` | Timeout HTTP completo (hasta 120000 ms); mayor al timeout de inferencia Python |
+| `AUTOPARTS_AI_MAX_CONCURRENT` | `2` | Solicitudes de análisis simultáneas en NestJS (1–8) |
+| `AUTOPARTS_AI_MAX_IMAGE_BYTES` | `10485760` | Permite reducir el límite; máximo fijo del multipart: 10 MiB |
+| `AUTOPARTS_AI_MAX_IMAGE_PIXELS` | `20000000` | Límite de píxeles decodificados (máximo 40000000) |
+
+Configuraciones inválidas impiden iniciar el módulo para evitar límites ambiguos.
+FastAPI corre como proceso separado y escucha `127.0.0.1` por defecto; si está en otro
+host debe usar una red privada/protección y configurar la clave compartida. Los nombres
+de variables Python tienen prefijo `AUTOPARTS_`; se documentan en
+[reconocimiento-autopartes.md](reconocimiento-autopartes.md). No usar variables
+`FACE_SERVICE_URL` ni cambiar la configuración de ArcFace para este módulo.

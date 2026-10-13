@@ -19,6 +19,7 @@ import {
   Users,
   CalendarCheck,
   Activity,
+  ScanSearch,
 } from 'lucide-react';
 import type { UserRole } from '../types/auth.types';
 
@@ -45,6 +46,11 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
   const { user } = useAuth();
 
   const sections: NavSection[] = [
+    {
+      title: 'Autopartes',
+      roles: ['cliente'],
+      items: [{ to: '/reconocimiento', label: 'Reconocimiento inteligente', icon: <ScanSearch size={18} />, roles: ['cliente'] }],
+    },
     {
       title: 'Principal',
       roles: ['admin', 'tienda', 'inventario'],
@@ -169,6 +175,8 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
 
   const getRoleDisplayName = (rol?: UserRole) => {
     switch (rol) {
+      case 'cliente':
+        return 'Cliente';
       case 'admin':
         return 'Administrador';
       case 'tienda':
@@ -183,14 +191,14 @@ export function Sidebar({ collapsed, onToggleCollapse, onCloseMobile }: SidebarP
   return (
     <aside className={`app-sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
-        <NavLink to="/dashboard" className="sidebar-brand" onClick={onCloseMobile}>
+        <NavLink to={user?.rol === 'cliente' ? '/reconocimiento' : '/dashboard'} className="sidebar-brand" onClick={onCloseMobile}>
           <div className="brand-icon-wrapper">
             <Wrench size={20} />
           </div>
           {!collapsed && (
             <div className="brand-title">
               <span>AutoRepuestos</span>
-              <span className="brand-tag">PRO ADMIN</span>
+              <span className="brand-tag">{user?.rol === 'cliente' ? 'PRO' : 'PRO ADMIN'}</span>
             </div>
           )}
         </NavLink>

@@ -28,6 +28,7 @@ interface CreateFacturaBody {
 
 @Controller('costos')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class CostosController {
   constructor(private costosService: CostosService) {}
 

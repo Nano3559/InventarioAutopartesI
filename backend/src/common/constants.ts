@@ -1,6 +1,11 @@
-export type UserRole = 'admin' | 'tienda' | 'inventario';
+export type UserRole = 'admin' | 'tienda' | 'inventario' | 'cliente';
 
-export const USER_ROLES: UserRole[] = ['admin', 'tienda', 'inventario'];
+export const USER_ROLES: UserRole[] = [
+  'admin',
+  'tienda',
+  'inventario',
+  'cliente',
+];
 
 export const METODOS_PAGO = [
   'efectivo',

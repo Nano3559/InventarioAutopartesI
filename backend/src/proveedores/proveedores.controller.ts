@@ -17,6 +17,7 @@ import type { ProveedorInput } from './proveedores.service';
 
 @Controller('proveedores')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class ProveedoresController {
   constructor(private proveedoresService: ProveedoresService) {}
 

@@ -8,6 +8,7 @@ import { MovimientosService } from './movimientos.service';
 
 @Controller('movimientos')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class MovimientosController {
   constructor(private movimientosService: MovimientosService) {}
 

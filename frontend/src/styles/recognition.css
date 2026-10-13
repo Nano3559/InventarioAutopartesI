@@ -1,0 +1,63 @@
+.recognition-page { padding-bottom: 2rem; }
+.recognition-header { justify-content: flex-start; gap: 1rem; }
+.recognition-header > svg { color: var(--accent); flex-shrink: 0; }
+.recognition-columns { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.3fr); gap: 1.5rem; align-items: start; }
+.recognition-upload, .recognition-results { min-width: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
+.recognition-upload h2, .recognition-information h3, .recognition-alternatives h3 { font-size: 1.1rem; margin-bottom: 1rem; }
+.recognition-drop { min-height: 300px; border: 1px dashed var(--accent-border); border-radius: var(--radius-sm); background: var(--bg-alt); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 1.5rem; text-align: center; }
+.recognition-drop > svg { color: var(--accent); }
+.recognition-drop p { color: var(--text-strong); font-weight: 600; }
+.recognition-drop span { font-size: .85rem; color: var(--text-muted); max-width: 32ch; }
+.recognition-drop.is-dragging { border-color: var(--accent); background: var(--accent-soft); }
+.recognition-drop img { width: 100%; max-height: 340px; object-fit: contain; }
+.recognition-hint { color: var(--text-muted); font-size: .82rem; margin-top: .8rem; }
+.recognition-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1rem; }
+.recognition-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; }
+.recognition-submit { width: 100%; justify-content: center; margin-top: 1.25rem; min-height: 44px; }
+.recognition-page .recognition-submit { background: var(--accent); color: #04222e; }
+.recognition-page .recognition-submit:hover:not(:disabled) { background: var(--accent-strong); }
+.recognition-page button:disabled { opacity: .5; cursor: not-allowed; }
+.recognition-page button:focus-visible, .recognition-page summary:focus-visible, .recognition-page a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.recognition-error { display: flex; gap: .6rem; align-items: start; color: #fda4af; background: rgba(244, 63, 94, .1); border: 1px solid rgba(244, 63, 94, .3); padding: .85rem; border-radius: var(--radius-sm); margin-top: 1rem; }
+.recognition-error svg { flex-shrink: 0; margin-top: 3px; }
+.recognition-empty { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; min-height: 380px; gap: 1rem; color: var(--text-muted); }
+.recognition-empty > svg { color: var(--accent); }
+.recognition-empty h2 { font-size: 1.3rem; }
+.recognition-empty p { max-width: 42ch; }
+.recognition-main h2 { font-size: clamp(1.5rem, 3vw, 2rem); overflow-wrap: anywhere; margin: 1rem 0 .5rem; }
+.recognition-main > p { font-size: .85rem; }
+.recognition-confidence { padding: .3rem .6rem; border-radius: var(--radius-sm); font-size: .8rem; font-weight: 600; }
+.recognition-confidence.high { background: rgba(52, 211, 153, .12); color: #6ee7b7; }
+.recognition-confidence.medium { background: rgba(251, 191, 36, .12); color: #fde68a; }
+.recognition-confidence.low { background: rgba(251, 113, 133, .12); color: #fda4af; }
+.recognition-confidence-label { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; font-size: .85rem; }
+.recognition-confidence-label strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+.recognition-main meter { display: block; width: 100%; height: 14px; margin-top: .5rem; }
+.recognition-main meter::-webkit-meter-bar { background: var(--bg-alt); border: 0; }
+.recognition-main meter::-webkit-meter-optimum-value { background: var(--accent); }
+.recognition-main meter::-moz-meter-bar { background: var(--accent); }
+.recognition-information, .recognition-alternatives, .recognition-analysis { border-top: 1px solid var(--border); margin-top: 1.5rem; padding-top: 1.5rem; }
+.recognition-page dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: .6rem 1rem; margin: 1rem 0; font-size: .84rem; }
+.recognition-data-row { display: contents; }
+.recognition-page dt { color: var(--text-muted); }
+.recognition-page dd { margin: 0; overflow-wrap: anywhere; color: var(--text-strong); }
+.recognition-page dd small { color: var(--text-muted); }
+.recognition-page details summary { cursor: pointer; color: var(--text-strong); font-weight: 600; padding: .5rem 0; }
+.recognition-alternatives li { display: flex; gap: .85rem; align-items: center; padding: .9rem 0; border-bottom: 1px solid var(--border); }
+.recognition-rank { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.recognition-alternatives li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.recognition-alternatives li > div span { font-size: .78rem; color: var(--text-muted); }
+.recognition-alternatives li > strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+.recognition-analysis a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.recognition-analysis pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .78rem; max-height: 280px; overflow: auto; background: var(--bg-alt); padding: 1rem; }
+.recognition-page ::selection { background: var(--accent-border); color: var(--text-strong); }
+@media (max-width: 800px) { .recognition-columns { grid-template-columns: minmax(0, 1fr); } .recognition-header { align-items: flex-start; } .recognition-upload, .recognition-results { padding: 1rem; } .recognition-empty { min-height: 220px; } }
+@media (max-width: 600px) {
+  .client-navbar { gap: .5rem; }
+  .client-navbar .navbar-left, .client-navbar .breadcrumbs { min-width: 0; }
+  .client-navbar .navbar-left { gap: .6rem; }
+  .client-navbar .breadcrumbs > span:not(.breadcrumb-current), .client-navbar .location-indicator { display: none; }
+  .client-navbar .breadcrumb-current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .client-navbar .navbar-right, .client-navbar .mobile-menu-btn { flex-shrink: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .recognition-page .animate-spin { animation: none; } }

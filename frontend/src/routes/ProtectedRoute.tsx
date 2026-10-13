@@ -39,7 +39,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   if (allowedRoles && !allowedRoles.includes(user.rol)) {
     // Si no tiene el rol permitido, redirigir al dashboard
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={user.rol === 'cliente' ? '/reconocimiento' : '/dashboard'} replace />;
   }
 
   return <>{children}</>;

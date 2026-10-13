@@ -26,6 +26,7 @@ const multerOptions = multerImagenes();
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class ProductsController {
   constructor(private productsService: ProductsService) {}
 

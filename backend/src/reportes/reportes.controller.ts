@@ -9,6 +9,7 @@ import type { ReporteVentasFilters } from './reportes.service';
 
 @Controller('reportes')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'tienda', 'inventario')
 export class ReportesController {
   constructor(private reportesService: ReportesService) {}
 
