@@ -183,6 +183,7 @@ export function requestForm<T>(
   path: string,
   form: FormData,
   token?: string | null,
+  timeoutMs = 60_000,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -207,7 +208,7 @@ export function requestForm<T>(
       reject(new ApiError(SIN_CONEXION, 0));
     };
 
-    xhr.timeout = 60_000;
+    xhr.timeout = timeoutMs;
     xhr.ontimeout = () => {
       reject(
         new ApiError(

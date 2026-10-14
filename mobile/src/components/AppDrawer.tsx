@@ -66,16 +66,22 @@ const inventarioItems: NavItem[] = [
   { label: 'Buscar Producto', icon: 'search', route: 'BuscarProducto' },
 ];
 
+const clienteItems: NavItem[] = [
+  { label: 'Reconocimiento IA', icon: 'scan', route: 'PartRecognition' },
+];
+
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   tienda: 'Vendedor de Tienda',
   inventario: 'Encargado de Inventario',
+  cliente: 'Cliente',
 };
 
 const roleColors: Record<string, string> = {
   admin: colors.primary,
   tienda: colors.emerald,
   inventario: colors.warning,
+  cliente: colors.primaryStrong,
 };
 
 export default function AppDrawer(props: DrawerContentComponentProps) {
@@ -91,7 +97,9 @@ export default function AppDrawer(props: DrawerContentComponentProps) {
       ? adminItems
       : user?.rol === 'tienda'
         ? tiendaItems
-        : inventarioItems;
+        : user?.rol === 'inventario'
+          ? inventarioItems
+          : clienteItems;
 
   const handleNav = (route: string) => {
     // Con `drawerType: 'front'` el panel queda superpuesto a la escena, y en React

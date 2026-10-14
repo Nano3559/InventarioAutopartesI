@@ -4,6 +4,7 @@ export type RootStackParamList = {
   AdminDashboard: undefined;
   TiendaDashboard: undefined;
   InventarioDashboard: undefined;
+  PartRecognition: undefined;
   Inventario: undefined;
   Sales: undefined;
   SalesEdit: { saleId: number };
