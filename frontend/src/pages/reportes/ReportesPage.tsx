@@ -25,8 +25,13 @@ export function ReportesPage() {
   const isAdmin = user?.rol === 'admin';
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<ReportTab>('mensual');
+  const [selectedTab, setSelectedTab] = useState<ReportTab>(isAdmin ? 'mensual' : 'marcas');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
+
+  const activeTab: ReportTab =
+    !isAdmin && (selectedTab === 'mensual' || selectedTab === 'proveedores' || selectedTab === 'tiendas')
+      ? 'marcas'
+      : selectedTab;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -164,20 +169,22 @@ export function ReportesPage() {
 
       {/* Pestañas de Navegación */}
       <div className="reportes-nav-tabs">
-        <button
-          type="button"
-          className={`reportes-tab-btn ${activeTab === 'mensual' ? 'active' : ''}`}
-          onClick={() => setActiveTab('mensual')}
-        >
-          <TrendingUp size={16} />
-          <span>Evolución Mensual</span>
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            className={`reportes-tab-btn ${activeTab === 'mensual' ? 'active' : ''}`}
+            onClick={() => setSelectedTab('mensual')}
+          >
+            <TrendingUp size={16} />
+            <span>Evolución Mensual</span>
+          </button>
+        )}
 
         {isAdmin && (
           <button
             type="button"
             className={`reportes-tab-btn ${activeTab === 'tiendas' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tiendas')}
+            onClick={() => setSelectedTab('tiendas')}
           >
             <Store size={16} />
             <span>Rendimiento por Tienda</span>
@@ -187,7 +194,7 @@ export function ReportesPage() {
         <button
           type="button"
           className={`reportes-tab-btn ${activeTab === 'marcas' ? 'active' : ''}`}
-          onClick={() => setActiveTab('marcas')}
+          onClick={() => setSelectedTab('marcas')}
         >
           <Car size={16} />
           <span>Marcas y Vehículos</span>
@@ -197,7 +204,7 @@ export function ReportesPage() {
           <button
             type="button"
             className={`reportes-tab-btn ${activeTab === 'proveedores' ? 'active' : ''}`}
-            onClick={() => setActiveTab('proveedores')}
+            onClick={() => setSelectedTab('proveedores')}
           >
             <Building2 size={16} />
             <span>Compras a Proveedores</span>
