@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTiendaActiva } from '../context/TiendaActivaContext';
-import { getProducts } from '../api/products';
+import { getProductByBarcode, getProducts } from '../api/products';
+import type { Product } from '../types/product';
 import { createSale, getNotaVenta, updateSale, getSale, type SaleItem, type SaleInput, type Sale } from '../api/sales';
 import { getToken } from '../storage/token';
 import {
@@ -38,6 +39,9 @@ import { Header, Badge, TableRow, TableCard, PrimaryCTA, SelectorTiendaActiva } 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+
+const BARCODE_TYPES = ['code128', 'code39', 'ean13', 'ean8', 'upc_a', 'upc_e'] as const;
 
 const PAYMENT_METHODS = ['Efectivo', 'QR', 'Transferencia', 'Crédito'] as const;
 
@@ -97,8 +101,17 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
   const [stockErrorProductId, setStockErrorProductId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [clientErrors, setClientErrors] = useState<{ nombre?: string; ciNit?: string; celular?: string }>({});
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [scannerBusy, setScannerBusy] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<{ message: string; error?: boolean }>({ message: 'Apunta al código de barras' });
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const scanLock = useRef(false);
+  const scanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editingSaleId = initialSaleId ?? null;
   const isEditing = editingSaleId !== null;
+
+  useEffect(() => () => { if (scanTimer.current) clearTimeout(scanTimer.current); }, []);
 
   const loadProducts = useCallback(async (searchTerm?: string) => {
     try {
@@ -271,6 +284,59 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
     });
     showToast(`Agregado: ${product.producto}`);
   };
+
+  const stockForStore = useCallback((product: Product) => {
+    if (!tiendaIdEfectiva) return 0;
+    return product.stockByLocation?.[tiendaIdEfectiva]
+      ?? product.stockLocationDetails?.find(location => location.locationId === tiendaIdEfectiva)?.cantidad
+      ?? 0;
+  }, [tiendaIdEfectiva]);
+
+  const closeScanner = useCallback(() => {
+    if (scanTimer.current) clearTimeout(scanTimer.current);
+    scanLock.current = false;
+    setScannerBusy(false);
+    setTorchEnabled(false);
+    setScanFeedback({ message: 'Apunta al código de barras' });
+    setScannerVisible(false);
+  }, []);
+
+  const handleBarcodeScanned = useCallback(async ({ data }: BarcodeScanningResult) => {
+    const codigo = data.trim();
+    if (!codigo || scanLock.current) return;
+    scanLock.current = true;
+    setScannerBusy(true);
+    setScanFeedback({ message: `Buscando ${codigo}…` });
+    try {
+      if (!tiendaIdEfectiva) throw new Error('Selecciona una tienda antes de escanear');
+      const token = await getToken();
+      if (!token) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+      const product = await getProductByBarcode(codigo, token);
+      const stock = stockForStore(product);
+      setProducts(previous => {
+        const scanned = { product, stock };
+        return previous.some(item => item.product.id === product.id)
+          ? previous.map(item => item.product.id === product.id ? scanned : item)
+          : [scanned, ...previous];
+      });
+      const quantity = cart.find(item => item.productId === product.id)?.cantidad ?? 0;
+      if (stock <= 0) throw new Error(`${product.producto}: sin stock en esta tienda`);
+      if (quantity >= stock) throw new Error(`${product.producto}: stock máximo alcanzado (${stock})`);
+      addToCart(product, stock);
+      setScanFeedback({ message: `${product.producto} agregado · ${quantity + 1} en el carrito` });
+    } catch (error: any) {
+      const message = error?.status === 404
+        ? `No existe un producto activo con el código ${codigo}`
+        : error?.message || 'No se pudo consultar el producto';
+      setScanFeedback({ message, error: true });
+      showToast(message, 'error');
+    } finally {
+      scanTimer.current = setTimeout(() => {
+        scanLock.current = false;
+        setScannerBusy(false);
+      }, 1000);
+    }
+  }, [cart, stockForStore, tiendaIdEfectiva]);
 
   const updateCartQty = (productId: number, cantidad: number) => {
     if (cantidad <= 0) {
@@ -601,7 +667,24 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
 
           {/* Search */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Buscar producto</Text>
+            <View style={styles.searchHeader}>
+              <View style={styles.searchHeaderCopy}>
+                <Text style={styles.sectionTitle}>Buscar producto</Text>
+                <Text style={styles.searchHint}>Busca o escanea una etiqueta</Text>
+              </View>
+              <Pressable
+                style={[styles.scanButton, !tiendaIdEfectiva && styles.disabled]}
+                onPress={() => setScannerVisible(true)}
+                disabled={!tiendaIdEfectiva}
+                accessibilityRole={a11y.button}
+                accessibilityLabel="Escanear código de barras"
+                accessibilityHint="Abre la cámara y agrega productos al carrito"
+                accessibilityState={{ disabled: !tiendaIdEfectiva }}
+              >
+                <Ionicons name="barcode-outline" size={iconSize.md} color={colors.textOnPrimary} />
+                <Text style={styles.scanButtonText}>Escanear</Text>
+              </Pressable>
+            </View>
             <TextInput
               style={[
                 styles.searchInput,
@@ -890,6 +973,59 @@ export default function SalesScreen({ initialSaleId }: SalesScreenProps) {
         )}
       </KeyboardAvoidingView>
 
+      <Modal visible={scannerVisible} animationType="slide" presentationStyle="fullScreen" onRequestClose={closeScanner}>
+        <SafeAreaView style={styles.scannerSafe}>
+          <View style={styles.scannerHeader}>
+            <View style={styles.searchHeaderCopy}>
+              <Text style={styles.scannerTitle}>Escanear productos</Text>
+              <Text style={styles.scannerSubtitle}>Cada lectura suma una unidad al carrito</Text>
+            </View>
+            <Pressable style={styles.closeButton} onPress={closeScanner} accessibilityRole={a11y.button} accessibilityLabel="Cerrar escáner">
+              <Ionicons name="close" size={iconSize.lg} color={colors.text} />
+            </Pressable>
+          </View>
+          {!cameraPermission ? (
+            <View style={styles.permissionBox}><ActivityIndicator color={colors.primary} /></View>
+          ) : !cameraPermission.granted ? (
+            <View style={styles.permissionBox}>
+              <Ionicons name="camera-outline" size={56} color={colors.primary} />
+              <Text style={styles.permissionTitle}>Permite usar la cámara</Text>
+              <Text style={styles.permissionText}>Se usa únicamente para leer etiquetas de productos.</Text>
+              <Pressable style={styles.permissionButton} onPress={requestCameraPermission} accessibilityRole={a11y.button} accessibilityLabel="Permitir cámara">
+                <Text style={styles.permissionButtonText}>Permitir cámara</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <View style={styles.cameraBox}>
+                <CameraView
+                  style={styles.camera}
+                  facing="back"
+                  active={scannerVisible}
+                  enableTorch={torchEnabled}
+                  barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
+                  onBarcodeScanned={scannerBusy ? undefined : handleBarcodeScanned}
+                  onMountError={({ message }) => setScanFeedback({ message: `No se pudo abrir la cámara: ${message}`, error: true })}
+                />
+                <View style={styles.scanOverlay} pointerEvents="none"><View style={styles.scanFrame} /></View>
+                <Pressable style={[styles.torchButton, torchEnabled && styles.torchActive]} onPress={() => setTorchEnabled(value => !value)} accessibilityRole={a11y.button} accessibilityLabel={torchEnabled ? 'Apagar linterna' : 'Encender linterna'}>
+                  <Ionicons name={torchEnabled ? 'flash' : 'flash-outline'} size={iconSize.md} color={colors.white} />
+                </Pressable>
+              </View>
+              <View style={[styles.scanFeedback, scanFeedback.error && styles.scanFeedbackError]} accessibilityLiveRegion="polite">
+                {scannerBusy ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name={scanFeedback.error ? 'alert-circle' : 'barcode-outline'} size={iconSize.lg} color={scanFeedback.error ? colors.danger : colors.primary} />}
+                <Text style={styles.scanFeedbackText}>{scanFeedback.message}</Text>
+              </View>
+              <View style={styles.scannerSummary}>
+                <Ionicons name="cart" size={iconSize.md} color={colors.primary} />
+                <Text style={styles.summaryText}>{cart.reduce((sum, item) => sum + item.cantidad, 0)} unidades · Bs {total.toFixed(2)}</Text>
+                <Pressable style={styles.doneButton} onPress={closeScanner} accessibilityRole={a11y.button} accessibilityLabel="Terminar de escanear"><Text style={styles.doneText}>Listo</Text></Pressable>
+              </View>
+            </>
+          )}
+        </SafeAreaView>
+      </Modal>
+
       {/* Payment Modal */}
       <Modal visible={paymentModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -939,6 +1075,35 @@ const styles = StyleSheet.create({
   content: { padding: space.lg, gap: space.xl },
   section: { gap: space.sm },
   sectionTitle: { fontSize: fontSize.headline, fontFamily: fontFamily.sansSemiBold, color: colors.text },
+  searchHeader: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  searchHeaderCopy: { flex: 1, minWidth: 0 },
+  searchHint: { color: colors.textMuted, fontSize: fontSize.caption, fontFamily: fontFamily.sans },
+  scanButton: { minHeight: touchTarget.min, flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: colors.primary },
+  scanButtonText: { color: colors.textOnPrimary, fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold },
+  disabled: { opacity: opacity.disabled },
+  scannerSafe: { flex: 1, backgroundColor: colors.bg },
+  scannerHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border },
+  scannerTitle: { color: colors.text, fontSize: fontSize.headline, fontFamily: fontFamily.sansBold },
+  scannerSubtitle: { color: colors.textMuted, fontSize: fontSize.caption, fontFamily: fontFamily.sans },
+  closeButton: { width: touchTarget.min, height: touchTarget.min, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: colors.bg },
+  permissionBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.xl },
+  permissionTitle: { color: colors.text, fontSize: fontSize.headline, fontFamily: fontFamily.sansBold, textAlign: 'center' },
+  permissionText: { color: colors.textMuted, fontSize: fontSize.body, fontFamily: fontFamily.sans, textAlign: 'center' },
+  permissionButton: { minHeight: touchTarget.min, justifyContent: 'center', paddingHorizontal: space.xl, borderRadius: radius.md, backgroundColor: colors.primary },
+  permissionButtonText: { color: colors.textOnPrimary, fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold },
+  cameraBox: { flex: 1, minHeight: 280, backgroundColor: '#0b0f14' },
+  camera: { flex: 1 },
+  scanOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  scanFrame: { width: '76%', maxWidth: 390, height: 180, borderWidth: 3, borderColor: colors.primary, borderRadius: radius.md },
+  torchButton: { position: 'absolute', top: space.md, right: space.md, width: touchTarget.min, height: touchTarget.min, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: 'rgba(0,0,0,0.55)' },
+  torchActive: { backgroundColor: colors.primary },
+  scanFeedback: { minHeight: 74, flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, backgroundColor: colors.primarySoft },
+  scanFeedbackError: { backgroundColor: colors.dangerSoft },
+  scanFeedbackText: { flex: 1, minWidth: 0, color: colors.text, fontSize: fontSize.body, fontFamily: fontFamily.sansSemiBold },
+  scannerSummary: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border },
+  summaryText: { flex: 1, minWidth: 0, color: colors.text, fontSize: fontSize.body, fontFamily: fontFamily.monoBold },
+  doneButton: { minHeight: touchTarget.min, justifyContent: 'center', paddingHorizontal: space.lg, borderRadius: radius.md, backgroundColor: colors.primary },
+  doneText: { color: colors.textOnPrimary, fontSize: fontSize.body, fontFamily: fontFamily.sansBold },
   searchInput: {
     // inputBase provides styling
   },
