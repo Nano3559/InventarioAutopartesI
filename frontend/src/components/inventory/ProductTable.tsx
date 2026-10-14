@@ -232,7 +232,7 @@ export function ProductTable({
                         type="button"
                         className="btn-table-action stock-btn"
                         onClick={() => onOpenStockModal(p)}
-                        title="Ver stock detallado en las 7 ubicaciones"
+                        title="Ver stock detallado por ubicación"
                       >
                         <MapPin size={16} />
                       </button>

@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     fontFamily: fontFamily.sansMedium,
     color: colors.danger,
-    lineHeight: lineHeight.relaxed,
+    lineHeight: fontSize.caption * lineHeight.relaxed,
   },
   cancelar: { alignItems: 'center', paddingVertical: space.sm },
   cancelarTexto: {

@@ -12,10 +12,9 @@ export type RootStackParamList = {
   Solicitudes: undefined;
   VentaMayor: undefined;
   Reportes: undefined;
-  Scanner: undefined;
+  BuscarProducto: undefined;
   FaceRegister: undefined;
   SalesHistory: undefined;
-  SearchByImage: undefined;
   Attendance: undefined;
   AttendanceHistory: undefined;
 };

@@ -40,6 +40,11 @@ function porcentaje(valor: number | null): string {
   return valor == null ? '—' : `${(valor * 100).toFixed(1)}%`;
 }
 
+/** `admin` → `Admin`: el rol llega en crudo desde la BD y va junto al email. */
+function rolLegible(rol: string): string {
+  return rol.charAt(0).toUpperCase() + rol.slice(1);
+}
+
 /**
  * Historial de marcajes (tarea R4). Consume `GET /attendance`, que es paginado
  * con `{ data, total, page, limit, pages }`.
@@ -63,7 +68,7 @@ export default function AttendanceHistoryScreen() {
   const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** Evita que una búsqueda-old pise el resultado de una más nueva. */
+  /** Evita que una búsqueda vieja pise el resultado de una más nueva. */
   const pedidoActual = useRef(0);
 
   const filtros = useCallback(
@@ -151,14 +156,14 @@ export default function AttendanceHistoryScreen() {
           <Ionicons name="search" size={iconSize.sm} color={colors.textMuted} />
           <TextInput
             style={styles.input}
-            placeholder="Buscar por nombre o email"
+            placeholder="Buscar por nombre, apellido o email"
             placeholderTextColor={colors.textPlaceholder}
             value={search}
             onChangeText={setSearch}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
-            accessibilityLabel="Buscar marcajes por nombre o email"
+            accessibilityLabel="Buscar marcajes por nombre, apellido o email"
           />
           {search ? (
             <Pressable
@@ -302,7 +307,7 @@ function Fila({ asistencia }: { asistencia: Asistencia }) {
             </Text>
             {asistencia.usuario ? (
               <Text style={styles.filaEmail} numberOfLines={1}>
-                {asistencia.usuario.email} · {asistencia.usuario.rol}
+                {asistencia.usuario.email} · {rolLegible(asistencia.usuario.rol)}
               </Text>
             ) : null}
           </View>
@@ -333,7 +338,9 @@ function Fila({ asistencia }: { asistencia: Asistencia }) {
           texto={
             manual
               ? 'Marcaje manual'
-              : `Reconocido con ${porcentaje(asistencia.confianza)} de confianza`
+              : asistencia.confianza == null
+                ? 'Reconocido facialmente'
+                : `Reconocido con ${porcentaje(asistencia.confianza)} de confianza`
           }
         />
         {asistencia.confirmadoPor ? (
@@ -408,7 +415,7 @@ function Vacio({ hayFiltros }: { hayFiltros: boolean }) {
       <Text style={styles.vacioTexto}>
         {hayFiltros
           ? 'Probá con otro nombre o quitá los filtros.'
-          : 'Los marcajes que se registren desde la pantalla de asistencia van a aparecer acá.'}
+          : 'Los marcajes que se registren con el Tiqueador van a aparecer acá.'}
       </Text>
     </View>
   );
@@ -531,7 +538,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
-    lineHeight: lineHeight.relaxed,
+    // `lineHeight.relaxed` es un multiplicador (1.5) y en RN `lineHeight` es absoluto.
+    lineHeight: fontSize.caption * lineHeight.relaxed,
   },
 
   pie: { paddingVertical: space.lg, alignItems: 'center' },

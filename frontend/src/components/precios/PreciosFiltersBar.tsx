@@ -50,7 +50,7 @@ export function PreciosFiltersBar({
       </form>
 
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Marca Vehículo */}
+        {/* Marca Vehículo — `filters.marca` filtra `p.marca` */}
         <select
           className="filter-select"
           value={filters.marca || ''}
@@ -62,7 +62,7 @@ export function PreciosFiltersBar({
           ))}
         </select>
 
-        {/* Fabricante */}
+        {/* Fabricante — `filters.fabricante` filtra `p.fabricante` */}
         <select
           className="filter-select"
           value={filters.fabricante || ''}

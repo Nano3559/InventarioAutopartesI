@@ -30,7 +30,12 @@ import {
 import { Header } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-export default function SearchByImageScreen() {
+interface SearchByImageScreenProps {
+  /** `true` = sin SafeArea ni Header: el chrome lo aporta `BuscarProductoScreen`. */
+  embebido?: boolean;
+}
+
+export default function SearchByImageScreen({ embebido = false }: SearchByImageScreenProps) {
   const navigation = useNavigation();
   const { user } = useAuth();
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -152,8 +157,12 @@ export default function SearchByImageScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Búsqueda por Imagen" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
+    <View style={styles.container}>
+      {!embebido && (
+        <SafeAreaView edges={['top']}>
+          <Header title="Búsqueda por Imagen" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
+        </SafeAreaView>
+      )}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Upload Zone */}
         {!imageUri ? (
@@ -246,7 +255,7 @@ export default function SearchByImageScreen() {
           <Text style={styles.toastText}>{permissionDenied}</Text>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

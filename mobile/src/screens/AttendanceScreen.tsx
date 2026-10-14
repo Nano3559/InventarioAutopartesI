@@ -286,12 +286,6 @@ export default function AttendanceScreen({
     try {
       const inmediato = await esperarServidorVivo(15_000);
       if (!inmediato) {
-        setAviso({
-          tono: 'info',
-          titulo: 'Despertando el servidor…',
-          texto:
-            'El primer uso del día puede tardar hasta un minuto. Se reintenta automáticamente.',
-        });
         const despierto = await esperarServidorVivo(90_000);
         if (!despierto) {
           setAviso({
@@ -1086,7 +1080,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     fontFamily: fontFamily.sans,
     color: colors.text,
-    lineHeight: lineHeight.relaxed,
+    lineHeight: fontSize.caption * lineHeight.relaxed,
   },
   negrita: { fontFamily: fontFamily.sansSemiBold },
 

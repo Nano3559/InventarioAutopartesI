@@ -9,8 +9,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/products';
+import { getLocations, type Location } from '../api/locations';
 import type { Product } from '../types/product';
 import {
   colors,
@@ -22,46 +25,76 @@ import {
 } from '../theme';
 import { Header, Badge } from '../components';
 
-const MARCAS_POPULARES = ['Todas', 'Toyota', 'Nissan', 'Suzuki', 'Hyundai', 'Jeep', 'Dodge', 'Renault', 'Mitsubishi', 'Mazda'];
-
-const MOCK_LOCATIONS = [
-  { id: 1, nombre: 'Almacén 1 (Central El Alto)', tipo: 'almacen' },
-  { id: 2, nombre: 'Almacén 2 (Norte)', tipo: 'almacen' },
-  { id: 3, nombre: 'Almacén 3 (Sur)', tipo: 'almacen' },
-  { id: 4, nombre: 'Almacén 4 (Distribución)', tipo: 'almacen' },
-  { id: 5, nombre: 'Tienda 1 (Av. Principal)', tipo: 'tienda' },
-  { id: 6, nombre: 'Tienda 2 (Comercial Repuestos)', tipo: 'tienda' },
-  { id: 7, nombre: 'Tienda 3 (Zona Sur)', tipo: 'tienda' },
-];
-
 export default function InventarioScreen() {
+  const navigation = useNavigation();
+  const { token } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
   const [selectedMarca, setSelectedMarca] = useState<string>('Todas');
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  // `GET /products` exige JWT (`@UseGuards(JwtAuthGuard, RolesGuard)` en
+  // `products.controller.ts`): sin el token el backend responde 401 y la lista
+  // quedaba vacía sin ningún aviso en pantalla.
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getProducts();
+      const [data, locs] = await Promise.all([
+        getProducts({}, token ?? undefined),
+        getLocations(token ?? undefined),
+      ]);
       if (Array.isArray(data)) {
         setProducts(data);
       }
+      if (Array.isArray(locs)) {
+        setLocations(locs);
+      }
+      setError(null);
     } catch (e) {
-      console.error('Error al cargar productos móvil:', e);
+      setError(e instanceof Error ? e.message : 'No se pudo cargar el inventario.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  // Atajos de marca, derivados de los productos REALES cargados y no de una
+  // lista fija.
+  //
+  // Salen de `p.marca`, que es donde vive la marca del VEHÍCULO (Toyota,
+  // Nissan), igual que en el resto de la app (filtros web, reporte "Ventas por
+  // Marca de Vehículo", ficha de producto). Una lista fija no servía: podía
+  // quedar desalineada con el catálogo y no había forma de saberlo.
+  const marcas = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of products) {
+      const marca = p.marca?.trim();
+      if (marca) set.add(marca);
+    }
+    return ['Todas', ...Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))];
+  }, [products]);
+
+  // Si la marca seleccionada ya no existe en el catálogo (porque cambiaron los
+  // productos), se vuelve a "Todas": si no, el filtro quedaría apuntando a una
+  // marca sin chips y la lista daría 0 resultados sin motivo visible.
+  useEffect(() => {
+    if (selectedMarca !== 'Todas' && !marcas.includes(selectedMarca)) {
+      setSelectedMarca('Todas');
+    }
+  }, [marcas, selectedMarca]);
+
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      if (selectedMarca !== 'Todas' && p.marca.toLowerCase() !== selectedMarca.toLowerCase()) {
+      if (
+        selectedMarca !== 'Todas' &&
+        p.marca?.trim().toLowerCase() !== selectedMarca.toLowerCase()
+      ) {
         return false;
       }
       if (search.trim()) {
@@ -87,6 +120,23 @@ export default function InventarioScreen() {
     const isExpanded = expandedProductId === item.id;
     const stockTotal = item.stockTotal || 0;
     const stockVariant = stockTotal === 0 ? 'danger' : stockTotal <= 3 ? 'warning' : 'success';
+
+    // Cantidad real por ubicación, tal como la calcula el backend
+    // (`products.service.ts:162`, tabla `inventory` agrupada por locationId).
+    const stockPorUbicacion: Record<number, number> = {};
+    for (const d of item.stockLocationDetails ?? []) {
+      stockPorUbicacion[d.locationId] = (stockPorUbicacion[d.locationId] ?? 0) + d.cantidad;
+    }
+
+    // Se listan TODAS las ubicaciones de la BD (las sin stock quedan en 0), con los
+    // almacenes primero y después las tiendas. Iterar solo sobre las que tienen
+    // stock ocultaría sucursales y rompería la relación con el total.
+    const locationsOrdenadas = [...locations].sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === 'almacen' ? -1 : 1;
+      return a.numero - b.numero;
+    });
+    const almacenes = locations.filter((l) => l.tipo === 'almacen').length;
+    const tiendas = locations.filter((l) => l.tipo === 'tienda').length;
 
     return (
       <View style={styles.card}>
@@ -138,13 +188,15 @@ export default function InventarioScreen() {
           )}
         </View>
 
-        {/* Botón para expandir stock de las 7 ubicaciones */}
+        {/* Conteo real de ubicaciones: salen de la BD, no de una constante */}
         <Pressable
           style={styles.expandButton}
           onPress={() => toggleExpand(item.id)}
         >
           <Text style={styles.expandButtonText}>
-            {isExpanded ? 'Ocultar stock por ubicación' : 'Ver stock en 7 ubicaciones'}
+            {isExpanded
+              ? 'Ocultar stock por ubicación'
+              : `Ver stock en ${locations.length} ubicación${locations.length === 1 ? '' : 'es'}`}
           </Text>
           <Ionicons
             name={isExpanded ? 'chevron-up' : 'chevron-down'}
@@ -153,13 +205,21 @@ export default function InventarioScreen() {
           />
         </Pressable>
 
-        {/* Desglose de Stock por Ubicación */}
+        {/* Desglose de Stock por Ubicación.
+
+            Antes iteraba sobre `MOCK_LOCATIONS` (7 ubicaciones falsas) y calculaba
+            `Math.floor(stockTotal / 7)`, que reparte el total con redondeo y por eso
+            no cuadraba con las unidades disponibles. Ahora se itera sobre las
+            ubicaciones REALES y se lee la cantidad que ya trae el backend en
+            `stockLocationDetails`; las que no tienen fila quedan en 0, así que la
+            suma de la lista siempre es igual a `stockTotal`. */}
         {isExpanded && (
           <View style={styles.stockBreakdownContainer}>
-            <Text style={styles.breakdownHeader}>Distribución en 4 Almacenes y 3 Tiendas:</Text>
-            {MOCK_LOCATIONS.map((loc) => {
-              const locStock = Math.max(0, Math.floor(stockTotal / 7));
-
+            <Text style={styles.breakdownHeader}>
+              {`Distribución en ${almacenes} almacén${almacenes === 1 ? '' : 'es'} y ${tiendas} tienda${tiendas === 1 ? '' : 's'}`}
+            </Text>
+            {locationsOrdenadas.map((loc) => {
+              const locStock = stockPorUbicacion[loc.id] ?? 0;
               return (
                 <View key={loc.id} style={styles.locationRow}>
                   <View style={styles.locationInfo}>
@@ -176,6 +236,10 @@ export default function InventarioScreen() {
                 </View>
               );
             })}
+            <View style={styles.locationTotalRow}>
+              <Text style={styles.locationTotalLabel}>Total</Text>
+              <Text style={styles.locationTotalValue}>{stockTotal} uds.</Text>
+            </View>
           </View>
         )}
       </View>
@@ -184,9 +248,12 @@ export default function InventarioScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Sin `onMenuPress` el Header no dibuja el botón de menú (`Header.tsx:43`),
+          y al no ser pantalla raíz del drawer no hay otra forma de reabrirlo. */}
       <Header
         title="Catálogo e Inventario"
         subtitle={`${filteredProducts.length} repuestos disponibles`}
+        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
       />
 
       {/* Barra de Búsqueda */}
@@ -213,7 +280,7 @@ export default function InventarioScreen() {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={MARCAS_POPULARES}
+          data={marcas}
           keyExtractor={(m) => m}
           contentContainerStyle={styles.chipsContent}
           renderItem={({ item: marca }) => {
@@ -237,6 +304,21 @@ export default function InventarioScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Consultando catálogo de autopartes...</Text>
+        </View>
+      ) : error && products.length === 0 ? (
+        // Sin datos y con error no tiene sentido mostrar "No se encontraron
+        // repuestos": eso se leía como un catálogo vacío y no como un fallo.
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cloud-offline-outline" size={48} color={colors.textMuted} />
+          <Text style={styles.emptyTitle}>No se pudo cargar el inventario</Text>
+          <Text style={styles.emptySubtitle}>{error}</Text>
+          <Pressable
+            style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.7 }]}
+            onPress={loadData}
+            accessibilityRole="button"
+          >
+            <Text style={styles.retryText}>Reintentar</Text>
+          </Pressable>
         </View>
       ) : filteredProducts.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -432,6 +514,25 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sansBold,
     color: colors.primary,
   },
+  locationTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 6,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  locationTotalLabel: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
+  locationTotalValue: {
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansBold,
+    color: colors.text,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -460,5 +561,17 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: space.md,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: space.xl,
+    borderRadius: radius.md,
+  },
+  retryText: {
+    color: colors.white,
+    fontSize: fontSize.body,
+    fontFamily: fontFamily.sansSemiBold,
   },
 });

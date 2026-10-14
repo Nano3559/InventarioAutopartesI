@@ -78,7 +78,34 @@ function Corner({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
   return <View style={[styles.corner, vertical, horizontal]} />;
 }
 
-export default function ScannerScreen() {
+/**
+ * Envuelve la pantalla: aporta SafeArea + Header, o solo el contenedor cuando
+ * está embebida en `BuscarProductoScreen` (ahí el chrome lo pone esa pantalla).
+ */
+function Marco({
+  embebido,
+  header,
+  children,
+}: {
+  embebido: boolean;
+  header: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  if (embebido) return <View style={styles.container}>{children}</View>;
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {header}
+      {children}
+    </SafeAreaView>
+  );
+}
+
+interface ScannerScreenProps {
+  /** `true` = sin SafeArea ni Header: el chrome lo aporta `BuscarProductoScreen`. */
+  embebido?: boolean;
+}
+
+export default function ScannerScreen({ embebido = false }: ScannerScreenProps) {
   const navigation = useNavigation();
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
@@ -193,25 +220,23 @@ export default function ScannerScreen() {
 
   if (!permission) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header
-          title="Escáner de Barras"
-          onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-        />
+      <Marco
+        embebido={embebido}
+        header={<Header title="Escáner de Barras" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} />}
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </Marco>
     );
   }
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header
-          title="Escáner de Barras"
-          onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-        />
+      <Marco
+        embebido={embebido}
+        header={<Header title="Escáner de Barras" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} />}
+      >
         <View style={styles.centered}>
           <View style={styles.permissionIcon}>
             <Ionicons name="camera-outline" size={40} color={colors.primary} />
@@ -236,22 +261,26 @@ export default function ScannerScreen() {
             </Text>
           )}
         </View>
-      </SafeAreaView>
+      </Marco>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header
-        title="Escáner de Barras"
-        subtitle="Apunte a la etiqueta del repuesto"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-        rightAction={
-          results.length > 0
-            ? { label: 'Limpiar', icon: 'trash-outline', variant: 'danger', onPress: handleClear }
-            : undefined
-        }
-      />
+    <Marco
+      embebido={embebido}
+      header={
+        <Header
+          title="Escáner de Barras"
+          subtitle="Apunte a la etiqueta del repuesto"
+          onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+          rightAction={
+            results.length > 0
+              ? { label: 'Limpiar', icon: 'trash-outline', variant: 'danger', onPress: handleClear }
+              : undefined
+          }
+        />
+      }
+    >
 
       {notFoundResult ? (
         <View
@@ -367,6 +396,19 @@ export default function ScannerScreen() {
         </Pressable>
       </View>
 
+      {/* Embebido no tiene el Header con la acción "Limpiar": se repone acá. */}
+      {embebido && results.length > 0 ? (
+        <Pressable
+          style={({ pressed }) => [styles.limpiarInline, pressed && styles.btnPressed]}
+          onPress={handleClear}
+          accessibilityRole={a11y.button}
+          accessibilityLabel={`Limpiar ${results.length} escaneos`}
+        >
+          <Ionicons name="trash-outline" size={iconSize.sm} color={colors.danger} />
+          <Text style={styles.limpiarInlineText}>Limpiar escaneos ({results.length})</Text>
+        </Pressable>
+      ) : null}
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -438,7 +480,7 @@ export default function ScannerScreen() {
 
         <View style={{ height: space.xl }} />
       </ScrollView>
-    </SafeAreaView>
+    </Marco>
   );
 }
 
@@ -732,6 +774,25 @@ const styles = StyleSheet.create({
   },
   manualBtnDisabled: {
     opacity: opacity.disabled,
+  },
+  limpiarInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    alignSelf: 'center',
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    marginBottom: space.sm,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+  },
+  limpiarInlineText: {
+    color: colors.danger,
+    fontSize: fontSize.caption,
+    fontFamily: fontFamily.sansSemiBold,
   },
   statusPillWarning: {
     backgroundColor: colors.warning,

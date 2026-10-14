@@ -21,7 +21,7 @@ const quickActions = [
   { label: 'Devoluciones', icon: 'refresh-outline', route: 'Devoluciones', color: colors.warning },
   { label: 'Solicitudes', icon: 'document-text-outline', route: 'Solicitudes', color: '#a855f7' },
   { label: 'Reportes', icon: 'stats-chart-outline', route: 'Reportes', color: colors.emerald },
-  { label: 'Búsqueda Imagen', icon: 'camera-outline', route: 'SearchByImage', color: '#f472b6' },
+  { label: 'Buscar Producto', icon: 'search-outline', route: 'BuscarProducto', color: '#f472b6' },
 ] as const;
 
 const getStatusVariant = (estado: string) => {

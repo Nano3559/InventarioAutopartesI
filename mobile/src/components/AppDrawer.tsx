@@ -33,13 +33,14 @@ const adminItems: NavItem[] = [
   { label: 'Devoluciones', icon: 'refresh', route: 'Devoluciones' },
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
-  { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
-  // Asistencia e historial son solo admin: `AttendanceController` tiene
-  // `@Roles('admin')` a nivel de clase (`attendance.controller.ts`), así que en
-  // `tienda` e `inventario` toda llamada a `/attendance` responde 403.
-  { label: 'Asistencia Facial', icon: 'finger-print', route: 'Attendance' },
+  // Una sola entrada para las dos formas de buscar producto (código de barras o
+  // imagen); `BuscarProductoScreen` las separa en pestañas.
+  { label: 'Buscar Producto', icon: 'search', route: 'BuscarProducto' },
+  // Asistencia: el marcaje lo cubre el Tiqueador (abajo, en modo kiosco), así
+  // que en el drawer solo quedan las labores de administración. El marcaje
+  // manual (`Attendance`) se quitó de acá: `AttendanceController` es solo
+  // admin, pero repetía el mismo camino que el tiqueador.
   { label: 'Historial Asistencia', icon: 'time', route: 'AttendanceHistory' },
-  { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
   // Solo admin: `POST /users/face/register` hereda el `@Roles('admin')` de la clase en
   // `users.controller.ts`, así que en los otros roles la pantalla solo daría 403.
   { label: 'Registro Facial', icon: 'person-add', route: 'FaceRegister' },
@@ -54,8 +55,7 @@ const tiendaItems: NavItem[] = [
   { label: 'Devoluciones', icon: 'refresh', route: 'Devoluciones' },
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
-  { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
-  { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
+  { label: 'Buscar Producto', icon: 'search', route: 'BuscarProducto' },
 ];
 
 const inventarioItems: NavItem[] = [
@@ -63,8 +63,7 @@ const inventarioItems: NavItem[] = [
   { label: 'Inventario Físico', icon: 'cube', route: 'Inventario' },
   { label: 'Solicitudes', icon: 'document-text', route: 'Solicitudes' },
   { label: 'Reportes', icon: 'stats-chart', route: 'Reportes' },
-  { label: 'Escáner de Barras', icon: 'barcode', route: 'Scanner' },
-  { label: 'Búsqueda por Imagen', icon: 'camera', route: 'SearchByImage' },
+  { label: 'Buscar Producto', icon: 'search', route: 'BuscarProducto' },
 ];
 
 const roleLabels: Record<string, string> = {
@@ -107,9 +106,12 @@ export default function AppDrawer(props: DrawerContentComponentProps) {
     <View style={styles.container}>
       <DrawerContentScrollView
         {...props}
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Sin contentContainerStyle propio: `DrawerContentScrollView` aplica
+            por defecto `paddingTop: 12 + insets.top`, que es lo que separa el
+            encabezado de usuario de la barra de estado. Antes había un
+            `paddingTop: 0` acá que lo pisaba y el avatar quedaba bajo el reloj. */}
         {/* User Header */}
         <View style={styles.userHeader}>
           <View style={[styles.avatar, { backgroundColor: roleColors[user?.rol || 'admin'] + '22' }]}>
@@ -250,9 +252,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  scrollContent: {
-    paddingTop: 0,
   },
 
   // User header

@@ -11,7 +11,7 @@ import {
   shadows,
   a11y,
 } from '../theme';
-import { Header, StatCard, TableRow, TableCard, Badge } from '../components';
+import { Header, StatCard, TableRow, TableCard, Badge, SelectorTiendaActiva } from '../components';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAdminDashboard } from '../hooks/useDashboard';
 
@@ -89,6 +89,11 @@ export default function AdminDashboardScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* ── Tienda activa (POS) ── */}
+        {/* El admin no tiene tienda fija en la BD: elige aquí en cuál está
+            vendiendo y esa elección se usa en Ventas (stock + locationId). */}
+        {!user?.tiendaId && <SelectorTiendaActiva label="Estás vendiendo en" />}
 
         {/* ── Stats ── */}
         <View style={s.statsRow}>

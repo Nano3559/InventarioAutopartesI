@@ -62,7 +62,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ## B. Escáner de códigos de barras (los 3 roles)
 
-1. Abrir **Escáner** con la cuenta de prueba.
+1. Abrir **Buscar Producto** (pestaña *Código de barras*) con la cuenta de prueba.
 2. Apuntar a una etiqueta impresa (`AP-<id>-<codigoFabrica>`, solo barras Code128).
 3. Esperado: **ficha del producto** (nombre, código, precio, stock total y por tienda, imagen).
 4. Apuntar a un código **inexistente** → mensaje **"código no registrado"** (nunca pantalla en
