@@ -7,21 +7,19 @@ const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem(USER_KEY);
-    if (!saved) return null;
-    try {
-      return JSON.parse(saved) as User;
-    } catch {
-      return null;
-    }
-  });
+  // La web siempre arranca en el login: no se restaura la sesión guardada.
+  // El token sí se sigue persistiendo en login (lo lee api/client para el header
+  // Authorization), pero al cargar la app se limpia y el estado arranca vacío.
+  const [user, setUser] = useState<User | null>(null);
 
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem(TOKEN_KEY);
-  });
+  const [token, setToken] = useState<string | null>(null);
 
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  }, []);
 
   const logout = () => {
     setUser(null);
@@ -50,30 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     return user.rol === roles;
   };
-
-  // Validar sesión al cargar
-  useEffect(() => {
-    const verifySession = async () => {
-      const storedToken = localStorage.getItem(TOKEN_KEY);
-      if (!storedToken) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const userProfile = await api.get<User>('/auth/me');
-        setUser(userProfile);
-        localStorage.setItem(USER_KEY, JSON.stringify(userProfile));
-      } catch (err) {
-        console.warn('Sesión expirada o backend inaccesible:', err);
-        logout();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    verifySession();
-  }, []);
 
   return (
     <AuthContext.Provider

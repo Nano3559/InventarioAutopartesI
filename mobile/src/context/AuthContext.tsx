@@ -10,6 +10,7 @@ import {
 import type { User, UserRole } from '../types';
 import { login as apiLogin, me as apiMe } from '../api/auth';
 import { saveToken, getToken, deleteToken } from '../storage/token';
+import { getTiqueadorActivo } from '../storage/terminal';
 
 interface AuthContextValue {
   user: User | null;
@@ -31,6 +32,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function restoreSession() {
       try {
+        // La app móvil arranca en el login: no se restaura la sesión guardada.
+        // La única excepción es el modo tiqueador (R9): la tablet del mostrador
+        // debe volver directo al marcaje al reiniciar, porque su token de admin
+        // es el que permite marcar y nadie va a hacer login de nuevo ahí.
+        const enTiqueador = await getTiqueadorActivo();
+        if (!enTiqueador) {
+          await deleteToken();
+          return;
+        }
         const storedToken = await getToken();
         if (storedToken && active) {
           try {
