@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ImagePlus, Loader2, ScanSearch, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ImageOff, ImagePlus, Loader2, ScanSearch, Trash2, Upload } from 'lucide-react';
 import { recognitionService } from '../../services/recognition.service';
 import type { RecognitionResult } from '../../types/recognition.types';
 import '../../styles/recognition.css';
 
 const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const minAcceptedConfidence = 0.5;
 const percentage = (value: number) => `${(value * 100).toLocaleString('es-BO', { maximumFractionDigits: 1 })}%`;
 const confidence = (value: number) => `${Math.min(99.9, Math.max(0, value * 100)).toLocaleString('es-BO', { maximumFractionDigits: 1 })}%`;
 const states = { high: 'Confianza alta', medium: 'Confianza media', low: 'Confianza baja' };
@@ -42,6 +43,7 @@ export function RecognitionPage() {
     } finally { window.clearTimeout(timeout); setBusy(false); request.current = null; }
   }
   const part = result?.prediction.class_info;
+  const rejected = !!result && result.prediction.confidence < minAcceptedConfidence;
   return (
     <div className="recognition-page">
       <header className="page-header recognition-header">
@@ -61,7 +63,20 @@ export function RecognitionPage() {
           {error && <p className="recognition-error" role="alert"><AlertCircle size={18} aria-hidden="true" />{error}</p>}
         </section>
         <section className="recognition-results" aria-live="polite" aria-busy={busy}>
-          {busy ? <div className="recognition-empty" role="status"><Loader2 size={36} className="animate-spin" /><h2>Analizando imagen...</h2><p>Estamos comparando tu fotografía con las clases aprendidas por el modelo.</p></div> : result && part ? <>
+          {busy ? <div className="recognition-empty" role="status"><Loader2 size={36} className="animate-spin" /><h2>Analizando imagen...</h2><p>Estamos comparando tu fotografía con las clases aprendidas por el modelo.</p></div> : rejected ? <>
+            <div className="recognition-rejected" role="alert">
+              <span className="recognition-rejected-icon"><ImageOff size={38} aria-hidden="true" /></span>
+              <span className="recognition-rejected-badge"><AlertTriangle size={14} aria-hidden="true" /> Análisis no concluyente</span>
+              <h2>Imagen incorrecta, vuelva a cargar otra imagen</h2>
+              <p className="recognition-rejected-copy">La fotografía analizada no corresponde a una autoparte o el modelo no alcanzó la confianza mínima requerida para identificarla.</p>
+              <p className="recognition-rejected-meta">Confianza obtenida: <strong>{confidence(result.prediction.confidence)}</strong> · Confianza mínima requerida: <strong>{percentage(minAcceptedConfidence)}</strong></p>
+              <p className="recognition-hint">Fotografía únicamente el repuesto, completo y centrado, con buena iluminación y sin otros objetos en el encuadre.</p>
+              <div className="recognition-rejected-actions">
+                <button type="button" className="btn-primary" disabled={busy} onClick={() => input.current?.click()}><Upload size={16} /> Cargar otra imagen</button>
+                <button type="button" className="btn-secondary" disabled={busy} onClick={clear}><Trash2 size={15} /> Eliminar</button>
+              </div>
+            </div>
+          </> : result && part ? <>
             <div className="recognition-main">
               <span className={`recognition-confidence ${result.confidence_state}`}>{states[result.confidence_state]}</span>
               <h2>{part.spanish_name || part.original_name}</h2>

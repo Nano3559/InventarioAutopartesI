@@ -24,6 +24,15 @@
 .recognition-empty > svg { color: var(--accent); }
 .recognition-empty h2 { font-size: 1.3rem; }
 .recognition-empty p { max-width: 42ch; }
+.recognition-rejected { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 380px; gap: .9rem; padding: 1rem 0; }
+.recognition-rejected-icon { display: inline-flex; align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 50%; background: rgba(251, 113, 133, .12); border: 1px solid rgba(251, 113, 133, .3); color: #fda4af; }
+.recognition-rejected-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .6rem; border-radius: var(--radius-sm); font-size: .78rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: rgba(251, 113, 133, .12); color: #fda4af; }
+.recognition-rejected h2 { font-size: clamp(1.2rem, 2.6vw, 1.6rem); color: var(--text-strong); max-width: 24ch; overflow-wrap: anywhere; }
+.recognition-rejected-copy { color: var(--text-muted); font-size: .9rem; max-width: 46ch; }
+.recognition-rejected-meta { font-size: .82rem; color: var(--text-muted); background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .55rem .85rem; }
+.recognition-rejected-meta strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.recognition-rejected-actions { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; margin-top: .5rem; }
+.recognition-rejected .recognition-hint { margin-top: 0; max-width: 46ch; }
 .recognition-main h2 { font-size: clamp(1.5rem, 3vw, 2rem); overflow-wrap: anywhere; margin: 1rem 0 .5rem; }
 .recognition-main > p { font-size: .85rem; }
 .recognition-confidence { padding: .3rem .6rem; border-radius: var(--radius-sm); font-size: .8rem; font-weight: 600; }
@@ -51,7 +60,7 @@
 .recognition-analysis a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .recognition-analysis pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .78rem; max-height: 280px; overflow: auto; background: var(--bg-alt); padding: 1rem; }
 .recognition-page ::selection { background: var(--accent-border); color: var(--text-strong); }
-@media (max-width: 800px) { .recognition-columns { grid-template-columns: minmax(0, 1fr); } .recognition-header { align-items: flex-start; } .recognition-upload, .recognition-results { padding: 1rem; } .recognition-empty { min-height: 220px; } }
+@media (max-width: 800px) { .recognition-columns { grid-template-columns: minmax(0, 1fr); } .recognition-header { align-items: flex-start; } .recognition-upload, .recognition-results { padding: 1rem; } .recognition-empty { min-height: 220px; } .recognition-rejected { min-height: 220px; } }
 @media (max-width: 600px) {
   .client-navbar { gap: .5rem; }
   .client-navbar .navbar-left, .client-navbar .breadcrumbs { min-width: 0; }
