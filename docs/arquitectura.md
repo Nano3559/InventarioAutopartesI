@@ -271,7 +271,8 @@ src/
 ├── screens/      Login, dashboards por rol, Venta (POS), Venta Mayor, Inventario,
 │                 Producto, Historial, Ventas, Devoluciones, Solicitudes, Reportes,
 │                 Buscar Producto (agrupa Escáner + Búsqueda por imagen en pestañas),
-│                 Registro facial, Marcaje, Historial asistencia
+│                 Registro facial, Marcaje, Historial asistencia,
+│                 Reconocimiento IA de autopartes (cliente)
 ├── components/   AppDrawer (menu por rol), StatCard, Badge, Header, FaceCamera...
 └── theme.ts      design tokens (paletas light/dark, tipografía, espaciado)
 ```
@@ -289,6 +290,7 @@ Pantallas del Hito 3 y quién las ve:
 | `AttendanceScreen` | `admin` | Foto en vivo → marcaje → nombre completo + hora + tienda; si no reconoce, aviso "usuario desconocido, debe registrarse" (no hay selección manual). En el drawer no hay entrada directa: se llega por el **Tiqueador** (modo kiosco, R9) |
 | `AttendanceHistoryScreen` | `admin` | Historial con hora, método y confianza |
 | `components/FaceCamera` | (compartida) | Cámara + linterna + permisos + guía oval 112×112; la usan registro y marcaje |
+| `PartRecognitionScreen` | `cliente` | Toma una foto o elige una imagen de la galería, la envía como multipart a NestJS y muestra la coincidencia principal y el Top 3. Su drawer solo expone esta pantalla y cerrar sesión |
 
 > `SalesScreen` y `BuscarProductoScreen` son pantallas **hermanas** del drawer, no una pila: por eso
 > el escaneo desde el POS (tarea pendiente) va a ser un **modal** sobre el POS, no navegación.
@@ -318,7 +320,7 @@ Pantallas del Hito 3 y quién las ve:
 
 ## Reconocimiento de autopartes (clasificación)
 
-Flujo independiente: **React → NestJS `/api/part-recognition` → FastAPI local → YOLO11n-cls**.
+Flujo independiente: **React web / Expo móvil → NestJS `/api/part-recognition` → FastAPI local → YOLO11n-cls**.
 Python prepara el dataset Kaggle, entrena, evalúa y consulta metadatos de archivos locales;
 no se conecta a Supabase. NestJS es el único backend público: verifica JWT/rol `cliente`,
 valida imágenes con Sharp, limita recursos, aplica timeout, valida el JSON de respuesta
@@ -329,6 +331,12 @@ no descarga datasets ni entrena. Sin pesos/metadatos verificados se responde 503
 nativo, rechaza redirects y limita JSON a 2 MiB. La foto no se persiste. No hay nuevas
 entidades/tablas, enriquecimiento automático con el catálogo ni cambios en asistencia facial.
 Los modelos ArcFace/SCRFD continúan dentro de NestJS como antes.
+
+En móvil, `src/api/part-recognition.ts` envía el archivo local con `FormData` y el JWT,
+sin comunicarse directamente con Python. `PartRecognitionScreen` usa `expo-image-picker`
+para cámara o galería, valida formato/tamaño, muestra previsualización, estados de carga,
+errores reintentables, resultado principal y las tres mejores coincidencias. La app no
+persiste la foto y el backend tampoco la guarda como parte de este flujo.
 
 El rol `cliente` aprovecha `users.rol` varchar y el alta/edición de usuarios exclusiva de
 administradores. Los controllers de negocio declaran los tres roles anteriores a nivel

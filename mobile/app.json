@@ -34,9 +34,17 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "AutoPartes Pro usa la camara para escanear codigos de barras de productos y registrar su rostro para el control de asistencia.",
+          "cameraPermission": "AutoPartes Pro usa la cámara para escanear códigos, fotografiar autopartes y registrar rostros para el control de asistencia.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AutoPartes Pro usa tus fotos para identificar autopartes mediante inteligencia artificial.",
+          "cameraPermission": "AutoPartes Pro usa la cámara para escanear códigos, fotografiar autopartes y registrar rostros para el control de asistencia.",
+          "microphonePermission": false
         }
       ]
     ],

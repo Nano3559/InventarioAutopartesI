@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'tienda' | 'inventario';
+export type UserRole = 'admin' | 'tienda' | 'inventario' | 'cliente';
 
 export type TipoUbicacion = 'almacen' | 'tienda';
 

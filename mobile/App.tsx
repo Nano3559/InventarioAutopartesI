@@ -42,6 +42,7 @@ import ProductDetailScreen from './src/screens/ProductDetailScreen';
 import FaceRegisterScreen from './src/screens/FaceRegisterScreen';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import AttendanceHistoryScreen from './src/screens/AttendanceHistoryScreen';
+import PartRecognitionScreen from './src/screens/PartRecognitionScreen';
 import {
   colors,
 } from './src/theme';
@@ -114,6 +115,17 @@ function InventarioDrawer() {
   );
 }
 
+function ClienteDrawer() {
+  return (
+    <Drawer.Navigator
+      drawerContent={AppDrawer}
+      screenOptions={drawerScreenOptions}
+    >
+      <Drawer.Screen name="PartRecognition" component={PartRecognitionScreen} />
+    </Drawer.Navigator>
+  );
+}
+
 function RootNavigator() {
   const { user, loading } = useAuth();
   const { activo: enTiqueador, listo: tiqueadorListo, salir } = useTiqueador();
@@ -169,8 +181,9 @@ function RootNavigator() {
       {user.rol === 'admin' && <Stack.Screen name="Main" component={AdminDrawer} />}
       {user.rol === 'tienda' && <Stack.Screen name="Main" component={TiendaDrawer} />}
       {user.rol === 'inventario' && <Stack.Screen name="Main" component={InventarioDrawer} />}
-      <Stack.Screen name="SalesEdit" component={SalesEditScreen} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+      {user.rol === 'cliente' && <Stack.Screen name="Main" component={ClienteDrawer} />}
+      {user.rol !== 'cliente' && <Stack.Screen name="SalesEdit" component={SalesEditScreen} />}
+      {user.rol !== 'cliente' && <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />}
     </Stack.Navigator>
   );
 }

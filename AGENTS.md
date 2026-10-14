@@ -21,7 +21,7 @@ Documentación del negocio y plan: `requerimientos.md` (ejercicio), `Plan Hito 3
 ```
 backend/    API NestJS (prefijo /api, puerto 3000)
 frontend/   SPA React (Vite) para admin y tienda
-mobile/     App Expo para admin, tienda e inventario
+mobile/     App Expo para admin, tienda, inventario y cliente
 ai-service/ Servicio Python independiente para clasificación de autopartes (YOLO11n-cls)
 ```
 
@@ -29,11 +29,11 @@ Archivos raíz: `Plan Hito 3.md`, `requerimientos.md`, `README.md` y `docs/` (do
 
 ### Roles
 
-`admin` | `tienda` | `inventario` (en los requerimientos figura como "encargado de inventario") | `cliente` (solo reconocimiento web). Definidos en `backend/src/common/constants.ts` y aplicados por JWT/RBAC. El móvil mantiene sus tres roles originales y no incorpora pantallas para cliente.
+`admin` | `tienda` | `inventario` (en los requerimientos figura como "encargado de inventario") | `cliente` (solo reconocimiento de autopartes en web y móvil). Definidos en `backend/src/common/constants.ts` y aplicados por JWT/RBAC. En móvil, `cliente` entra a una navegación exclusiva de reconocimiento y cierre de sesión; no ve módulos de inventario ni ventas.
 
 ## Reconocimiento de autopartes (módulo independiente)
 
-`ai-service/` usa KaggleHub y el dataset obligatorio `gpiosenka/car-parts-40-classes`, inspeccionado antes de decidir clases. Entrenamiento YOLO11n-cls clasificación, nunca detección; `test` queda físicamente fuera del entrenamiento. FastAPI interno (`127.0.0.1:8001`) sirve `/health`, `/predict`, `/model/info` y `/classes`; web accede únicamente mediante `/api/part-recognition` en NestJS con rol `cliente`. No reemplaza ArcFace/SCRFD facial, ni la búsqueda por imagen del catálogo. Pesos, dataset y uploads no se versionan. Ver [ai-service/README.md](ai-service/README.md) y [ai-service/VERIFICATION.md](ai-service/VERIFICATION.md). `users.rol` es varchar, asignado por admin; no se aplican roles automáticamente. Python nunca accede a Supabase.
+`ai-service/` usa KaggleHub y el dataset obligatorio `gpiosenka/car-parts-40-classes`, inspeccionado antes de decidir clases. Entrenamiento YOLO11n-cls clasificación, nunca detección; `test` queda físicamente fuera del entrenamiento. FastAPI interno (`127.0.0.1:8001`) sirve `/health`, `/predict`, `/model/info` y `/classes`; web y móvil acceden únicamente mediante `/api/part-recognition` en NestJS con rol `cliente`. No reemplaza ArcFace/SCRFD facial, ni la búsqueda por imagen del catálogo. Pesos, dataset y uploads no se versionan. Ver [ai-service/README.md](ai-service/README.md) y [ai-service/VERIFICATION.md](ai-service/VERIFICATION.md). `users.rol` es varchar, asignado por admin; no se aplican roles automáticamente. Python nunca accede a Supabase.
 
 ## Hito 3 — en curso (29/09 → 06/10/2026)
 
@@ -98,7 +98,7 @@ SPA con layout (Sidebar por rol + Navbar), rutas protegidas por rol. Capas `api/
 
 ## Mobile (`mobile/`)
 
-App Expo con drawer por rol (admin 11 pantallas, tienda 9, inventario 5). Screens principales: Login, dashboards por rol, Inventario/Detalle, Venta (POS), Venta Mayor (import Excel), Historial, Ventas (edición), Devoluciones, Solicitudes, Reportes, **Buscar Producto** (una sola entrada del drawer con pestañas *código de barras* / *imagen*, en los 3 roles; embebe `ScannerScreen` y `SearchByImageScreen`), **Registro facial** e **Historial de asistencia** (solo admin; el marcaje lo hace el **Tiqueador**, R9, y por eso el drawer ya no tiene entrada de marcaje manual; usan `expo-camera` y el componente `FaceCamera` con guía oval). API en `src/api/` (fetch wrapper con Bearer + ApiError), sesión en SecureStore/localStorage.
+App Expo con drawer por rol (admin 11 pantallas, tienda 9, inventario 5 y cliente 1). Screens principales: Login, dashboards por rol, Inventario/Detalle, Venta (POS), Venta Mayor (import Excel), Historial, Ventas (edición), Devoluciones, Solicitudes, Reportes, **Buscar Producto** (una sola entrada del drawer con pestañas *código de barras* / *imagen*, en los 3 roles operativos; embebe `ScannerScreen` y `SearchByImageScreen`), **Reconocimiento IA de autopartes** (solo `cliente`, cámara o galería con `expo-image-picker`), **Registro facial** e **Historial de asistencia** (solo admin; el marcaje lo hace el **Tiqueador**, R9, y por eso el drawer ya no tiene entrada de marcaje manual; usan `expo-camera` y el componente `FaceCamera` con guía oval). API en `src/api/` (fetch wrapper con Bearer + ApiError), sesión en SecureStore/localStorage. El drawer de `cliente` contiene únicamente reconocimiento y cierre de sesión.
 
 **Modo tiqueador (R9):** un item **Tiqueador** en el sidebar del admin convierte la tablet en un kiosk de asistencia (una tablet por tienda, todas con la misma cuenta admin). Entra y sale con contraseña de admin (`AdminPasswordGate` valida contra `POST /auth/login` y **descarta** el token nuevo). Mientras está activo, `App.tsx` renderiza **solo** `AttendanceScreen` con `modoTiqueador`: sin drawer, sin stack, sin forma de salir con el gesto. Dos reglas que no hay que romper: (1) la tienda sale de `src/storage/terminal.ts` (**del dispositivo**, nunca de `users.tiendaId`, que el admin tiene en `NULL`) porque cambiar el usuario movería el marcaje de las otras tablets — `user.tiendaId` queda solo como último recurso para el rol `tienda`; (2) el flag de kiosco se **persiste** en SecureStore y `RootNavigator` espera `useTiqueador().listo` antes de dibujar nada — si fuera estado en memoria, reiniciar la app dejaría al descubierto la sesión de admin guardada en esa tablet.
 

@@ -1,0 +1,5 @@
+- Correo: cliente.ia.1791915562187.19df5b@autoparts.test
+- Contraseña: Aa9!pAJcNbaDAZQinhFUSsjeV_aX
+
+link de vercel
+https://frontend-vert-five-39.vercel.app/login
