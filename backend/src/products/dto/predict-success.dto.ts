@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class PredictSuccessDto {
   @IsNotEmpty()
@@ -23,14 +30,17 @@ export class PredictSuccessDto {
 
   @IsNotEmpty()
   @IsNumber()
+  @Min(0.01)
   costo: number;
 
   @IsNotEmpty()
   @IsNumber()
+  @Min(0.01)
   precio1: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   precioMayor?: number;
 
   @IsOptional()
@@ -39,14 +49,15 @@ export class PredictSuccessDto {
 
   @IsOptional()
   @IsString()
+  @IsIn(['colision', 'desgaste_medio', 'desgaste_frecuente', 'correctivo'])
   tipoDesgaste?: string;
 
   @IsOptional()
   @IsString()
+  @IsIn(['Alto', 'Medio', 'Nicho'])
   segmentoParque?: string;
 
   @IsOptional()
   @IsNumber()
   locationId?: number;
 }
-

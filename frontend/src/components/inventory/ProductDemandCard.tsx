@@ -292,7 +292,7 @@ export function ProductDemandCard({
                 borderRadius: '4px',
               }}
             >
-              Desgaste: {summary.tipoDesgaste || 'Frecuente'}
+              Desgaste: {summary.tipoDesgaste ? summary.tipoDesgaste.replace(/_/g, ' ') : 'Frecuente'}
             </span>
             <span
               style={{
