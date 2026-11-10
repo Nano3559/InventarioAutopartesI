@@ -519,6 +519,8 @@ export function ProductDetailPage() {
       <PredictSuccessModal
         isOpen={predictModalOpen}
         onClose={() => setPredictModalOpen(false)}
+        catalogProducts={product ? [product] : []}
+        initialProduct={product}
       />
     </div>
   );

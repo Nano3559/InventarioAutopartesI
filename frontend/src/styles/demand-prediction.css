@@ -392,3 +392,315 @@
   color: #dc2626;
 }
 
+
+/* ==========================================================================
+   Guardrails, Globos de Sugerencia, Alertas y Bloqueo (Hito 4)
+   ========================================================================== */
+
+/* Globo Práctico de Sugerencia Inteligente */
+.predict-suggestion-bubble {
+  position: relative;
+  margin: 0.9rem 0 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(56, 189, 248, 0.11);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  box-shadow: 0 8px 22px rgba(2, 132, 199, 0.14);
+}
+
+.predict-suggestion-bubble.has-blockers {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 8px 22px rgba(217, 119, 6, 0.16);
+}
+
+.predict-suggestion-bubble::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 26px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  border-left: 1px solid rgba(56, 189, 248, 0.42);
+  border-top: 1px solid rgba(56, 189, 248, 0.42);
+  transform: rotate(45deg);
+}
+
+.predict-suggestion-bubble.has-blockers::before {
+  border-left-color: rgba(245, 158, 11, 0.45);
+  border-top-color: rgba(245, 158, 11, 0.45);
+}
+
+.predict-bubble-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.predict-bubble-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.predict-bubble-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  background: rgba(14, 165, 233, 0.22);
+  color: #e0f2fe;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.predict-bubble-apply-btn:hover {
+  background: #0284c7;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.predict-bubble-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.predict-bubble-tag {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.22rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-strong);
+}
+
+/* Estados de inputs y globos por campo */
+.predict-input-blocker {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}
+
+.predict-input-warning {
+  border-color: #f59e0b !important;
+  background: rgba(245, 158, 11, 0.07) !important;
+}
+
+.predict-field-bubble {
+  position: relative;
+  margin-top: 0.32rem;
+  padding: 0.42rem 0.6rem;
+  border-radius: 7px;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.predict-field-bubble.blocker {
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+}
+
+.predict-field-bubble.warning {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fde68a;
+}
+
+.predict-field-bubble.info {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #bae6fd;
+}
+
+.predict-inline-fix-btn {
+  align-self: flex-start;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: rgba(15, 23, 42, 0.45);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.predict-inline-fix-btn:hover {
+  opacity: 0.85;
+}
+
+/* Monitor Financiero en Vivo */
+.predict-financial-bar {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.predict-financial-bar.loss {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.48);
+}
+
+.predict-financial-bar.insufficient {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.predict-financial-bar.healthy {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.predict-financial-bar.overpriced,
+.predict-financial-bar.tight {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.predict-financial-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.predict-fin-badge {
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.predict-fin-badge.loss { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+.predict-fin-badge.insufficient { background: rgba(245, 158, 11, 0.25); color: #fde68a; }
+.predict-fin-badge.tight { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+.predict-fin-badge.healthy { background: rgba(16, 185, 129, 0.22); color: #6ee7b7; }
+.predict-fin-badge.overpriced { background: rgba(249, 115, 22, 0.25); color: #fdba74; }
+
+.predict-fin-quickfixes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Avisos de Insistencia y Bloqueo */
+.predict-guardrail-banner {
+  margin-top: 0.9rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.predict-guardrail-banner.warn {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fde68a;
+}
+
+.predict-guardrail-banner.locked {
+  background: rgba(239, 68, 68, 0.16);
+  border: 2px solid rgba(239, 68, 68, 0.65);
+  color: #fecaca;
+}
+
+.predict-guardrail-list {
+  margin: 0.2rem 0;
+  padding-left: 1.15rem;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+
+/* Desglose y Alertas en Resultados */
+.predict-alerts-box {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.predict-breakdown-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .predict-breakdown-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.predict-breakdown-item {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.predict-progress-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.predict-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.predict-price-advice {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(56, 189, 248, 0.09);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  font-size: 0.83rem;
+}
