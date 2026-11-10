@@ -20,6 +20,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { multerImagenes } from '../common/image-upload';
 import { ProductsService } from './products.service';
+import { DemandPredictionService } from './demand-prediction.service';
+import { PredictSuccessDto } from './dto/predict-success.dto';
 import type { ProductFilters } from './products.service';
 
 const multerOptions = multerImagenes();
@@ -28,11 +30,23 @@ const multerOptions = multerImagenes();
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin', 'tienda', 'inventario')
 export class ProductsController {
-  constructor(private productsService: ProductsService) {}
+  constructor(
+    private productsService: ProductsService,
+    private demandPredictionService: DemandPredictionService,
+  ) {}
 
   @Get()
   findAll(@Query() filters: ProductFilters) {
     return this.productsService.findAll(filters);
+  }
+
+  /**
+   * Predicción de viabilidad comercial y rotación mediante Machine Learning (ONNX + k-NN).
+   * Hito 4.
+   */
+  @Post('predict-success')
+  predictSuccess(@Body() dto: PredictSuccessDto) {
+    return this.demandPredictionService.predictSuccess(dto);
   }
 
   /**
@@ -43,6 +57,18 @@ export class ProductsController {
   @Get('by-barcode/:codigo')
   findByBarcode(@Param('codigo') codigo: string) {
     return this.productsService.findByCodigo(codigo);
+  }
+
+  /** Resumen de demanda, días para agotamiento y salud comercial del producto (Hito 4) */
+  @Get(':id/demand-summary')
+  demandSummary(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('locationId') locationId?: string,
+  ) {
+    return this.demandPredictionService.getDemandSummary(
+      id,
+      locationId ? parseInt(locationId, 10) : undefined,
+    );
   }
 
   @Get(':id')
