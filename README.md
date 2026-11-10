@@ -7,6 +7,13 @@
 
 **Proyecto de Programación Avanzada — Unifranz** · Hito 3 entregado el 06/10/2026.
 
+El análisis predictivo de viabilidad usa un Random Forest ONNX independiente del
+reconocimiento de imágenes y facial. Entrenamiento local, exportación y verificación
+de inferencia real: [notebooks/README.md](notebooks/README.md).
+El modelo conectado es `backend/models/modelo_exito_autopartes.onnx`, acompañado
+de `backend/models/modelo_exito_autopartes.json`. Estos artefactos no se versionan
+y deben provisionarse al preparar otro entorno.
+
 | Capa | Tecnologías | Despliegue |
 | :--- | :--- | :--- |
 | **Backend** | NestJS 11 + TypeORM + PostgreSQL + `onnxruntime-node` (ArcFace IA) | Render (`inventarioautopartesi.onrender.com`) |

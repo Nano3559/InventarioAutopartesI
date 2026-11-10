@@ -77,6 +77,59 @@ un embedding sintético en un usuario temporal, espera el apagado y lo borra al 
 > inactividad, y para la demo hay que dejar Render con tráfico reciente (o despertarlo un
 > par de minutos antes).
 
+### 1.2 Keep-alive del servicio Python (`autoparts-ai`)
+
+`ai-service` se despliega como un **segundo** web service free en Render
+(`https://autoparts-ai.onrender.com`, ver `ai-service/README.md` §"Servicio de inferencia
+separado en Render"). Sufre el mismo spin-down de 15 min, pero el cold start se siente
+**peor** que en NestJS: NestJS devuelve `502 upstream_error` mientras el Python arranca y la
+web muestra "El servicio de reconocimiento no pudo completar la solicitud…". El workflow
+[`.github/workflows/autoparts-ai-ping.yml`](../.github/workflows/autoparts-ai-ping.yml) hace
+un ping cada 10 min a `GET /health` dentro de una ventana horaria (07:00–22:00 Bolivia =
+11:00–02:00 UTC) para que no llegue a dormirse durante el horario de uso.
+
+- **Secret (opcional):** `AUTOPARTS_AI_API_KEY` con la misma `AUTOPARTS_API_KEY` del servicio
+  en Render (Settings → Secrets and variables → Actions). Sin el secret el ping igual funciona:
+  `/health` responde `401`, que prueba que la instancia está viva (el texto del workflow lo
+  trata como éxito).
+- **Frecuencia, no 24/7:** Render da **750 h de instancia por _workspace_** al mes, no por
+  servicio. Un keep-alive 24/7 (~730 h) dejaría sin cupo al backend NestJS y Render
+  **suspendería todos los free web services** hasta el mes siguiente. La ventana de 15 h/día
+  consume ~450 h/mes y reserva ~300 h para NestJS.
+- **Reintentos:** el primer ping de la ventana despierta la instancia (con `--max-time 90`
+  y hasta 3 intentos); los demás responden caliente en segundos.
+
+> Si la demo es fuera de esa ventana, lanzarlo a mano desde Actions → **Run workflow** unos
+> minutos antes. GitHub desactiva los workflows programados tras 60 días sin actividad en el
+> repo; una corrida manual lo reactiva.
+
+### 1.3 Modelo predictivo de viabilidad de repuestos
+
+El modelo de viabilidad se ejecuta dentro de NestJS y usa estos artefactos:
+
+| Archivo | Ubicación desde la raíz del proyecto |
+| :--- | :--- |
+| Random Forest exportado a ONNX | `backend/models/modelo_exito_autopartes.onnx` |
+| Categorías, orden de clases y métricas | `backend/models/modelo_exito_autopartes.json` |
+
+`backend/models/` está fuera de Git. Para habilitarlo en Render hay que provisionar
+ambos archivos durante el despliegue; el descargador de ArcFace no instala este
+modelo. La verificación local no implica que ya esté provisionado en producción.
+Entrenamiento y exportación: [notebooks/README.md](../notebooks/README.md).
+
+Con la BD del entorno configurada, desde `backend/`:
+
+```bash
+npm run demand:check
+```
+
+Este comando verifica inferencia ONNX real y rechazos de entradas incoherentes;
+solo consulta la BD, sin modificar registros. Comprobar también, con una sesión
+autenticada, `POST /api/products/predict-success`: datos válidos devuelven `201`
+con los resultados; datos incoherentes devuelven `400` sin métricas; si falta
+el modelo, devuelve `503` indicando indisponibilidad del servicio. Contrato y
+distinción entre probabilidad e índice comercial en [API Reference](api.md).
+
 ## 2. Frontend (Vercel)
 
 1. `frontend/.env.production` debe apuntar al backend desplegado

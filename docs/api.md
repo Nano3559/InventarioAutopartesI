@@ -86,6 +86,85 @@ usuario del índice). Un `activo: false` **impide el login** (`401`).
 | POST | `/products/:id/image` | Subir imagen de producto (multipart, campo `file`, multer + sharp + Supabase) |
 | PATCH | `/products/:id/stock` | Ajustar stock |
 | PATCH | `/products/:id/toggle-active` | Activar/desactivar producto |
+| POST | `/products/predict-success` | Predicci�n ML de rotaci�n/viabilidad con guardrails sem�nticos y financieros |
+
+### `POST /api/products/predict-success`
+
+Predice la rotaci�n y viabilidad comercial de un repuesto antes de importarlo
+(modelo ONNX `modelo_exito_autopartes.onnx` + similitud con el cat�logo). El
+`ValidationPipe` global valida el cuerpo con `class-validator`.
+
+**Cuerpo (JSON):**
+
+| Campo | Tipo | Requerido | Regla |
+| :--- | :--- | :--- | :--- |
+| `productId` | number | no | ID de repuesto activo; el servidor verifica el registro actual antes de normalizar defaults legacy |
+| `producto` | string | s� | 1..120, al menos una letra |
+| `marca` | string | s� | 1..60, alfanum�rico |
+| `modelo` | string | s� | 1..60, alfanum�rico |
+| `costo` | number | s� | > 0 |
+| `precio1` | number | s� | > 0 (precio mostrador) |
+| `precioMayor` | number | no | > 0 y <= `precio1` |
+| `categoriaRepuesto` | string | no | una de `CATEGORIAS_REPUESTO` (ver `product-guardrails.ts`) |
+| `tipoDesgaste` | string | no | uno de `TIPOS_DESGASTE` |
+| `segmentoParque` | string | no | `Alto` \| `Medio` \| `Nicho` |
+| `anio` | string | no | `AAAA` o `AAAA-AAAA` |
+| `fabricante` | string | no | m�x. 80 |
+| `locationId` | number | no | > 0 |
+
+El servidor busca la exportación `modelo_exito_autopartes.onnx` en
+`backend/models/`, en la ruta legacy `backend/src/models/` indicada por el notebook,
+en `notebooks/` y en la carpeta `models` junto al código compilado. Se admite
+metadata del mismo nombre `.json` o `modelo_metadata.json` junto al ONNX.
+El `.ipynb` contiene el entrenamiento; se necesita su exportación ONNX existente
+para ejecutar inferencia en NestJS. No se entrena ni se genera otro modelo al iniciar.
+
+**Validaciones de entrada y guardrails:**
+
+- Al seleccionar un repuesto se consultan los datos actuales del registro y se
+  envía `productId`. El backend vuelve a leerlo; el ID no evita validar ediciones.
+  La tupla legacy `General` / `preventivo` / `Medio` sin editar se reconoce como
+  metadata no clasificada y se infiere por nombre/modelo, sin cambiar la BD.
+  Metadata ausente también puede inferirse; nunca se inventan precios.
+- Los precios reales positivos que coinciden exactamente con la BD pueden
+  producir un resultado comercialmente inviable. Una edición que introduce
+  relaciones financieras incoherentes se rechaza sin resultados numéricos.
+
+- Los datos incoherentes se rechazan con HTTP `400` antes de cargar o ejecutar
+  ONNX. Si se indica `productId`, primero se consulta su registro para verificar
+  el origen de los valores. Incluye categoría y desgaste
+  incompatibles, nombres no automotrices reconocidos, importes no positivos o
+  superiores al límite admitido, precios de venta que no superan el costo,
+  mayorista superior al mostrador y años o rangos incoherentes.
+- El error contiene `message` y `errores` para corregir la entrada. Mensaje:
+  «Los datos ingresados presentan inconsistencias. Revise la información del
+  repuesto y vuelva a introducir los datos para realizar el análisis.»
+  No contiene score, probabilidad, proyecciones, lote ni recomendaciones
+  numéricas. La comprobación semántica usa reglas y palabras conocidas;
+  no garantiza detectar todas las descripciones inventadas.
+- Con datos válidos, el margen es `(precio1 - costo) / costo`. Margen menor
+  al 15% produce advertencia, viabilidad de riesgo, score máximo de 45 y lote
+  máximo de 3. PVP mínimo sugerido: `costo * 1.15`; recomendado: `costo * 1.35`.
+- Categorías, desgastes o segmentos fuera del entrenamiento producen
+  advertencias de menor precisión y viabilidad de riesgo.
+- `probabilidadExito` es la probabilidad ONNX de la clase alta rotación
+  (`probabilities`, clase `2` según `class_order` del metadata). No es una
+  garantía comercial ni una probabilidad calibrada. La exportación debe incluir
+  las probabilidades, además de `output_label`; si no, responde `503`.
+- `scoreExito` es un índice comercial distinto: pondera 40% rotación, 40% salud
+  del margen y 20% saturación. Los días y lotes son reglas orientativas por clase,
+  no salidas de un modelo de regresión.
+- `npm run demand:check` en backend verifica el ONNX real con los productos
+  activos de la BD configurada y comprueba rechazos de ediciones incoherentes.
+  Solo consulta la BD; no guarda datos ni entrena modelos.
+
+**Respuesta (resumen):** `scoreExito`, `categoria`, `probabilidadExito`,
+`diasRotacionEstimados`, `loteSugeridoCompra`, `viabilidad`
+(`viable` \| `riesgo` \| `inviable`), `bloqueado`, `metricasProyectadas`,
+`guardrails`, `alertas` (`saturacionCatalogo`, `critica`, `mensaje`) y
+`productosSimilares`. Errores de validaci�n ? `400`; modelo no disponible ?
+HTTP `503` con mensaje de modelo no disponible. Una entrada válida no se
+presenta como datos incorrectos cuando el servidor carece del modelo ONNX.
 
 ## Locations
 
