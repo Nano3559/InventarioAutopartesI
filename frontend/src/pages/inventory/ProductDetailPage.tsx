@@ -22,6 +22,8 @@ import type { Product, CreateProductDto } from '../../types/product.types';
 import { useAuth } from '../../context';
 import { ProductImageUploader } from '../../components/inventory/ProductImageUploader';
 import { ProductPricingCard } from '../../components/inventory/ProductPricingCard';
+import { ProductDemandCard } from '../../components/inventory/ProductDemandCard';
+import { PredictSuccessModal } from '../../components/inventory/PredictSuccessModal';
 import { ProductFormModal } from '../../components/inventory/ProductFormModal';
 import { DeleteConfirmModal } from '../../components/inventory/DeleteConfirmModal';
 import { AddStockModal } from '../../components/inventory/AddStockModal';
@@ -41,6 +43,7 @@ export function ProductDetailPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addStockModalOpen, setAddStockModalOpen] = useState(false);
+  const [predictModalOpen, setPredictModalOpen] = useState(false);
 
   // Copy feedback
   const [copiedOem, setCopiedOem] = useState(false);
@@ -287,6 +290,11 @@ export function ProductDetailPage() {
           />
 
           <ProductPricingCard product={product} />
+
+          <ProductDemandCard
+            productId={product.id}
+            onOpenPredictModal={() => setPredictModalOpen(true)}
+          />
         </div>
 
         {/* Columna Derecha: Especificaciones Técnicas + Matriz de Stock (7 Ubicaciones) */}
@@ -507,6 +515,10 @@ export function ProductDetailPage() {
         product={addStockModalOpen ? product : null}
         onClose={() => setAddStockModalOpen(false)}
         onStockUpdated={handleStockUpdated}
+      />
+      <PredictSuccessModal
+        isOpen={predictModalOpen}
+        onClose={() => setPredictModalOpen(false)}
       />
     </div>
   );

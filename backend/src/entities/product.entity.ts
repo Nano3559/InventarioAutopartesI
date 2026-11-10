@@ -60,6 +60,16 @@ export class Product {
   @Column({ default: true })
   activo: boolean;
 
+  /** Atributos analíticos para predicción de demanda (Hito 4) */
+  @Column({ type: 'varchar', nullable: true, default: 'General' })
+  categoriaRepuesto: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: 'preventivo' })
+  tipoDesgaste: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: 'Medio' })
+  segmentoParque: string | null;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 }

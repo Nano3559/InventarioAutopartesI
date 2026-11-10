@@ -1,0 +1,38 @@
+producto_id,producto,marca,modelo,categoria_repuesto,tipo_desgaste,segmento_parque,costo,precio1,precio_mayor,margen_relativo,ratio_precio_mayor,stock_actual,unidades_vendidas_brutas,unidades_devueltas,ventas_netas,tasa_devolucion,dias_horizonte,demanda_diaria_promedio,dias_rotacion_lote30,clase_exito,etiqueta_exito
+2,Farol,Tyc,Corolla,Iluminación,desgaste_medio,Alto,280,390,330,0.3929,0.8462,119,177,3,174,0.0169,270,0.6444,46.6,2,Alta Rotación
+31,Tanque de agua,Koyo,Corolla,Refrigeración,correctivo,Alto,300,430,360,0.4333,0.8372,75,153,0,153,0.0000,270,0.5667,52.9,2,Alta Rotación
+32,Manivela,Protzalee,Hilux,Cerrajería,desgaste_frecuente,Alto,90,140,115,0.5556,0.8214,168,151,3,148,0.0199,270,0.5481,54.7,2,Alta Rotación
+26,Condensador,Koyo,Hilux,Refrigeración,correctivo,Alto,850,1180,1000,0.3882,0.8475,120,139,0,139,0.0000,270,0.5148,58.3,2,Alta Rotación
+1,Farol,Tyc,Hilux,Iluminación,desgaste_medio,Alto,350,480,400,0.3714,0.8333,43,137,2,135,0.0146,270,0.5000,60.0,2,Alta Rotación
+17,Parachoques,Tyc,Hilux,Carrocería,colision,Alto,720,1000,850,0.3889,0.8500,104,131,3,128,0.0229,270,0.4741,63.3,2,Alta Rotación
+35,Jalador,Kage,Prado,Cerrajería,desgaste_frecuente,Alto,150,225,190,0.5000,0.8444,104,122,2,120,0.0164,270,0.4444,67.5,2,Alta Rotación
+4,Guiñador,Sankei,NP300,Iluminación,desgaste_medio,Alto,120,180,150,0.5000,0.8333,126,116,2,114,0.0172,270,0.4222,71.1,2,Alta Rotación
+14,Puerta,Finar,Corolla,Carrocería,colision,Alto,950,1300,1100,0.3684,0.8462,134,115,2,113,0.0174,270,0.4185,71.7,2,Alta Rotación
+7,Stop,Valeo,Duster,Iluminación,desgaste_medio,Nicho,150,225,190,0.5000,0.8444,83,113,1,112,0.0088,270,0.4148,72.3,2,Alta Rotación
+9,Espejo,Depo,Frontier,Carrocería,colision,Alto,200,300,250,0.5000,0.8333,124,107,0,107,0.0000,270,0.3963,75.7,2,Alta Rotación
+22,Radiador,Denso,Yaris,Refrigeración,correctivo,Alto,480,680,570,0.4167,0.8382,160,105,1,104,0.0095,270,0.3852,77.9,2,Alta Rotación
+33,Manivela,Protzalee,Frontier,Cerrajería,desgaste_frecuente,Alto,95,145,120,0.5263,0.8276,124,98,1,97,0.0102,270,0.3593,83.5,2,Alta Rotación
+16,Parachoques,Tyc,Frontier,Carrocería,colision,Alto,700,980,830,0.4000,0.8469,136,92,1,91,0.0109,270,0.3370,89.0,1,Medio
+19,Parachoques,Capris,RAV4,Carrocería,colision,Alto,780,1080,920,0.3846,0.8519,69,92,2,90,0.0217,270,0.3333,90.0,1,Medio
+3,Farol,Tyc,L200,Iluminación,desgaste_medio,Medio,460,650,550,0.4130,0.8462,58,89,0,89,0.0000,270,0.3296,91.0,1,Medio
+15,Puerta,Capris,Tucson,Carrocería,colision,Medio,880,1200,1000,0.3636,0.8333,71,78,1,77,0.0128,270,0.2852,105.2,1,Medio
+12,Capot,Finar,Hilux,Carrocería,colision,Alto,900,1250,1050,0.3889,0.8400,178,76,0,76,0.0000,270,0.2815,106.6,1,Medio
+6,Stop,Tyc,RAV4,Iluminación,desgaste_medio,Alto,160,240,200,0.5000,0.8333,155,75,0,75,0.0000,270,0.2778,108.0,1,Medio
+34,Jalador,Kage,Montero,Cerrajería,desgaste_frecuente,Medio,130,195,165,0.5000,0.8462,173,72,0,72,0.0000,270,0.2667,112.5,1,Medio
+10,Espejo,Kage,CX-5,Carrocería,colision,Medio,260,380,320,0.4615,0.8421,152,72,0,72,0.0000,270,0.2667,112.5,1,Medio
+8,Stop,Depo,Ram 1500,Iluminación,desgaste_medio,Nicho,380,540,455,0.4211,0.8426,171,72,0,72,0.0000,270,0.2667,112.5,1,Medio
+23,Radiador,Koyo,Tiida,Refrigeración,correctivo,Medio,520,730,620,0.4038,0.8493,113,66,1,65,0.0152,270,0.2407,124.6,1,Medio
+11,Espejo,Kage,Tucson,Carrocería,colision,Medio,240,360,300,0.5000,0.8333,104,64,1,63,0.0156,270,0.2333,128.6,1,Medio
+21,Máscara,Sankei,L200,Carrocería,colision,Medio,480,680,570,0.4167,0.8382,115,61,2,59,0.0328,270,0.2185,137.3,1,Medio
+30,Tanque de agua,Denso,Mazda3,Refrigeración,correctivo,Medio,310,440,370,0.4194,0.8409,152,56,1,55,0.0179,270,0.2037,147.3,0,Baja Rotación / Riesgo
+28,Condensador,Valeo,Sentra,Refrigeración,correctivo,Medio,700,980,830,0.4000,0.8469,124,54,0,54,0.0000,270,0.2000,150.0,0,Baja Rotación / Riesgo
+25,Radiador,Denso,Grand Cherokee,Refrigeración,correctivo,Nicho,1650,2200,1880,0.3333,0.8545,74,45,1,44,0.0222,270,0.1630,184.1,0,Baja Rotación / Riesgo
+29,Tanque de agua,Koyo,Accent,Refrigeración,correctivo,Medio,280,400,340,0.4286,0.8500,88,44,2,42,0.0455,270,0.1556,192.9,0,Baja Rotación / Riesgo
+5,Guiñador,Depo,Cherokee,Iluminación,desgaste_medio,Nicho,140,210,175,0.5000,0.8333,93,38,0,38,0.0000,270,0.1407,213.2,0,Baja Rotación / Riesgo
+37,Rejilla,Sankei,Sandero,Carrocería,colision,Nicho,220,320,270,0.4545,0.8438,55,38,0,38,0.0000,270,0.1407,213.2,0,Baja Rotación / Riesgo
+27,Condensador,Valeo,Logan,Refrigeración,correctivo,Nicho,620,880,750,0.4194,0.8523,62,36,0,36,0.0000,270,0.1333,225.0,0,Baja Rotación / Riesgo
+18,Parachoques,Depo,Cherokee,Carrocería,colision,Nicho,800,1120,950,0.4000,0.8482,141,28,1,27,0.0357,270,0.1000,300.0,0,Baja Rotación / Riesgo
+20,Máscara,Sankei,Duster,Carrocería,colision,Nicho,450,640,540,0.4222,0.8438,157,27,0,27,0.0000,270,0.1000,300.0,0,Baja Rotación / Riesgo
+24,Radiador,Denso,Durango,Refrigeración,correctivo,Nicho,1500,2050,1750,0.3667,0.8537,189,26,0,26,0.0000,270,0.0963,311.5,0,Baja Rotación / Riesgo
+13,Capot,Capris,Ram 1500,Carrocería,colision,Nicho,1450,1950,1700,0.3448,0.8718,63,25,0,25,0.0000,270,0.0926,324.0,0,Baja Rotación / Riesgo
+36,Rejilla,Depo,Wrangler,Carrocería,colision,Nicho,340,490,415,0.4412,0.8469,175,13,0,13,0.0000,270,0.0481,623.1,0,Baja Rotación / Riesgo

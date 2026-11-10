@@ -28,6 +28,9 @@ export interface Product {
   stockByLocation?: Record<number, number>;
   stockLocationDetails?: Array<{ locationId: number; ubicacion: string; tipo: string; cantidad: number }>;
   activo: boolean;
+  categoriaRepuesto?: string | null;
+  tipoDesgaste?: string | null;
+  segmentoParque?: string | null;
   createdAt?: string;
 }
 

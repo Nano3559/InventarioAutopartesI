@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Car,
   Barcode,
+  Sparkles,
 } from 'lucide-react';
 import { productsService } from '../../services/products.service';
 import { locationsService } from '../../services/locations.service';
@@ -23,6 +24,7 @@ import { DeleteConfirmModal } from '../../components/inventory/DeleteConfirmModa
 import { AddStockModal } from '../../components/inventory/AddStockModal';
 import { BarcodeModal } from '../../components/inventory/BarcodeModal';
 import { BulkBarcodePrintModal } from '../../components/inventory/BulkBarcodePrintModal';
+import { PredictSuccessModal } from '../../components/inventory/PredictSuccessModal';
 import '../../styles/inventory.css';
 
 export function InventoryPage() {
@@ -40,6 +42,7 @@ export function InventoryPage() {
   const [deleteModalProduct, setDeleteModalProduct] = useState<Product | null>(null);
   const [barcodeModalProduct, setBarcodeModalProduct] = useState<Product | null>(null);
   const [bulkBarcodeModalOpen, setBulkBarcodeModalOpen] = useState<boolean>(false);
+  const [predictModalOpen, setPredictModalOpen] = useState<boolean>(false);
 
   // Toast feedback
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
@@ -166,6 +169,23 @@ export function InventoryPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              border: 'none',
+              boxShadow: '0 2px 10px rgba(139, 92, 246, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+            }}
+            onClick={() => setPredictModalOpen(true)}
+            title="Evaluar viabilidad comercial y rotación de autopartes con IA (Machine Learning ONNX)"
+          >
+            <Sparkles size={16} />
+            <span>Predicción Viabilidad IA</span>
+          </button>
           <button
             type="button"
             className="btn-secondary"
@@ -300,6 +320,15 @@ export function InventoryPage() {
           products={products}
           onClose={() => setBulkBarcodeModalOpen(false)}
           onRefreshCatalog={handleRefresh}
+        />
+      )}
+
+      {/* Modal de Predicción de Viabilidad IA (ONNX) */}
+      {predictModalOpen && (
+        <PredictSuccessModal
+          isOpen={predictModalOpen}
+          onClose={() => setPredictModalOpen(false)}
+          catalogProducts={products}
         />
       )}
     </div>
