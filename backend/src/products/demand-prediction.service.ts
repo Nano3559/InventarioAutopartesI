@@ -140,13 +140,6 @@ export class DemandPredictionService implements OnModuleInit {
       const candidates = [
         path.resolve(process.cwd(), 'models', 'modelo_exito_autopartes.onnx'),
         path.resolve(
-          __dirname,
-          '..',
-          '..',
-          'models',
-          'modelo_exito_autopartes.onnx',
-        ),
-        path.resolve(
           process.cwd(),
           'backend',
           'models',
@@ -166,7 +159,6 @@ export class DemandPredictionService implements OnModuleInit {
           'models',
           'modelo_exito_autopartes.onnx',
         ),
-        path.resolve(__dirname, '..', 'models', 'modelo_exito_autopartes.onnx'),
         path.resolve(
           process.cwd(),
           'notebooks',
@@ -178,6 +170,15 @@ export class DemandPredictionService implements OnModuleInit {
           'notebooks',
           'modelo_exito_autopartes.onnx',
         ),
+        // Rutas relativas al código compilado, al final para no tapar fixtures de tests.
+        path.resolve(
+          __dirname,
+          '..',
+          '..',
+          'models',
+          'modelo_exito_autopartes.onnx',
+        ),
+        path.resolve(__dirname, '..', 'models', 'modelo_exito_autopartes.onnx'),
       ];
 
       const modelPath = candidates.find((p) => fs.existsSync(p));
@@ -315,7 +316,7 @@ export class DemandPredictionService implements OnModuleInit {
     if (errores.length > 0) {
       throw new BadRequestException({
         message:
-          'Los datos ingresados presentan inconsistencias. Revise la información del repuesto y vuelva a introducir los datos para realizar el análisis.',
+          'Datos incoherentes: revise la información del repuesto y vuelva a introducir los datos para realizar el análisis.',
         errores,
       });
     }

@@ -137,8 +137,8 @@ para ejecutar inferencia en NestJS. No se entrena ni se genera otro modelo al in
   superiores al límite admitido, precios de venta que no superan el costo,
   mayorista superior al mostrador y años o rangos incoherentes.
 - El error contiene `message` y `errores` para corregir la entrada. Mensaje:
-  «Los datos ingresados presentan inconsistencias. Revise la información del
-  repuesto y vuelva a introducir los datos para realizar el análisis.»
+  «Datos incoherentes: revise la información del repuesto y vuelva a introducir
+  los datos para realizar el análisis.»
   No contiene score, probabilidad, proyecciones, lote ni recomendaciones
   numéricas. La comprobación semántica usa reglas y palabras conocidas;
   no garantiza detectar todas las descripciones inventadas.
