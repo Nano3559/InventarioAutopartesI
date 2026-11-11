@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
   Sparkles,
@@ -10,8 +10,22 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { demandService } from '../../services/demand.service';
-import type { PredictSuccessDto, PredictionSuccessResponse } from '../../types/demand.types';
+import { productsService } from '../../services/products.service';
+import { ApiError } from '../../api/client';
+import type {
+  PredictSuccessDto,
+  PredictionSuccessResponse,
+} from '../../types/demand.types';
 import type { Product } from '../../types/product.types';
+import {
+  CATEGORIAS_REPUESTO,
+  SEGMENTOS_PARQUE,
+  TIPOS_DESGASTE_OPCIONES,
+  analizarBorrador,
+  inferirCategoria,
+  inferirSegmentoParque,
+  inferirTipoDesgaste,
+} from '../../utils/product-guardrails';
 import '../../styles/demand-prediction.css';
 
 interface PredictSuccessModalProps {
@@ -29,76 +43,296 @@ export function PredictSuccessModal({
     producto: '',
     marca: '',
     modelo: '',
-    costo: 100,
-    precio1: 145,
-    precioMayor: 125,
-    categoriaRepuesto: 'Carrocería',
-    tipoDesgaste: 'colision',
-    segmentoParque: 'Alto',
+    costo: Number.NaN,
+    precio1: Number.NaN,
+    precioMayor: undefined,
+    categoriaRepuesto: '',
+    tipoDesgaste: '',
+    segmentoParque: '',
   });
 
+  const [categoriaManual, setCategoriaManual] = useState(false);
+  const [tipoDesgasteManual, setTipoDesgasteManual] = useState(false);
+  const [segmentoManual, setSegmentoManual] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PredictionSuccessResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tipoError, setTipoError] = useState<'validacion' | 'servicio' | null>(null);
+  const [editado, setEditado] = useState(false);
+  const [cargandoProducto, setCargandoProducto] = useState(false);
+  const [notaCatalogo, setNotaCatalogo] = useState<string | null>(null);
+  const [baseline, setBaseline] = useState<PredictSuccessDto | null>(null);
+  const revision = useRef(0);
+  const mensajeDatosIncorrectos =
+    'Los datos ingresados presentan inconsistencias. Revise la información del repuesto y vuelva a introducir los datos para realizar el análisis.';
+
+  useEffect(() => {
+    revision.current += 1;
+    return () => { revision.current += 1; };
+  }, [isOpen]);
+
+  const invalidarAnalisis = () => {
+    revision.current += 1;
+    setResult(null);
+    setError(null);
+    setTipoError(null);
+    setLoading(false);
+    setCargandoProducto(false);
+  };
+
+  const analisis = useMemo(
+    () =>
+      analizarBorrador({
+        producto: formData.producto,
+        modelo: formData.modelo,
+        categoriaRepuesto: formData.categoriaRepuesto,
+        tipoDesgaste: formData.tipoDesgaste,
+        costo: formData.costo,
+        precio1: formData.precio1,
+        precioMayor: formData.precioMayor,
+      }),
+    [formData],
+  );
 
   if (!isOpen) return null;
 
-  const handleSelectProductPreset = (prodIdStr: string) => {
-    if (!prodIdStr) return;
-    const prod = catalogProducts.find((p) => p.id === Number(prodIdStr));
-    if (!prod) return;
+  const semanticaOriginal = baseline !== null &&
+    baseline.productId === formData.productId &&
+    (['producto', 'marca', 'modelo', 'anio', 'fabricante', 'categoriaRepuesto',
+      'tipoDesgaste', 'segmentoParque'] as const).every((campo) => baseline[campo] === formData[campo]);
+  const finanzasOriginales = semanticaOriginal && baseline !== null &&
+    baseline.productId === formData.productId &&
+    Object.is(baseline.costo, formData.costo) &&
+    Object.is(baseline.precio1, formData.precio1) &&
+    Object.is(baseline.precioMayor, formData.precioMayor);
+  const erroresActuales = [...analisis.erroresSemanticos,
+    ...(finanzasOriginales ? [] : analisis.erroresFinancieros)];
+  const datosIncorrectos = editado && erroresActuales.length > 0;
+  const errorValidacion = tipoError === 'validacion';
+  const sinCalculos = datosIncorrectos || errorValidacion;
+  const alertasVivas = !editado ? [] : sinCalculos
+    ? erroresActuales
+    : [...erroresActuales, ...analisis.advertencias];
+  const estadoVisual =
+    sinCalculos || (editado && analisis.categoriaIncoherente)
+      ? 'peligro'
+      : editado && (analisis.margenEstado === 'critico' || analisis.tipoDesgasteIncoherente)
+        ? 'aviso'
+        : editado && analisis.margenEstado === 'saludable'
+          ? 'ok'
+          : 'neutral';
 
-    const baseCosto = prod.costo || 50;
-    setFormData({
-      producto: prod.producto,
-      marca: prod.marca,
-      modelo: prod.modelo,
-      costo: baseCosto,
-      precio1: prod.precio1 || Math.round(baseCosto * 1.35),
-      precioMayor: prod.precioMayor || Math.round(baseCosto * 1.2),
-      categoriaRepuesto: prod.categoriaRepuesto || 'Carrocería',
-      tipoDesgaste: prod.tipoDesgaste || 'colision',
-      segmentoParque: prod.segmentoParque || 'Medio',
+  const tituloGuardrail =
+    estadoVisual === 'peligro'
+      ? 'Revise los datos ingresados'
+      : estadoVisual === 'aviso'
+        ? 'Advertencia de coherencia comercial'
+        : estadoVisual === 'ok'
+          ? 'Datos coherentes para el análisis'
+          : baseline ? 'Datos del cat\u00e1logo listos para analizar' : 'Completa los datos para validar';
+
+  const cerrarModal = () => {
+    invalidarAnalisis();
+    onClose();
+  };
+
+  const handleChange = (patch: Partial<PredictSuccessDto>) => {
+    setFormData((prev) => ({ ...prev, ...patch }));
+    invalidarAnalisis();
+    setEditado(true);
+  };
+
+  const handleSelectProductPreset = async (prodIdStr: string) => {
+    invalidarAnalisis();
+    setEditado(false);
+    setBaseline(null);
+    setNotaCatalogo(null);
+    if (!prodIdStr) return;
+    const solicitud = revision.current;
+    setCargandoProducto(true);
+    try {
+      const prod = await productsService.getProductById(Number(prodIdStr));
+      if (solicitud !== revision.current) return;
+      const legacy = prod.categoriaRepuesto === 'General' &&
+        prod.tipoDesgaste === 'preventivo' && prod.segmentoParque === 'Medio';
+      const categoria = (!legacy && prod.categoriaRepuesto?.trim()) || inferirCategoria(prod.producto) || 'General';
+      const desgaste = (!legacy && prod.tipoDesgaste?.trim()) || inferirTipoDesgaste(categoria) || 'preventivo';
+      const segmento = (!legacy && prod.segmentoParque?.trim()) || inferirSegmentoParque(prod.modelo) || 'Nicho';
+      const numeroReal = (valor: number | null | undefined) =>
+        valor === null || valor === undefined ? Number.NaN : Number(valor);
+      const datosCatalogo: PredictSuccessDto = {
+        productId: prod.id,
+        producto: prod.producto,
+        marca: prod.marca,
+        modelo: prod.modelo,
+        anio: prod.anio ?? undefined,
+        fabricante: prod.fabricante,
+        costo: numeroReal(prod.costo),
+        precio1: numeroReal(prod.precio1),
+        precioMayor: prod.precioMayor == null ? undefined : Number(prod.precioMayor),
+        categoriaRepuesto: categoria,
+        tipoDesgaste: desgaste,
+        segmentoParque: segmento,
+      };
+      setBaseline(datosCatalogo);
+      setFormData(datosCatalogo);
+      const inferidos = [
+        (legacy || !prod.categoriaRepuesto) && categoria ? 'categor\u00eda' : null,
+        (legacy || !prod.tipoDesgaste) && desgaste ? 'tipo de desgaste' : null,
+        (legacy || !prod.segmentoParque) && segmento ? 'parque vehicular' : null,
+      ].filter(Boolean);
+      setNotaCatalogo('Datos actuales del cat\u00e1logo. Los precios se conservan tal como est\u00e1n registrados.' +
+        (inferidos.length ? ` Se sugiri\u00f3 ${inferidos.join(', ')} a partir del repuesto y modelo; revise la selecci\u00f3n.` : '') +
+        (!categoria || !desgaste || !segmento ? ' Complete las opciones pendientes antes de analizar.' : ''));
+      setCategoriaManual(Boolean(!legacy && prod.categoriaRepuesto));
+      setTipoDesgasteManual(Boolean(!legacy && prod.tipoDesgaste));
+      setSegmentoManual(Boolean(!legacy && prod.segmentoParque));
+    } catch (err: unknown) {
+      if (solicitud === revision.current) {
+        setTipoError('servicio');
+        setError(err instanceof Error ? err.message : 'No se pudo cargar el producto del cat\u00e1logo.');
+      }
+    } finally {
+      if (solicitud === revision.current) setCargandoProducto(false);
+    }
+  };
+
+  const handleProductoChange = (value: string) => {
+    setFormData((prev) => {
+      const next = { ...prev, producto: value };
+      const sugerida = inferirCategoria(value);
+      if (!categoriaManual && sugerida) {
+        next.categoriaRepuesto = sugerida;
+        if (!tipoDesgasteManual) {
+          const tipo = inferirTipoDesgaste(sugerida);
+          if (tipo) next.tipoDesgaste = tipo;
+        }
+      }
+      return next;
     });
-    setResult(null);
+    invalidarAnalisis();
+    setEditado(true);
+  };
+
+  const handleModeloChange = (value: string) => {
+    setFormData((prev) => {
+      const next = { ...prev, modelo: value };
+      if (!segmentoManual) {
+        const sugerido = inferirSegmentoParque(value);
+        if (sugerido) next.segmentoParque = sugerido;
+      }
+      return next;
+    });
+    invalidarAnalisis();
+    setEditado(true);
+  };
+
+  const handleCategoriaChange = (value: string) => {
+    setCategoriaManual(true);
+    setFormData((prev) => {
+      const next = { ...prev, categoriaRepuesto: value };
+      if (!tipoDesgasteManual) {
+        const tipo = inferirTipoDesgaste(value);
+        if (tipo) next.tipoDesgaste = tipo;
+      }
+      return next;
+    });
+    invalidarAnalisis();
+    setEditado(true);
+  };
+
+  const aplicarSugerenciaSemantica = () => {
+    setFormData((prev) => ({
+      ...prev,
+      categoriaRepuesto:
+        analisis.categoriaSugerida ?? prev.categoriaRepuesto,
+      tipoDesgaste: analisis.tipoDesgasteSugerido ?? prev.tipoDesgaste,
+      segmentoParque: analisis.segmentoSugerido ?? prev.segmentoParque,
+    }));
+    setCategoriaManual(false);
+    setTipoDesgasteManual(false);
+    setSegmentoManual(false);
+    invalidarAnalisis();
+    setEditado(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.producto || !formData.marca || !formData.modelo) {
-      setError('Por favor completa nombre del repuesto, marca y modelo.');
+    setResult(null);
+    if (
+      !formData.producto.trim() || !formData.marca.trim() ||
+      !formData.modelo.trim() || erroresActuales.length > 0 ||
+      !formData.categoriaRepuesto || !formData.tipoDesgaste || !formData.segmentoParque
+    ) {
+      setTipoError('validacion');
+      setError(mensajeDatosIncorrectos);
       return;
     }
 
+    const solicitud = ++revision.current;
     setLoading(true);
     setError(null);
+    setTipoError(null);
     try {
-      const res = await demandService.predictSuccess(formData);
+      const payload: PredictSuccessDto = {
+        ...formData,
+        precioMayor:
+          formData.precioMayor !== undefined
+            ? formData.precioMayor
+            : undefined,
+      };
+      const res = await demandService.predictSuccess(payload);
+      if (solicitud !== revision.current) return;
+      if ((res.bloqueado && !finanzasOriginales) ||
+        (res.guardrails?.coherenciaSemantica.coherente === false && !semanticaOriginal)) {
+        setTipoError('validacion');
+        setError(mensajeDatosIncorrectos);
+        return;
+      }
       setResult(res);
-    } catch (err: any) {
-      setError(err?.message || 'Error al ejecutar la predicción con el modelo.');
+    } catch (err: unknown) {
+      if (solicitud !== revision.current) return;
+      setResult(null);
+      setTipoError(err instanceof ApiError && (err.status === 400 || err.status === 422) ? 'validacion' : 'servicio');
+      setError(err instanceof Error ? err.message : 'No se pudo realizar el análisis. Intente nuevamente.');
     } finally {
-      setLoading(false);
+      if (solicitud === revision.current) setLoading(false);
     }
   };
 
+  const viabilidad =
+    result?.viabilidad ??
+    (result?.bloqueado
+      ? 'inviable'
+      : result && result.probabilidadExito >= 0.8
+        ? 'viable'
+        : result && result.probabilidadExito >= 0.5
+          ? 'riesgo'
+          : 'inviable');
+
+  const bannerClass =
+    viabilidad === 'viable' ? 'alta' : viabilidad === 'riesgo' ? 'media' : 'baja';
+  const IconoBanner =
+    viabilidad === 'viable'
+      ? CheckCircle2
+      : viabilidad === 'riesgo'
+        ? AlertTriangle
+        : AlertCircle;
+
   return (
-    <div className="predict-modal-overlay" onClick={onClose}>
+    <div className="predict-modal-overlay" onClick={cerrarModal}>
       <div className="predict-modal-card" onClick={(e) => e.stopPropagation()}>
-        {/* Cabecera */}
         <div className="predict-modal-header">
           <h2 className="predict-modal-title">
             <Sparkles size={22} />
             Análisis Predictivo de Viabilidad de Repuesto (IA)
           </h2>
-          <button className="predict-modal-close-btn" onClick={onClose} aria-label="Cerrar">
+          <button className="predict-modal-close-btn" onClick={cerrarModal} aria-label="Cerrar">
             <X size={20} />
           </button>
         </div>
 
-        {/* Cuerpo */}
         <div className="predict-modal-body">
-          {/* Selector opcional de catálogo */}
           {catalogProducts.length > 0 && (
             <div className="predict-preset-row">
               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-strong)' }}>
@@ -119,6 +353,8 @@ export function PredictSuccessModal({
             </div>
           )}
 
+          {cargandoProducto && <p role="status">Cargando datos actuales del producto...</p>}
+          {notaCatalogo && <p className="predict-live-hint">{notaCatalogo}</p>}
           <form onSubmit={handleSubmit}>
             <div className="predict-form-grid">
               <div className="predict-field">
@@ -128,7 +364,7 @@ export function PredictSuccessModal({
                   className="predict-input"
                   placeholder="Ej: Farol Delantero LED"
                   value={formData.producto}
-                  onChange={(e) => setFormData({ ...formData, producto: e.target.value })}
+                  onChange={(e) => handleProductoChange(e.target.value)}
                   required
                 />
               </div>
@@ -140,7 +376,7 @@ export function PredictSuccessModal({
                   className="predict-input"
                   placeholder="Ej: Toyota"
                   value={formData.marca}
-                  onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+                  onChange={(e) => handleChange({ marca: e.target.value })}
                   required
                 />
               </div>
@@ -152,7 +388,7 @@ export function PredictSuccessModal({
                   className="predict-input"
                   placeholder="Ej: Hilux"
                   value={formData.modelo}
-                  onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
+                  onChange={(e) => handleModeloChange(e.target.value)}
                   required
                 />
               </div>
@@ -162,10 +398,12 @@ export function PredictSuccessModal({
                 <input
                   type="number"
                   step="any"
-                  min="1"
+                  min="0.01"
                   className="predict-input"
-                  value={formData.costo}
-                  onChange={(e) => setFormData({ ...formData, costo: parseFloat(e.target.value) || 0 })}
+                  value={Number.isFinite(formData.costo) ? formData.costo : ''}
+                  onChange={(e) =>
+                    handleChange({ costo: parseFloat(e.target.value) })
+                  }
                   required
                 />
               </div>
@@ -175,10 +413,12 @@ export function PredictSuccessModal({
                 <input
                   type="number"
                   step="any"
-                  min="1"
+                  min="0.01"
                   className="predict-input"
-                  value={formData.precio1}
-                  onChange={(e) => setFormData({ ...formData, precio1: parseFloat(e.target.value) || 0 })}
+                  value={Number.isFinite(formData.precio1) ? formData.precio1 : ''}
+                  onChange={(e) =>
+                    handleChange({ precio1: parseFloat(e.target.value) })
+                  }
                   required
                 />
               </div>
@@ -188,9 +428,14 @@ export function PredictSuccessModal({
                 <input
                   type="number"
                   step="any"
+                  min="0"
                   className="predict-input"
                   value={formData.precioMayor || ''}
-                  onChange={(e) => setFormData({ ...formData, precioMayor: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    handleChange({
+                      precioMayor: e.target.value === '' ? undefined : Number(e.target.value),
+                    })
+                  }
                 />
               </div>
 
@@ -199,13 +444,24 @@ export function PredictSuccessModal({
                 <select
                   className="predict-select"
                   value={formData.categoriaRepuesto}
-                  onChange={(e) => setFormData({ ...formData, categoriaRepuesto: e.target.value })}
+                  onChange={(e) => handleCategoriaChange(e.target.value)}
                 >
-                  <option value="Carrocería">Carrocería</option>
-                  <option value="Iluminación">Iluminación</option>
-                  <option value="Refrigeración">Refrigeración</option>
-                  <option value="Cerrajería">Cerrajería</option>
+                  <option value="">Seleccione la categoría</option>
+                  {CATEGORIAS_REPUESTO.map((categoria) => (
+                    <option key={categoria} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
                 </select>
+                {analisis.categoriaIncoherente && analisis.categoriaSugerida && (
+                  <button
+                    type="button"
+                    className="predict-suggestion-btn"
+                    onClick={aplicarSugerenciaSemantica}
+                  >
+                    Usar «{analisis.categoriaSugerida}» y desgaste sugerido
+                  </button>
+                )}
               </div>
 
               <div className="predict-field">
@@ -213,12 +469,17 @@ export function PredictSuccessModal({
                 <select
                   className="predict-select"
                   value={formData.tipoDesgaste}
-                  onChange={(e) => setFormData({ ...formData, tipoDesgaste: e.target.value })}
+                  onChange={(e) => {
+                    setTipoDesgasteManual(true);
+                    handleChange({ tipoDesgaste: e.target.value });
+                  }}
                 >
-                  <option value="colision">Colisión / Accidente</option>
-                  <option value="desgaste_medio">Desgaste Medio</option>
-                  <option value="desgaste_frecuente">Desgaste Frecuente</option>
-                  <option value="correctivo">Falla Correctiva</option>
+                  <option value="">Seleccione el tipo de desgaste</option>
+                  {TIPOS_DESGASTE_OPCIONES.map((tipo) => (
+                    <option key={tipo.value} value={tipo.value}>
+                      {tipo.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -227,69 +488,163 @@ export function PredictSuccessModal({
                 <select
                   className="predict-select"
                   value={formData.segmentoParque}
-                  onChange={(e) => setFormData({ ...formData, segmentoParque: e.target.value })}
+                  onChange={(e) => {
+                    setSegmentoManual(true);
+                    handleChange({ segmentoParque: e.target.value });
+                  }}
                 >
-                  <option value="Alto">Alto (Hilux, Corolla, etc.)</option>
-                  <option value="Medio">Medio (Tucson, Sentra, etc.)</option>
-                  <option value="Nicho">Nicho (Duster, Ram, etc.)</option>
+                  <option value="">Seleccione el parque vehicular</option>
+                  {SEGMENTOS_PARQUE.map((segmento) => (
+                    <option key={segmento} value={segmento}>
+                      {segmento === 'Alto'
+                        ? 'Alto (Hilux, Corolla, etc.)'
+                        : segmento === 'Medio'
+                          ? 'Medio (Tucson, Sentra, etc.)'
+                          : 'Nicho (Duster, Ram, etc.)'}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
+            <div className={`predict-live-guardrail ${estadoVisual}`}>
+              <div className="predict-live-head">
+                {estadoVisual === 'ok' ? (
+                  <CheckCircle2 size={16} />
+                ) : (
+                  <AlertTriangle size={16} />
+                )}
+                <strong>{tituloGuardrail}</strong>
+                {editado && !sinCalculos && analisis.margenPorcentaje !== null && (
+                  <span className="predict-live-margin">
+                    Margen {analisis.margenPorcentaje.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              {datosIncorrectos && <p role="alert">{mensajeDatosIncorrectos}</p>}
+              {alertasVivas.length > 0 && (
+                <ul className="predict-live-list">
+                  {alertasVivas.map((alerta, index) => (
+                    <li key={`${alerta}-${index}`}>{alerta}</li>
+                  ))}
+                </ul>
+              )}
+              {editado && !sinCalculos && analisis.margenEstado === 'critico' &&
+                analisis.pvpMinimoSugerido !== null && (
+                  <div className="predict-live-hint">
+                    PVP mínimo sugerido: Bs.{' '}
+                    {analisis.pvpMinimoSugerido.toFixed(2)} · Recomendado: Bs.{' '}
+                    {analisis.pvpRecomendado?.toFixed(2)}
+                  </div>
+                )}
+            </div>
+
             {error && (
-              <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.75rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <div role="alert" style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.75rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                 <AlertCircle size={16} />
+                {tipoError === 'servicio' && <strong>No se pudo completar el análisis. </strong>}
                 {error}
               </div>
             )}
 
             <div className="predict-actions">
-              <button type="submit" className="predict-btn-primary" disabled={loading}>
+              <button type="submit" className="predict-btn-primary" disabled={loading || cargandoProducto}>
                 {loading ? <Loader2 size={18} className="spin-animation" /> : <TrendingUp size={18} />}
-                {loading ? 'Calculando Inferencia ONNX...' : 'Analizar Viabilidad con IA'}
+                {loading ? 'Analizando viabilidad...' : 'Analizar Viabilidad con IA'}
               </button>
             </div>
           </form>
 
-          {/* Resultados de la Predicción */}
-          {result && (
+          {result && !sinCalculos && (
             <div className="predict-results-container">
-              {/* Banner de Score */}
-              <div
-                className={`predict-score-banner ${
-                  result.probabilidadExito >= 0.8
-                    ? 'alta'
-                    : result.probabilidadExito >= 0.5
-                    ? 'media'
-                    : 'baja'
-                }`}
-              >
+              <div className={`predict-score-banner ${bannerClass}`}>
                 <div>
                   <div className="predict-score-badge">
-                    {result.probabilidadExito >= 0.8 ? (
-                      <CheckCircle2 size={24} />
-                    ) : result.probabilidadExito >= 0.5 ? (
-                      <AlertTriangle size={24} />
-                    ) : (
-                      <AlertCircle size={24} />
-                    )}
+                    <IconoBanner size={24} />
                     {result.categoria}
                   </div>
                   <div style={{ fontSize: '0.88rem', color: 'var(--text-strong)', marginTop: '0.25rem' }}>
                     {result.alertas.mensaje}
                   </div>
+                  <div className="predict-model-probability" style={{ fontSize: '0.88rem', marginTop: '0.5rem' }}>
+                    Probabilidad de alta rotación:{' '}
+                    <strong>{(result.probabilidadExito * 100).toLocaleString('es-BO', { maximumFractionDigits: 1 })}%</strong>
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div className="predict-score-num">{result.scoreExito}%</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                    Probabilidad de Éxito
+                    Índice de Viabilidad
                   </div>
                 </div>
               </div>
 
-              {/* KPIs de Rotación */}
+              {result.guardrails && (
+                <div
+                  className={`predict-guardrails-box ${
+                    result.bloqueado
+                      ? 'danger'
+                      : result.guardrails.advertencias.length > 0 ||
+                          !result.guardrails.coherenciaSemantica.coherente
+                        ? 'warn'
+                        : 'ok'
+                  }`}
+                >
+                  <div className="predict-guardrails-title">
+                    {result.bloqueado ? (
+                      <AlertCircle size={18} />
+                    ) : (
+                      <CheckCircle2 size={18} />
+                    )}
+                    Guardrails de negocio
+                    <span className="predict-guardrails-margin">
+                      Margen {result.guardrails.margenPorcentaje.toFixed(1)}%
+                    </span>
+                  </div>
+                  {result.guardrails.errores.length > 0 && (
+                    <ul className="predict-guardrails-list crit">
+                      {result.guardrails.errores.map((item, index) => (
+                        <li key={`error-${index}`}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {result.guardrails.advertencias.length > 0 && (
+                    <ul className="predict-guardrails-list warn">
+                      {result.guardrails.advertencias.map((item, index) => (
+                        <li key={`aviso-${index}`}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {!result.guardrails.coherenciaSemantica.coherente && (
+                    <div className="predict-guardrails-semantic">
+                      Categoría usada: <strong>{result.guardrails.coherenciaSemantica.categoriaUsada}</strong>
+                      {' · '}Desgaste: <strong>{result.guardrails.coherenciaSemantica.tipoDesgasteUsado}</strong>
+                    </div>
+                  )}
+                  <div className="predict-guardrails-hint">
+                    PVP mínimo sugerido: Bs.{' '}
+                    {result.guardrails.pvpMinimoSugerido.toFixed(2)} ·
+                    Recomendado: Bs.{' '}
+                    {result.guardrails.pvpRecomendado.toFixed(2)}
+                  </div>
+                </div>
+              )}
+
+              {result.alertas.saturacionCatalogo && (
+                <div className="predict-guardrails-box warn">
+                  <div className="predict-guardrails-title">
+                    <AlertTriangle size={18} />
+                    Catálogo saturado
+                  </div>
+                  <div className="predict-guardrails-semantic">
+                    Ya hay varios repuestos similares activos. El lote sugerido se
+                    redujo para evitar sobrestock.
+                  </div>
+                </div>
+              )}
+
               <div className="predict-kpis-grid">
-                <div className="predict-kpi-card">
+                <div className={`predict-kpi-card ${result.bloqueado ? 'danger' : ''}`}>
                   <span className="predict-kpi-label">Lote Sugerido</span>
                   <span className="predict-kpi-value">{result.loteSugeridoCompra} uds.</span>
                 </div>
@@ -303,11 +658,15 @@ export function PredictSuccessModal({
                 </div>
                 <div className="predict-kpi-card">
                   <span className="predict-kpi-label">Margen Proyectado</span>
-                  <span className="predict-kpi-value">{(result.metricasProyectadas.margenRelativo * 100).toFixed(0)}%</span>
+                  <span className="predict-kpi-value">
+                    {(result.guardrails?.margenPorcentaje ??
+                      result.metricasProyectadas.margenRelativo * 100
+                    ).toFixed(0)}
+                    %
+                  </span>
                 </div>
               </div>
 
-              {/* Explicabilidad con 3 productos similares */}
               {result.productosSimilares?.length > 0 && (
                 <div className="predict-similares-section">
                   <div className="predict-similares-title">

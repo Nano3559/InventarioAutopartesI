@@ -1,0 +1,96 @@
+name: Ping keep-alive autoparts-ai
+
+# El plan free de Render apaga el servicio Python de IA tras 15 min sin tráfico. El primer
+# request paga el cold start (Render suelta un 502 mientras la instancia arranca), NestJS lo
+# reenvía y la web muestra "El servicio de reconocimiento no pudo completar la solicitud…".
+# Este workflow hace un ping cada 10 min dentro de una ventana horaria para mantenerlo despierto.
+# Referencia: "Plan Hito 3.md" → R1 (los pings que evitan el spin-down del plan free).
+#
+# ── Por qué con ventana y no 24/7 ─────────────────────────────────────────────
+# Render regala 750 horas de instancia POR WORKSPACE (no por servicio) al mes. Dejar
+# autoparts-ai despierto 24/7 consume ~730 h y, sumado al backend NestJS (mismo workspace),
+# agota el cupo: Render suspende TODOS los free web services hasta el mes siguiente. Esta
+# ventana (07:00–22:00 Bolivia = 11:00–02:00 UTC) consume ~450 h/mes y deja ~300 h para NestJS.
+# Ampliar la ventana gasta más horas; no pasar a 24/7 sin asumir que el workspace se queda sin cupo.
+#
+# ── Secret (opcional) ─────────────────────────────────────────────────────────
+#   AUTOPARTS_AI_API_KEY → la misma `AUTOPARTS_API_KEY` del servicio Python en Render
+#                          (Settings → Secrets and variables → Actions).
+# Si falta, el ping se hace sin cabecera: /health responde 401, que NO es un fallo — significa
+# que la instancia está viva y atendiendo (igual cuenta como actividad para el keep-alive).
+# Un 502/504 o un timeout sí implican que seguía dormida o no arrancó.
+#
+# Nota: GitHub desactiva los workflows programados tras 60 días sin actividad en el repo; una
+# corrida manual (Actions → Run workflow) lo reactiva.
+
+on:
+  schedule:
+    # Cron en UTC (Bolivia = UTC-4, sin horario de verano).
+    - cron: '*/10 11-23 * * *' # 07:00–19:59 Bolivia
+    - cron: '*/10 0-1 * * *'   # 20:00–21:59 Bolivia
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Mantener autoparts-ai despierto
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: https://autoparts-ai.onrender.com
+      API_KEY: ${{ secrets.AUTOPARTS_AI_API_KEY }}
+
+    steps:
+      - name: Ping /health (con reintentos por cold start)
+        run: |
+          set -uo pipefail
+
+          intento=0
+          max_intentos=3
+
+          while [ "$intento" -lt "$max_intentos" ]; do
+            intento=$((intento + 1))
+
+            if [ -n "${API_KEY:-}" ]; then
+              code="$(curl -sS -o /tmp/health.json -w '%{http_code}' \
+                --max-time 90 --connect-timeout 30 \
+                -H "X-API-Key: ${API_KEY}" \
+                "${BASE_URL}/health" 2>/dev/null)" || code="000"
+            else
+              code="$(curl -sS -o /tmp/health.json -w '%{http_code}' \
+                --max-time 90 --connect-timeout 30 \
+                "${BASE_URL}/health" 2>/dev/null)" || code="000"
+            fi
+
+            echo "Intento ${intento}: GET /health → HTTP ${code}"
+
+            case "$code" in
+              200)
+                modelo="$(grep -o '"model_available":[a-z]*' /tmp/health.json 2>/dev/null | head -n1 | cut -d: -f2 || true)"
+                if [ "$modelo" = "true" ]; then
+                  echo "OK: instancia despierta y modelo cargado."
+                else
+                  echo "::warning::Responde 200 pero model_available=${modelo:-?}. Revisar AUTOPARTS_MODEL_ARCHIVE_URL / AUTOPARTS_MODEL_SHA256 del build en Render."
+                fi
+                exit 0
+                ;;
+              401 | 403)
+                echo "::warning::HTTP ${code}: instancia viva, pero la cabecera X-API-Key falta o no coincide. Configura el secret AUTOPARTS_AI_API_KEY (Settings → Secrets and variables → Actions). El ping igual cuenta como actividad."
+                exit 0
+                ;;
+              502 | 503 | 504 | 000)
+                echo "Seguía dormida o arrancando (HTTP ${code}); reintento en 20 s…"
+                sleep 20
+                ;;
+              *)
+                echo "::warning::Respuesta inesperada HTTP ${code}; reintento en 20 s…"
+                sleep 20
+                ;;
+            esac
+          done
+
+          echo "::error::autoparts-ai no respondió tras ${max_intentos} intentos (${BASE_URL}/health). Revisar el servicio en el dashboard de Render."
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1

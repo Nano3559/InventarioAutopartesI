@@ -11,7 +11,12 @@ import { ProductDemandMetric } from '../entities/product-demand-metric.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product, Inventory, Location, ProductDemandMetric]),
+    TypeOrmModule.forFeature([
+      Product,
+      Inventory,
+      Location,
+      ProductDemandMetric,
+    ]),
     ConfigModule,
   ],
   controllers: [ProductsController],

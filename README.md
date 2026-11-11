@@ -7,6 +7,13 @@
 
 **Proyecto de Programación Avanzada — Unifranz** · Hito 3 entregado el 06/10/2026.
 
+El análisis predictivo de viabilidad usa un Random Forest ONNX independiente del
+reconocimiento de imágenes y facial. Entrenamiento local, exportación y verificación
+de inferencia real: [notebooks/README.md](notebooks/README.md).
+El modelo conectado es `backend/models/modelo_exito_autopartes.onnx`, acompañado
+de `backend/models/modelo_exito_autopartes.json`. Estos artefactos no se versionan
+y deben provisionarse al preparar otro entorno.
+
 | Capa | Tecnologías | Despliegue |
 | :--- | :--- | :--- |
 | **Backend** | NestJS 11 + TypeORM + PostgreSQL + `onnxruntime-node` (ArcFace IA) | Render (`inventarioautopartesi.onrender.com`) |
@@ -221,6 +228,8 @@ Resumen de variables esenciales ([docs/entornos.md](docs/entornos.md)):
 | Documento | Enfoque |
 | :--- | :--- |
 | [docs/README.md](docs/README.md) | Índice general de la documentación técnica |
+| [Configuración del modelo de predicción](docs/configuracion-modelo-prediccion.md) | Variables, entrenamiento, parámetros, métricas e inferencia del Random Forest de viabilidad |
+| [Errores y soluciones de la IA de viabilidad](docs/errores.md) | Modelo, configuración, stack, predicción, errores, soluciones y prompts de la conversación |
 | [docs/api.md](docs/api.md) | Contrato completo de endpoints REST (asistencia, productos, ventas, usuarios) |
 | [docs/arquitectura.md](docs/arquitectura.md) | Arquitectura del sistema y §3.2 Modelo de reconocimiento facial sin detector |
 | [docs/stack-tecnologico.md](docs/stack-tecnologico.md) | Versiones exactas y justificación técnica de la arquitectura |

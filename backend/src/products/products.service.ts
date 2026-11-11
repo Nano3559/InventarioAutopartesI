@@ -13,6 +13,7 @@ import { Inventory } from '../entities/inventory.entity';
 import { Location } from '../entities/location.entity';
 import { computeHash, hammingDistance } from '../common/image-hash';
 import { buildCodigoBarras, renderCodigoBarrasPng } from '../common/barcode';
+import { validarSemantica } from './product-guardrails';
 
 export interface ProductFilters {
   search?: string;
@@ -294,25 +295,46 @@ export class ProductsService {
         );
     }
 
-    const costo = Number(data.costo) || 0;
-    if (costo < 0)
-      throw new BadRequestException('El costo no puede ser negativo');
+    const costo = Number(data.costo);
+    if (!Number.isFinite(costo) || costo <= 0)
+      throw new BadRequestException('El costo debe ser un número mayor a 0');
     const precio1 = data.precio1 != null ? Number(data.precio1) : null;
     const precio2 = data.precio2 != null ? Number(data.precio2) : null;
     const precioMayor =
       data.precioMayor != null ? Number(data.precioMayor) : null;
-    if (precio1 !== null && precio1 < 0)
-      throw new BadRequestException('El precio 1 no puede ser negativo');
-    if (precio2 !== null && precio2 < 0)
-      throw new BadRequestException('El precio 2 no puede ser negativo');
-    if (precioMayor !== null && precioMayor < 0)
+    if (precio1 !== null && (!Number.isFinite(precio1) || precio1 <= 0))
+      throw new BadRequestException('El precio 1 debe ser un número mayor a 0');
+    if (precio2 !== null && (!Number.isFinite(precio2) || precio2 <= 0))
+      throw new BadRequestException('El precio 2 debe ser un número mayor a 0');
+    if (
+      precioMayor !== null &&
+      (!Number.isFinite(precioMayor) || precioMayor <= 0)
+    )
       throw new BadRequestException(
-        'El precio mayorista no puede ser negativo',
+        'El precio mayorista debe ser un número mayor a 0',
+      );
+    if (precio1 !== null && precioMayor !== null && precioMayor > precio1)
+      throw new BadRequestException(
+        'El precio mayorista no puede superar al precio de mostrador',
       );
 
     const stockMinimo = Number(data.stockMinimo) || 1;
     if (stockMinimo < 0)
       throw new BadRequestException('El stock mínimo no puede ser negativo');
+
+    const semantica = validarSemantica({
+      producto: data.producto ?? '',
+      modelo: data.modelo ?? '',
+      categoriaRepuesto: data.categoriaRepuesto,
+      tipoDesgaste: data.tipoDesgaste,
+      segmentoParque: data.segmentoParque,
+    });
+    if (
+      (data.categoriaRepuesto?.trim() || data.tipoDesgaste?.trim()) &&
+      !semantica.coherente
+    ) {
+      throw new BadRequestException(semantica.advertencias.join(' '));
+    }
 
     const product = this.repo().create({
       producto: data.producto.trim(),
@@ -332,6 +354,9 @@ export class ProductsService {
       precioMayor,
       stockMinimo,
       activo: true,
+      categoriaRepuesto: semantica.categoriaUsada,
+      tipoDesgaste: semantica.tipoDesgasteUsado,
+      segmentoParque: semantica.segmentoUsado,
     });
     const saved = await this.repo().save(product);
     if (data.stock) {
@@ -351,29 +376,45 @@ export class ProductsService {
 
     if (data.costo !== undefined) {
       const costo = Number(data.costo);
-      if (isNaN(costo) || costo < 0)
-        throw new BadRequestException('El costo no puede ser negativo');
+      if (!Number.isFinite(costo) || costo <= 0)
+        throw new BadRequestException('El costo debe ser un número mayor a 0');
       product.costo = costo;
     }
     if (data.precio1 !== undefined) {
-      const p = Number(data.precio1);
-      if (isNaN(p) || p < 0)
-        throw new BadRequestException('El precio 1 no puede ser negativo');
-      product.precio1 = p;
+      if (data.precio1 === null) {
+        product.precio1 = null;
+      } else {
+        const p = Number(data.precio1);
+        if (!Number.isFinite(p) || p <= 0)
+          throw new BadRequestException(
+            'El precio 1 debe ser un número mayor a 0',
+          );
+        product.precio1 = p;
+      }
     }
     if (data.precio2 !== undefined) {
-      const p = Number(data.precio2);
-      if (isNaN(p) || p < 0)
-        throw new BadRequestException('El precio 2 no puede ser negativo');
-      product.precio2 = p;
+      if (data.precio2 === null) {
+        product.precio2 = null;
+      } else {
+        const p = Number(data.precio2);
+        if (!Number.isFinite(p) || p <= 0)
+          throw new BadRequestException(
+            'El precio 2 debe ser un número mayor a 0',
+          );
+        product.precio2 = p;
+      }
     }
     if (data.precioMayor !== undefined) {
-      const p = Number(data.precioMayor);
-      if (isNaN(p) || p < 0)
-        throw new BadRequestException(
-          'El precio mayorista no puede ser negativo',
-        );
-      product.precioMayor = p;
+      if (data.precioMayor === null) {
+        product.precioMayor = null;
+      } else {
+        const p = Number(data.precioMayor);
+        if (!Number.isFinite(p) || p <= 0)
+          throw new BadRequestException(
+            'El precio mayorista debe ser un número mayor a 0',
+          );
+        product.precioMayor = p;
+      }
     }
     if (data.stockMinimo !== undefined) {
       const sm = Number(data.stockMinimo);
@@ -414,6 +455,42 @@ export class ProductsService {
         const target = product as unknown as Record<string, unknown>;
         target[field] = typeof val === 'string' ? val.trim() || null : val;
       }
+    }
+
+    if (
+      product.precio1 !== null &&
+      product.precioMayor !== null &&
+      product.precioMayor > product.precio1
+    ) {
+      throw new BadRequestException(
+        'El precio mayorista no puede superar al precio de mostrador',
+      );
+    }
+
+    const camposSemanticos =
+      data.producto !== undefined ||
+      data.modelo !== undefined ||
+      data.categoriaRepuesto !== undefined ||
+      data.tipoDesgaste !== undefined ||
+      data.segmentoParque !== undefined;
+
+    if (camposSemanticos) {
+      const semantica = validarSemantica({
+        producto: product.producto,
+        modelo: product.modelo,
+        categoriaRepuesto: data.categoriaRepuesto ?? product.categoriaRepuesto,
+        tipoDesgaste: data.tipoDesgaste ?? product.tipoDesgaste,
+        segmentoParque: data.segmentoParque ?? product.segmentoParque,
+      });
+      if (
+        (data.categoriaRepuesto?.trim() || data.tipoDesgaste?.trim()) &&
+        !semantica.coherente
+      ) {
+        throw new BadRequestException(semantica.advertencias.join(' '));
+      }
+      product.categoriaRepuesto = semantica.categoriaUsada;
+      product.tipoDesgaste = semantica.tipoDesgasteUsado;
+      product.segmentoParque = semantica.segmentoUsado;
     }
 
     const saved = await this.repo().save(product);

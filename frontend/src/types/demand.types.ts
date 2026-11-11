@@ -1,4 +1,5 @@
 export interface PredictSuccessDto {
+  productId?: number;
   producto: string;
   marca: string;
   modelo: string;
@@ -24,19 +25,45 @@ export interface SimilarProduct {
   gmroiReal: number;
 }
 
+export interface PredictionGuardrails {
+  margenPorcentaje: number;
+  margenRelativo: number;
+  margenSalud: number;
+  pvpMinimoSugerido: number;
+  pvpRecomendado: number;
+  errores: string[];
+  advertencias: string[];
+  coherenciaSemantica: {
+    coherente: boolean;
+    categoriaDeclarada: string | null;
+    categoriaInferida: string | null;
+    categoriaUsada: string;
+    tipoDesgasteDeclarado: string | null;
+    tipoDesgasteSugerido: string | null;
+    tipoDesgasteUsado: string;
+    segmentoUsado: string;
+  };
+}
+
 export interface PredictionSuccessResponse {
+  /** Commercial viability index displayed as a percentage. */
   scoreExito: number;
   categoria: string;
+  /** Model probability of the successful class, independent of the commercial index. */
   probabilidadExito: number;
   diasRotacionEstimados: number;
   loteSugeridoCompra: number;
+  viabilidad?: 'viable' | 'riesgo' | 'inviable';
+  bloqueado?: boolean;
   metricasProyectadas: {
     demandaMensualEstimada: number;
     gmroiProyectado: number;
     margenRelativo: number;
   };
+  guardrails?: PredictionGuardrails;
   alertas: {
     saturacionCatalogo: boolean;
+    critica?: boolean;
     mensaje: string;
   };
   productosSimilares: SimilarProduct[];

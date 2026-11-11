@@ -117,3 +117,12 @@ Frontend **no tiene tests**; Móvil **no tiene scripts de lint/test/build**
 | Móvil | EAS | `mobile/eas.json` |
 
 Detalle en [despliegue.md](despliegue.md).
+
+## 8. Entrenamiento local de viabilidad
+
+El entorno aislado `notebooks/.venv-predictive` usa NumPy 2.2.6, pandas 2.3.3,
+scikit-learn 1.7.2, skl2onnx 1.20.0, ONNX 1.23.2 y ONNX Runtime 1.23.2.
+Versiones fijadas en `notebooks/requirements-predictive.txt`. Estas dependencias
+solo entrenan y verifican la exportación; NestJS ejecuta el ONNX mediante
+`onnxruntime-node`, sin iniciar Python. Procedimiento en
+[notebooks/README.md](../notebooks/README.md).

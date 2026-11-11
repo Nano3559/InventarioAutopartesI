@@ -392,3 +392,183 @@
   color: #dc2626;
 }
 
+
+/* Guardrails en tiempo real y resultados de viabilidad */
+.predict-live-guardrail {
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.predict-live-guardrail.ok {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.predict-live-guardrail.aviso {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.predict-live-guardrail.peligro {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.predict-live-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  color: var(--text-strong);
+}
+
+.predict-live-guardrail.ok .predict-live-head {
+  color: #059669;
+}
+
+.predict-live-guardrail.aviso .predict-live-head {
+  color: #d97706;
+}
+
+.predict-live-guardrail.peligro .predict-live-head {
+  color: #dc2626;
+}
+
+.predict-live-margin {
+  margin-left: auto;
+  font-weight: 800;
+  font-family: monospace;
+}
+
+.predict-live-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--text-strong);
+}
+
+.predict-live-hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.predict-suggestion-btn {
+  align-self: flex-start;
+  margin-top: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.predict-suggestion-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.predict-guardrails-box {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.predict-guardrails-box.danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.predict-guardrails-box.warn {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.predict-guardrails-box.ok {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.predict-guardrails-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.predict-guardrails-title svg {
+  flex: none;
+}
+
+.predict-guardrails-box.danger .predict-guardrails-title {
+  color: #dc2626;
+}
+
+.predict-guardrails-box.warn .predict-guardrails-title {
+  color: #d97706;
+}
+
+.predict-guardrails-box.ok .predict-guardrails-title {
+  color: #059669;
+}
+
+.predict-guardrails-margin {
+  margin-left: auto;
+  font-family: monospace;
+  font-weight: 800;
+}
+
+.predict-guardrails-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.predict-guardrails-list.crit li {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.predict-guardrails-list.warn li {
+  color: #d97706;
+}
+
+.predict-guardrails-semantic {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.predict-guardrails-hint {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.predict-kpi-card.danger {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.predict-kpi-card.danger .predict-kpi-value {
+  color: #dc2626;
+}

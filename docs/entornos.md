@@ -46,6 +46,14 @@ Config TypeORM: `autoLoadEntities: true`, `synchronize: segun DB_SYNC`. El SSL e
 condicional (`ssl: { rejectUnauthorized: false }` cuando `DB_SSL=true`, si no `false`),
 porque Supabase exige TLS pero un PostgreSQL local rechaza el handshake.
 
+> **La base de datos es PostgreSQL, no Supabase.** TypeORM se conecta usando
+> exclusivamente `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` y
+> `DB_SSL`. Funciona igual con un PostgreSQL local, uno en Render o el
+> PostgreSQL de Supabase: para usar el de Supabase basta copiar sus credenciales
+> de conexión en esas variables y poner `DB_SSL=true`. Las variables
+> `SUPABASE_*` de la sección 2.1 son **solo para Storage** (imágenes y rostros) y
+> no participan en la conexión a la base de datos.
+
 ### 2.1 Supabase Storage (imágenes)
 
 | Variable | Default | Descripción |
