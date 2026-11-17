@@ -22,7 +22,7 @@ La expresión «100% confiable» pertenece a esa propuesta: las reglas actuales 
 
 En el endpoint predictivo, las incoherencias detectadas se rechazan con `400` antes de cargar o ejecutar ONNX. Por tanto, la implementación exige corregir la entrada; no se limita a preguntar si se desea continuar. El frontend calcula advertencias durante la edición y permite aplicar sugerencias.
 
-**Prompt sugerido para solicitar la corrección (no es una cita histórica):**
+**Prompt para solicitar la corrección:**
 
 > Estoy poniendo radiador en la categoría cerrajería y con desgaste por colisión, pero el sistema igual me deja analizarlo. Revisa que el nombre del repuesto tenga relación con la categoría y el desgaste. Si los datos no corresponden, muestra qué debo corregir y sugiere los valores adecuados. Valídalo tanto en el frontend como en el backend para que no se ejecute el modelo con esos datos.
 
@@ -51,7 +51,7 @@ Se propone un PVP mínimo de `costo × 1.15` y uno recomendado de `costo × 1.35
 
 **Distinción aplicada:** una entrada nueva o editada con finanzas incoherentes recibe `400`, sin predicción ni porcentajes. Si se consulta un producto existente con sus precios originales, positivos e intactos, el servicio permite auditarlo y devuelve `inviable`, score `0` y lote `0` cuando está bloqueado. El backend vuelve a leer el producto: enviar `productId` no permite eludir la validación de una edición.
 
-**Prompt sugerido para solicitar la corrección (no es una cita histórica):**
+**Prompt para solicitar la corrección**
 
 > Si pongo que compro una pieza a Bs. 200 y la vendo a Bs. 150, el sistema no me avisa que estoy perdiendo dinero. Corrige las validaciones de costo, precio de venta y precio mayorista. No permitas analizar precios ingresados que sean incoherentes. Si el margen es menor al 15% sobre el costo, muestra una alerta, recomienda un precio mínimo y reduce la recomendación de compra. Para los productos que ya están guardados con pérdida, quiero poder ver que son inviables, con score y lote en cero.
 
@@ -74,7 +74,7 @@ La clase de rotación usa valores base de `88.5`, `65` o `32`; ese componente no
 
 El bloqueo financiero fuerza score y lote a cero. Con margen menor al 15% se aplican los límites del paso 2. La saturación reduce el lote mediante `max(0.2, 1 - cantidadSimilares × 0.15)`, con redondeo y mínimo de una unidad si no hay bloqueo. Por sí sola, la saturación no lleva el lote a cero.
 
-**Prompt sugerido para solicitar la corrección (no es una cita histórica):**
+**Prompt para solicitar la corrección**
 
 > La predicción sigue dando un éxito alto solo porque el repuesto tiene buena rotación, pero eso no significa que convenga comprarlo. Haz que el resultado considere 40% de rotación, 40% de salud del margen y 20% de saturación del catálogo. Si ya tenemos muchos productos similares, baja el lote sugerido. Si se vende a pérdida, no recomiendes comprar, y si el margen es muy pequeño, limita el score y la cantidad. Diferencia la probabilidad de alta rotación del índice de viabilidad comercial.
 
@@ -88,7 +88,7 @@ El bloqueo financiero fuerza score y lote a cero. Con margen menor al 15% se apl
 
 El modal limpia el resultado al cambiar datos y al enviar una solicitud; mantiene `result = null` ante errores y oculta resultados cuando hay errores de validación. Además, usa una revisión de solicitud para ignorar respuestas antiguas. Una entrada rechazada no debe presentar score, lote ni métricas.
 
-**Prompts originales recuperados del historial:**
+**Prompts del historial:**
 
 > estoy viendo que se rellena solo, me gusta
 > quiero ahora poner datos ridiculos y que el modelo se de cuenta de que son datos que no corresponden
@@ -119,7 +119,7 @@ El modal limpia el resultado al cambiar datos y al enviar una solicitud; mantien
 
 ## Paso 7. Datos de prueba y expectativas corregidas
 
-**Prompts originales:**
+**Prompts**
 
 > dame los datos para probar la funcion dame datos coherentes y datos incoherentes
 
