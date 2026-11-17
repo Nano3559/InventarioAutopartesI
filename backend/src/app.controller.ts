@@ -6,7 +6,8 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello(): string {
+  getHello(): number {
+    // ERROR INTENCIONAL PARA PRUEBA DE BLOQUEO DE CI (FASE 3)
     return this.appService.getHello();
   }
 }
