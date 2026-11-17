@@ -1,0 +1,194 @@
+name: CI Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # 1. DETECCIÓN DE CAMBIOS (Ahorro de minutos de runner)
+  # ─────────────────────────────────────────────────────────────
+  changes:
+    name: Detectar Cambios Monorepo
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      ai_service: ${{ steps.filter.outputs.ai_service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Filtrar rutas modificadas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            mobile:
+              - 'mobile/**'
+            ai_service:
+              - 'ai-service/**'
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. VALIDACIÓN BACKEND (NestJS + TypeORM + ONNX Runtime)
+  # ─────────────────────────────────────────────────────────────
+  backend-ci:
+    name: Backend CI
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias exactas (npm ci)
+        run: npm ci
+
+      - name: Validar estilo y sintaxis (ESLint)
+        run: npm run lint
+
+      - name: Ejecutar pruebas unitarias (Jest)
+        run: npm test
+
+      - name: Compilar proyecto (TypeScript build a dist/)
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────
+  # 3. VALIDACIÓN FRONTEND (React 19 + Vite 8 + TypeScript)
+  # ─────────────────────────────────────────────────────────────
+  frontend-ci:
+    name: Frontend CI
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias exactas (npm ci)
+        run: npm ci
+
+      - name: Validar linter (Oxlint)
+        run: npm run lint
+
+      - name: Compilar y validar tipos (tsc -b && vite build)
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────
+  # 4. VALIDACIÓN MÓVIL (Expo 57 / React Native 0.86)
+  # ─────────────────────────────────────────────────────────────
+  mobile-ci:
+    name: Mobile CI
+    needs: changes
+    if: ${{ needs.changes.outputs.mobile == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Instalar dependencias exactas (npm ci)
+        run: npm ci
+
+      - name: Typecheck estricto de TypeScript
+        run: npx tsc --noEmit
+
+  # ─────────────────────────────────────────────────────────────
+  # 5. VALIDACIÓN AI SERVICE (FastAPI / YOLO11n-cls)
+  # ─────────────────────────────────────────────────────────────
+  ai-service-ci:
+    name: AI Service CI
+    needs: changes
+    if: ${{ needs.changes.outputs.ai_service == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Instalar herramientas de linter
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+
+      - name: Análisis estático de sintaxis
+        run: |
+          # Detiene la ejecución si hay errores de sintaxis o variables no definidas
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+  # ─────────────────────────────────────────────────────────────
+  # 6. QUALITY GATE AGREGADOR (Para Branch Protection)
+  # ─────────────────────────────────────────────────────────────
+  quality-gate:
+    name: CI Quality Gate Final
+    needs: [backend-ci, frontend-ci, mobile-ci, ai-service-ci]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluar estado consolidado de los jobs
+        run: |
+          BACKEND="${{ needs.backend-ci.result }}"
+          FRONTEND="${{ needs.frontend-ci.result }}"
+          MOBILE="${{ needs.mobile-ci.result }}"
+          AI_SERVICE="${{ needs.ai-service-ci.result }}"
+
+          echo "Estado Backend:    $BACKEND"
+          echo "Estado Frontend:   $FRONTEND"
+          echo "Estado Mobile:     $MOBILE"
+          echo "Estado AI Service: $AI_SERVICE"
+
+          for RESULT in "$BACKEND" "$FRONTEND" "$MOBILE" "$AI_SERVICE"; do
+            if [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
+              echo "❌ Error: Al menos uno de los checks obligatorios falló o fue cancelado."
+              exit 1
+            fi
+          done
+
+          echo "✅ Todos los subproyectos evaluados pasaron satisfactoriamente (o fueron omitidos por paths-filter)."
