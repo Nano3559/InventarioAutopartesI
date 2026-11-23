@@ -17,6 +17,8 @@ entender, correr, mantener y desplegar el proyecto.
 | [Modelo predictivo de viabilidad](../notebooks/README.md) | Entrenamiento local, exportación ONNX, evaluación y verificación real del catálogo | Al generar o conectar el modelo de viabilidad |
 | [Configuración del modelo de predicción](configuracion-modelo-prediccion.md) | Variables, hiperparámetros Random Forest, preprocesamiento, contrato ONNX, métricas y reglas comerciales | Al explicar, reproducir o mantener la IA de viabilidad |
 | [Errores y soluciones de la IA de viabilidad](errores.md) | Errores de coherencia y rentabilidad, correcciones verificadas y prompts disponibles | Al revisar las correcciones solicitadas para la predicción comercial |
+| [Auditoría de Seguridad](auditoria-seguridad.md) | Vulnerabilidades (CVSS/OWASP), hallazgos críticos (fuga de credenciales, precios, JWT) y plan de mitigación | Al revisar la seguridad del sistema y preparar hardening |
+| [Auditoría de Funcionamiento y Limpieza](auditoria-funcionamiento-y-limpieza.md) | Inventario priorizado de archivos basura, código muerto, coherencia entre módulos y plan de depuración | Al limpiar el repositorio y auditar la lógica de negocio |
 | [E2E Asistencia](e2e-asistencia.md) | Protocolo R5: registro facial, escáner y marcaje en dispositivo físico + tabla de scores | Al probar el flujo facial en el celular |
 | [Demo Web](demo-web.md) | Guía de demostración M8: códigos de barras, personal, historial y dashboard | Al realizar la demostración web del Hito 3 |
 
