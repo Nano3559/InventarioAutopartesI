@@ -1,3 +1,4 @@
+// Verificación CI Fase 3: Cambio exclusivo en mobile para probar filtro de paths
 import { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
